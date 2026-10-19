@@ -38,4 +38,25 @@ export const products: Product[] = [
     displayOrder: 1,
     tags: ["placeholder", "example"],
   },
+  {
+    id: "argus",
+    name: "Argus",
+    slug: "argus",
+    status: "in-development",
+    category: "Healthcare",
+    type: "web-app",
+    shortDescription:
+      "A cardiovascular health companion, in development.",
+    fullDescription:
+      "Argus is a product by Persifix, in development. It aims to become a persistent cardiovascular health companion that helps people understand their cardiovascular health and act appropriately between clinical encounters. It is not a doctor, not diagnostic, and not an emergency service. No specification has been approved and no feature is available.",
+    destinations: [
+      {
+        platform: "web",
+        url: "/argus",
+        primary: true,
+      },
+    ],
+    displayOrder: 2,
+    tags: ["cardiology", "health", "in-development"],
+  },
 ];
