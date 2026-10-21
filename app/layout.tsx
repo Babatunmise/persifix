@@ -1,29 +1,23 @@
-// app/layout.tsx
+import { Container } from "@/components/ui/Container";
 
-import type { Metadata } from "next";
-import "./globals.css";
-import { Nav } from "@/components/layout/Nav";
-import { Footer } from "@/components/layout/Footer";
-import { siteConfig } from "@/lib/site-config";
-
-export const metadata: Metadata = {
-  title: {
-    default: `${siteConfig.name} — ${siteConfig.tagline}`,
-    template: `%s — ${siteConfig.name}`,
-  },
-  description: siteConfig.description,
-};
-
-export default function RootLayout({
-  children,
-}: Readonly<{ children: React.ReactNode }>) {
+export default function HomePage() {
   return (
-    <html lang="en">
-      <body className="flex min-h-screen flex-col antialiased">
-        <Nav />
-        <div className="flex-1">{children}</div>
-        <Footer />
-      </body>
-    </html>
+    <main>
+      <Container className="py-24">
+        <p className="text-sm font-medium uppercase tracking-widest text-neutral-400">
+          In development
+        </p>
+        <h1 className="mt-4 max-w-3xl text-5xl font-semibold tracking-tight sm:text-6xl">
+          SANCTOS<span className="text-rose-500">.</span>
+        </h1>
+        <p className="mt-6 max-w-2xl text-lg leading-relaxed text-neutral-400">
+          Your medical sanctuary. We are building a cardiovascular health companion 
+          to help you understand your health and act appropriately between clinical encounters.
+        </p>
+        <p className="mt-4 max-w-2xl text-base leading-relaxed text-neutral-500">
+          Nothing here is usable yet. No specification has been approved, and no feature described on this page is available.
+        </p>
+      </Container>
+    </main>
   );
 }
