@@ -267,11 +267,11 @@ export function RiskAssessor() {
             <p className="mt-2 text-xs text-neutral-500">
               Occasional updates on our cardiovascular tools. No health data is collected. Unsubscribe anytime.
             </p>
-            <form 
-              action="https://buttondown.email/api/emails/embed-subscribe/YOUR_BUTTONDOWN_USERNAME" 
+           <form 
+              action="https://buttondown.com/api/emails/embed-subscribe/sanctos" 
               method="post" 
               target="popupwindow" 
-              onSubmit={() => window.open('https://buttondown.email/YOUR_BUTTONDOWN_USERNAME', 'popupwindow')} 
+              onSubmit={() => window.open('https://buttondown.com/sanctos', 'popupwindow')} 
               className="mt-4 flex gap-2"
             >
               <input 
@@ -281,6 +281,9 @@ export function RiskAssessor() {
                 required
                 className="flex-1 rounded-xl bg-neutral-800 px-4 py-3 text-sm text-white outline-none ring-1 ring-neutral-700 focus:ring-2 focus:ring-white"
               />
+              {/* This hidden field is required by Buttondown */}
+              <input type="hidden" value="1" name="embed" />
+              
               <button 
                 type="submit" 
                 className="rounded-xl bg-white px-6 py-3 text-sm font-semibold text-black hover:scale-105 transition-transform"
@@ -288,6 +291,7 @@ export function RiskAssessor() {
                 Subscribe
               </button>
             </form>
+
           </div>
         </Container>
 
