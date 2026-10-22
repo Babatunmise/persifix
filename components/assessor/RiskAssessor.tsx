@@ -260,7 +260,38 @@ export function RiskAssessor() {
               Download Sanctos Report
             </button>
           </div>
+
+          {/* Buttondown Newsletter Signup */}
+          <div className="mt-16 w-full max-w-md border-t border-neutral-800 pt-8">
+            <p className="text-sm font-medium text-white">Stay updated on Sanctos.</p>
+            <p className="mt-2 text-xs text-neutral-500">
+              Occasional updates on our cardiovascular tools. No health data is collected. Unsubscribe anytime.
+            </p>
+            <form 
+              action="https://buttondown.email/api/emails/embed-subscribe/YOUR_BUTTONDOWN_USERNAME" 
+              method="post" 
+              target="popupwindow" 
+              onSubmit={() => window.open('https://buttondown.email/YOUR_BUTTONDOWN_USERNAME', 'popupwindow')} 
+              className="mt-4 flex gap-2"
+            >
+              <input 
+                type="email" 
+                name="email" 
+                placeholder="Email address" 
+                required
+                className="flex-1 rounded-xl bg-neutral-800 px-4 py-3 text-sm text-white outline-none ring-1 ring-neutral-700 focus:ring-2 focus:ring-white"
+              />
+              <button 
+                type="submit" 
+                className="rounded-xl bg-white px-6 py-3 text-sm font-semibold text-black hover:scale-105 transition-transform"
+              >
+                Subscribe
+              </button>
+            </form>
+          </div>
         </Container>
+
+
       </>
     );
   }
