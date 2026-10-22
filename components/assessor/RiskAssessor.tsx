@@ -11,20 +11,21 @@ export function RiskAssessor() {
   // Location
   const [country, setCountry] = useState("");
   const [region, setRegion] = useState("");
-// Result
-  const [result, setResult] = useState<RiskResult | null>(null);
-  
-  // Conversational Input Step (0-5)
-  const [inputStep, setInputStep] = useState(0);
+
   // Inputs
   const [age, setAge] = useState("");
   const [sex, setSex] = useState<"male" | "female" | "">("");
   const [smoking, setSmoking] = useState<"yes" | "no" | "">("");
+  const [smokingYears, setSmokingYears] = useState("");
   const [sbp, setSbp] = useState("");
   const [height, setHeight] = useState("");
   const [weight, setWeight] = useState("");
 
+  // Result
+  const [result, setResult] = useState<RiskResult | null>(null);
   
+  // Conversational Input Step
+  const [inputStep, setInputStep] = useState<"age" | "sex" | "smoking" | "smokingYears" | "sbp" | "height" | "weight">("age");
 
   const handleCountryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedCountry = e.target.value;
@@ -136,8 +137,13 @@ export function RiskAssessor() {
     );
   }
 
- if (step === "inputs") {
-    const nextStep = () => setInputStep((prev) => prev + 1);
+  if (step === "inputs") {
+    // Calculate progress based on whether they smoke or not
+    const steps = smoking === "yes" 
+      ? ["age", "sex", "smoking", "smokingYears", "sbp", "height", "weight"] 
+      : ["age", "sex", "smoking", "sbp", "height", "weight"];
+    const currentIndex = steps.indexOf(inputStep);
+    const progress = ((currentIndex + 1) / steps.length) * 100;
 
     return (
       <Container className="flex flex-1 flex-col items-center justify-center py-24 max-w-lg mx-auto w-full text-center">
@@ -147,129 +153,86 @@ export function RiskAssessor() {
           <div className="h-1 w-full bg-neutral-800 rounded-full overflow-hidden">
             <div 
               className="h-full bg-white transition-all duration-300"
-              style={{ width: `${((inputStep + 1) / 6) * 100}%` }}
+              style={{ width: `${progress}%` }}
             />
           </div>
         </div>
 
-        {/* Step 0: Age */}
-        {inputStep === 0 && (
+        {inputStep === "age" && (
           <div className="w-full space-y-8">
             <h2 className="text-3xl font-semibold tracking-tight text-white">How old are you?</h2>
-            <input 
-              type="number" 
-              value={age} 
-              onChange={(e) => setAge(e.target.value)} 
-              placeholder="e.g. 45" 
-              autoFocus
-              className="w-full text-center rounded-2xl bg-neutral-900 px-6 py-6 text-3xl text-white outline-none ring-1 ring-neutral-800 focus:ring-2 focus:ring-white transition-all" 
-            />
+            <input type="number" value={age} onChange={(e) => setAge(e.target.value)} placeholder="e.g. 45" autoFocus className="w-full text-center rounded-2xl bg-neutral-900 px-6 py-6 text-3xl text-white outline-none ring-1 ring-neutral-800 focus:ring-2 focus:ring-white transition-all" />
             <p className="text-sm text-neutral-500">Used to determine age-related baseline risk.</p>
-            <button onClick={nextStep} disabled={!age || parseInt(age) < 1} className="w-full rounded-full bg-white px-8 py-4 text-lg font-semibold text-black transition-transform hover:scale-105 disabled:opacity-50">
-              Continue
-            </button>
+            <button onClick={() => setInputStep("sex")} disabled={!age || parseInt(age) < 1} className="w-full rounded-full bg-white px-8 py-4 text-lg font-semibold text-black transition-transform hover:scale-105 disabled:opacity-50">Continue</button>
           </div>
         )}
 
-        {/* Step 1: Sex */}
-        {inputStep === 1 && (
+        {inputStep === "sex" && (
           <div className="w-full space-y-8">
             <h2 className="text-3xl font-semibold tracking-tight text-white">What is your biological sex?</h2>
             <div className="flex gap-4">
-              <button onClick={() => { setSex("male"); nextStep(); }} className="flex-1 rounded-2xl bg-neutral-900 py-8 text-xl font-semibold text-white ring-1 ring-neutral-800 hover:bg-neutral-800 transition-colors">
-                Male
-              </button>
-              <button onClick={() => { setSex("female"); nextStep(); }} className="flex-1 rounded-2xl bg-neutral-900 py-8 text-xl font-semibold text-white ring-1 ring-neutral-800 hover:bg-neutral-800 transition-colors">
-                Female
-              </button>
+              <button onClick={() => { setSex("male"); setInputStep("smoking"); }} className="flex-1 rounded-2xl bg-neutral-900 py-8 text-xl font-semibold text-white ring-1 ring-neutral-800 hover:bg-neutral-800 transition-colors">Male</button>
+              <button onClick={() => { setSex("female"); setInputStep("smoking"); }} className="flex-1 rounded-2xl bg-neutral-900 py-8 text-xl font-semibold text-white ring-1 ring-neutral-800 hover:bg-neutral-800 transition-colors">Female</button>
             </div>
             <p className="text-sm text-neutral-500">Cardiovascular risk profiles differ between biological sexes.</p>
           </div>
         )}
 
-        {/* Step 2: Smoking */}
-        {inputStep === 2 && (
+        {inputStep === "smoking" && (
           <div className="w-full space-y-8">
             <h2 className="text-3xl font-semibold tracking-tight text-white">Do you currently smoke?</h2>
             <div className="flex gap-4">
-              <button onClick={() => { setSmoking("yes"); nextStep(); }} className="flex-1 rounded-2xl bg &&-neutral-900 py-8 text-xl (
- font-semibold          text-white ring- <1 ring-neutral-div800 hover:bg className-neutral-800 transition-colors">
-                Yes
-              </button>
-              <button onClick={() => { setSmoking("no"); nextStep(); }} className="flex-1 rounded-2xl bg-neutral-900 py-8 text-xl font-semibold text-white ring-1 ring-neutral-800 hover:bg-neutral-800 transition-colors">
-                No
-              </button>
+              <button onClick={() => { setSmoking("yes"); setInputStep("smokingYears"); }} className="flex-1 rounded-2xl bg-neutral-900 py-8 text-xl font-semibold text-white ring-1 ring-neutral-800 hover:bg-neutral-800 transition-colors">Yes</button>
+              <button onClick={() => { setSmoking("no"); setInputStep("sbp"); }} className="flex-1 rounded-2xl bg-neutral-900 py-8 text-xl font-semibold text-white ring-1 ring-neutral-800 hover:bg-neutral-800 transition-colors">No</button>
             </div>
             <p className="text-sm text-neutral-500">Smoking significantly accelerates arterial damage.</p>
           </div>
         )}
 
-        {/* Step 3: Blood Pressure */}
-        {inputStep === 3 && (
+        {inputStep === "smokingYears" && (
           <div className="w-full space-y-8">
-            <h2 className="text-3xl font-semibold tracking-tight text-white">Systolic Blood Pressure</h2>
-            <p className="text-neutral-400">The top number on your blood pressure reading.</p>
-            <input 
-              type="number" 
-              value={sbp} 
-              onChange={(e) => setSbp(e.target.value)} 
-              placeholder="e.g. 120" 
-              autoFocus
-              className="w-full text-center rounded-2xl bg-neutral-900 px-6 py-6 text-3xl text-white outline-none ring-1 ring-neutral-800 focus:ring-2 focus:ring-white transition-all" 
-            />
-            <p className="text-sm text-neutral-500">Systolic pressure is the primary driver of cardiac strain.</p>
-            <button onClick={nextStep} disabled={!sbp || parseInt(sbp) < 50} className="w-full rounded-full bg-white px-8 py-4 text-lg font-semibold text-black transition-transform hover:scale-105 disabled:opacity-50">
-              Continue
-            </button>
+            <h2 className="text-3xl font-semibold tracking-tight text-white">For how many years?</h2>
+            <input type="number" value={smokingYears} onChange={(e) => setSmokingYears(e.target.value)} placeholder="e.g. 10" autoFocus className="w-full text-center rounded-2xl bg-neutral-900 px-6 py-6 text-3xl text-white outline-none ring-1 ring-neutral-800 focus:ring-2 focus:ring-white transition-all" />
+            <p className="text-sm text-neutral-500">This helps us personalize your results.</p>
+            <button onClick={() => setInputStep("sbp")} disabled={!smokingYears} className="w-full rounded-full bg-white px-8 py-4 text-lg font-semibold text-black transition-transform hover:scale-105 disabled:opacity-50">Continue</button>
           </div>
         )}
 
-        {/* Step 4: Height */}
-        {inputStep === 4 && (
+        {inputStep === "sbp" && (
+          <div className="w-full space-y-8">
+            <h2 className="text-3xl font-semibold tracking-tight text-white">Systolic Blood Pressure</h2>
+            <p className="text-neutral-400">The top number on your reading.</p>
+            <input type="number" value={sbp} onChange={(e) => setSbp(e.target.value)} placeholder="e.g. 120" autoFocus className="w-full text-center rounded-2xl bg-neutral-900 px-6 py-6 text-3xl text-white outline-none ring-1 ring-neutral-800 focus:ring-2 focus:ring-white transition-all" />
+            <button onClick={() => setInputStep("height")} disabled={!sbp || parseInt(sbp) < 50} className="w-full rounded-full bg-white px-8 py-4 text-lg font-semibold text-black transition-transform hover:scale-105 disabled:opacity-50">Continue</button>
+          </div>
+        )}
+
+        {inputStep === "height" && (
           <div className="w-full space-y-8">
             <h2 className="text-3xl font-semibold tracking-tight text-white">What is your height?</h2>
             <div className="relative">
-              <input 
-                type="number" 
-                value={height} 
-                onChange={(e) => setHeight(e.target.value)} 
-                placeholder="e.g. 175" 
-                autoFocus
-                className="w-full text-center rounded-2xl bg-neutral-900 px-6 py-6 text-3xl text-white outline-none ring-1 ring-neutral-800 focus:ring-2 focus:ring-white transition-all" 
-              />
+              <input type="number" value={height} onChange={(e) => setHeight(e.target.value)} placeholder="e.g. 175" autoFocus className="w-full text-center rounded-2xl bg-neutral-900 px-6 py-6 text-3xl text-white outline-none ring-1 ring-neutral-800 focus:ring-2 focus:ring-white transition-all" />
               <span className="absolute right-6 top-1/2 -translate-y-1/2 text-neutral-500 font-medium">cm</span>
             </div>
-            <button onClick={nextStep} disabled={!height || parseInt(height) < 100} className="w-full rounded-full bg-white px-8 py-4 text-lg font-semibold text-black transition-transform hover:scale-105 disabled:opacity-50">
-              Continue
-            </button>
+            <button onClick={() => setInputStep("weight")} disabled={!height || parseInt(height) < 100} className="w-full rounded-full bg-white px-8 py-4 text-lg font-semibold text-black transition-transform hover:scale-105 disabled:opacity-50">Continue</button>
           </div>
         )}
 
-        {/* Step 5: Weight */}
-        {inputStep === 5 && (
+        {inputStep === "weight" && (
           <div className="w-full space-y-8">
             <h2 className="text-3xl font-semibold tracking-tight text-white">What is your weight?</h2>
             <div className="relative">
-              <input 
-                type="number" 
-                value={weight} 
-                onChange={(e) => setWeight(e.target.value)} 
-                placeholder="e.g. 70" 
-                autoFocus
-                className="w-full text-center rounded-2xl bg-neutral-900 px-6 py-6 text-3xl text-white outline-none ring-1 ring-neutral-800 focus:ring-2 focus:ring-white transition-all" 
-              />
+              <input type="number" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="e.g. 70" autoFocus className="w-full text-center rounded-2xl bg-neutral-900 px-6 py-6 text-3xl text-white outline-none ring-1 ring-neutral-800 focus:ring-2 focus:ring-white transition-all" />
               <span className="absolute right-6 top-1/2 -translate-y-1/2 text-neutral-500 font-medium">kg</span>
             </div>
             <p className="text-sm text-neutral-500">Height and weight are used to calculate BMI.</p>
-            <button onClick={handleSubmit} disabled={!weight || parseInt(weight) < 30} className="w-full rounded-full bg-rose-500 px-8 py-4 text-lg font-semibold text-white transition-transform hover:scale-105 disabled:opacity-50">
-              Calculate Risk
-            </button>
+            <button onClick={handleSubmit} disabled={!weight || parseInt(weight) < 30} className="w-full rounded-full bg-rose-500 px-8 py-4 text-lg font-semibold text-white transition-transform hover:scale-105 disabled:opacity-50">Calculate Risk</button>
           </div>
         )}
-
       </Container>
     );
   }
+
   if (step === "result" && result) {
     const isHigh = result.category === "High";
     const isMod = result.category === "Moderate";
@@ -298,7 +261,7 @@ export function RiskAssessor() {
                 <li><strong>Region:</strong> {country} ({region})</li>
                 <li><strong>Blood Pressure:</strong> {sbp} mmHg</li>
                 <li><strong>BMI:</strong> {bmi} kg/m²</li>
-                <li><strong>Smoker:</strong> {smoking}</li>
+                <li><strong>Smoker:</strong> {smoking} {smoking === "yes" ? `(${smokingYears} years)` : ""}</li>
               </ul>
             </div>
             <div>
@@ -311,6 +274,11 @@ export function RiskAssessor() {
 
           <div className="border border-gray-300 p-4 text-sm">
             <p><strong>Next Step:</strong> {isHigh || isMod ? "Because your risk is elevated, schedule a routine check-up with a healthcare professional." : "Continue maintaining healthy habits and routine check-ups."}</p>
+            {smoking === "yes" && smokingYears && (
+              <p className="mt-2 text-sm font-semibold text-black">
+                Note: Because you have been smoking for {smokingYears} years, quitting is the single most impactful action you can take to lower this risk.
+              </p>
+            )}
           </div>
 
           <div className="mt-12 pt-4 border-t border-gray-300 text-xs text-gray-500">
@@ -339,6 +307,11 @@ export function RiskAssessor() {
                 ? "Because your risk is elevated, we recommend scheduling a routine check-up with a healthcare professional."
                 : "Continue maintaining your healthy habits and routine check-ups."}
             </p>
+            {smoking === "yes" && smokingYears && (
+              <p className="mt-4 text-base font-medium text-white border-t border-white/10 pt-4">
+                Because you have been smoking for {smokingYears} years, quitting is the single most impactful action you can take to lower this risk.
+              </p>
+            )}
           </div>
 
           <div className="mt-10 flex gap-4">
@@ -353,35 +326,21 @@ export function RiskAssessor() {
             <p className="mt-2 text-xs text-neutral-500">
               Occasional updates on our cardiovascular tools. No health data is collected. Unsubscribe anytime.
             </p>
-           <form 
+            <form 
               action="https://buttondown.com/api/emails/embed-subscribe/sanctos" 
               method="post" 
               target="popupwindow" 
               onSubmit={() => window.open('https://buttondown.com/sanctos', 'popupwindow')} 
               className="mt-4 flex gap-2"
             >
-              <input 
-                type="email" 
-                name="email" 
-                placeholder="Email address" 
-                required
-                className="flex-1 rounded-xl bg-neutral-800 px-4 py-3 text-sm text-white outline-none ring-1 ring-neutral-700 focus:ring-2 focus:ring-white"
-              />
-              {/* This hidden field is required by Buttondown */}
+              <input type="email" name="email" placeholder="Email address" required className="flex-1 rounded-xl bg-neutral-800 px-4 py-3 text-sm text-white outline-none ring-1 ring-neutral-700 focus:ring-2 focus:ring-white" />
               <input type="hidden" value="1" name="embed" />
-              
-              <button 
-                type="submit" 
-                className="rounded-xl bg-white px-6 py-3 text-sm font-semibold text-black hover:scale-105 transition-transform"
-              >
+              <button type="submit" className="rounded-xl bg-white px-6 py-3 text-sm font-semibold text-black hover:scale-105 transition-transform">
                 Subscribe
               </button>
             </form>
-
           </div>
         </Container>
-
-
       </>
     );
   }
