@@ -11,7 +11,11 @@ export function RiskAssessor() {
   // Location
   const [country, setCountry] = useState("");
   const [region, setRegion] = useState("");
-
+// Result
+  const [result, setResult] = useState<RiskResult | null>(null);
+  
+  // Conversational Input Step (0-5)
+  const [inputStep, setInputStep] = useState(0);
   // Inputs
   const [age, setAge] = useState("");
   const [sex, setSex] = useState<"male" | "female" | "">("");
@@ -20,8 +24,7 @@ export function RiskAssessor() {
   const [height, setHeight] = useState("");
   const [weight, setWeight] = useState("");
 
-  // Result
-  const [result, setResult] = useState<RiskResult | null>(null);
+  
 
   const handleCountryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedCountry = e.target.value;
@@ -134,53 +137,136 @@ export function RiskAssessor() {
   }
 
  if (step === "inputs") {
+    const nextStep = () => setInputStep((prev) => prev + 1);
+
     return (
-      <Container className="flex flex-1 flex-col py-16 max-w-2xl">
-        <h1 className="text-3xl font-semibold tracking-tight text-center mb-10">Tell us about yourself.</h1>
+      <Container className="flex flex-1 flex-col items-center justify-center py-24 max-w-lg mx-auto w-full text-center">
         
-        <div className="space-y-8">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-neutral-400 mb-2">Age (40-80)</label>
-              <input type="number" value={age} onChange={(e) => setAge(e.target.value)} placeholder="e.g. 45" className="w-full rounded-xl bg-neutral-800 px-4 py-4 text-lg text-white outline-none ring-1 ring-neutral-700 focus:ring-2 focus:ring-white" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-neutral-400 mb-2">Sex</label>
-              <div className="flex gap-2">
-                <button onClick={() => setSex("male")} className={`flex-1 rounded-xl py-4 text-base font-semibold transition-colors ${sex === "male" ? "bg-white text-black" : "bg-neutral-800 text-white ring-1 ring-neutral-700"}`}>Male</button>
-                <button onClick={() => setSex("female")} className={`flex-1 rounded-xl py-4 text-base font-semibold transition-colors ${sex === "female" ? "bg-white text-black" : "bg-neutral-800 text-white ring-1 ring-neutral-700"}`}>Female</button>
-              </div>
-            </div>
+        {/* Progress Bar */}
+        <div className="w-full max-w-xs mb-12">
+          <div className="h-1 w-full bg-neutral-800 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-white transition-all duration-300"
+              style={{ width: `${((inputStep + 1) / 6) * 100}%` }}
+            />
           </div>
-
-          <div>
-            <label className="block text-sm font-medium text-neutral-400 mb-2">Do you currently smoke?</label>
-            <div className="flex gap-2">
-              <button onClick={() => setSmoking("yes")} className={`flex-1 rounded-xl py-4 text-base font-semibold transition-colors ${smoking === "yes" ? "bg-white text-black" : "bg-neutral-800 text-white ring-1 ring-neutral-700"}`}>Yes</button>
-              <button onClick={() => setSmoking("no")} className={`flex-1 rounded-xl py-4 text-base font-semibold transition-colors ${smoking === "no" ? "bg-white text-black" : "bg-neutral-800 text-white ring-1 ring-neutral-700"}`}>No</button>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-neutral-400 mb-2">Systolic Blood Pressure (Top number)</label>
-            <input type="number" value={sbp} onChange={(e) => setSbp(e.target.value)} placeholder="e.g. 120" className="w-full rounded-xl bg-neutral-800 px-4 py-4 text-lg text-white outline-none ring-1 ring-neutral-700 focus:ring-2 focus:ring-white" />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-neutral-400 mb-2">Height (cm)</label>
-              <input type="number" value={height} onChange={(e) => setHeight(e.target.value)} placeholder="e.g. 175" className="w-full rounded-xl bg-neutral-800 px-4 py-4 text-lg text-white outline-none ring-1 ring-neutral-700 focus:ring-2 focus:ring-white" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-neutral-400 mb-2">Weight (kg)</label>
-              <input type="number" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="e.g. 70" className="w-full rounded-xl bg-neutral-800 px-4 py-4 text-lg text-white outline-none ring-1 ring-neutral-700 focus:ring-2 focus:ring-white" />
-            </div>
-          </div>
-
-          <button onClick={handleSubmit} disabled={!age || !sex || !smoking || !sbp || !height || !weight} className="mt-8 w-full rounded-full bg-white px-8 py-4 text-lg font-semibold text-black transition-transform hover:scale-105 disabled:opacity-50 disabled:hover:scale-100">
-            Calculate Risk
-          </button>
         </div>
+
+        {/* Step 0: Age */}
+        {inputStep === 0 && (
+          <div className="w-full space-y-8">
+            <h2 className="text-3xl font-semibold tracking-tight text-white">How old are you?</h2>
+            <input 
+              type="number" 
+              value={age} 
+              onChange={(e) => setAge(e.target.value)} 
+              placeholder="e.g. 45" 
+              autoFocus
+              className="w-full text-center rounded-2xl bg-neutral-900 px-6 py-6 text-3xl text-white outline-none ring-1 ring-neutral-800 focus:ring-2 focus:ring-white transition-all" 
+            />
+            <p className="text-sm text-neutral-500">Used to determine age-related baseline risk.</p>
+            <button onClick={nextStep} disabled={!age || parseInt(age) < 1} className="w-full rounded-full bg-white px-8 py-4 text-lg font-semibold text-black transition-transform hover:scale-105 disabled:opacity-50">
+              Continue
+            </button>
+          </div>
+        )}
+
+        {/* Step 1: Sex */}
+        {inputStep === 1 && (
+          <div className="w-full space-y-8">
+            <h2 className="text-3xl font-semibold tracking-tight text-white">What is your biological sex?</h2>
+            <div className="flex gap-4">
+              <button onClick={() => { setSex("male"); nextStep(); }} className="flex-1 rounded-2xl bg-neutral-900 py-8 text-xl font-semibold text-white ring-1 ring-neutral-800 hover:bg-neutral-800 transition-colors">
+                Male
+              </button>
+              <button onClick={() => { setSex("female"); nextStep(); }} className="flex-1 rounded-2xl bg-neutral-900 py-8 text-xl font-semibold text-white ring-1 ring-neutral-800 hover:bg-neutral-800 transition-colors">
+                Female
+              </button>
+            </div>
+            <p className="text-sm text-neutral-500">Cardiovascular risk profiles differ between biological sexes.</p>
+          </div>
+        )}
+
+        {/* Step 2: Smoking */}
+        {inputStep === 2 && (
+          <div className="w-full space-y-8">
+            <h2 className="text-3xl font-semibold tracking-tight text-white">Do you currently smoke?</h2>
+            <div className="flex gap-4">
+              <button onClick={() => { setSmoking("yes"); nextStep(); }} className="flex-1 rounded-2xl bg &&-neutral-900 py-8 text-xl (
+ font-semibold          text-white ring- <1 ring-neutral-div800 hover:bg className-neutral-800 transition-colors">
+                Yes
+              </button>
+              <button onClick={() => { setSmoking("no"); nextStep(); }} className="flex-1 rounded-2xl bg-neutral-900 py-8 text-xl font-semibold text-white ring-1 ring-neutral-800 hover:bg-neutral-800 transition-colors">
+                No
+              </button>
+            </div>
+            <p className="text-sm text-neutral-500">Smoking significantly accelerates arterial damage.</p>
+          </div>
+        )}
+
+        {/* Step 3: Blood Pressure */}
+        {inputStep === 3 && (
+          <div className="w-full space-y-8">
+            <h2 className="text-3xl font-semibold tracking-tight text-white">Systolic Blood Pressure</h2>
+            <p className="text-neutral-400">The top number on your blood pressure reading.</p>
+            <input 
+              type="number" 
+              value={sbp} 
+              onChange={(e) => setSbp(e.target.value)} 
+              placeholder="e.g. 120" 
+              autoFocus
+              className="w-full text-center rounded-2xl bg-neutral-900 px-6 py-6 text-3xl text-white outline-none ring-1 ring-neutral-800 focus:ring-2 focus:ring-white transition-all" 
+            />
+            <p className="text-sm text-neutral-500">Systolic pressure is the primary driver of cardiac strain.</p>
+            <button onClick={nextStep} disabled={!sbp || parseInt(sbp) < 50} className="w-full rounded-full bg-white px-8 py-4 text-lg font-semibold text-black transition-transform hover:scale-105 disabled:opacity-50">
+              Continue
+            </button>
+          </div>
+        )}
+
+        {/* Step 4: Height */}
+        {inputStep === 4 && (
+          <div className="w-full space-y-8">
+            <h2 className="text-3xl font-semibold tracking-tight text-white">What is your height?</h2>
+            <div className="relative">
+              <input 
+                type="number" 
+                value={height} 
+                onChange={(e) => setHeight(e.target.value)} 
+                placeholder="e.g. 175" 
+                autoFocus
+                className="w-full text-center rounded-2xl bg-neutral-900 px-6 py-6 text-3xl text-white outline-none ring-1 ring-neutral-800 focus:ring-2 focus:ring-white transition-all" 
+              />
+              <span className="absolute right-6 top-1/2 -translate-y-1/2 text-neutral-500 font-medium">cm</span>
+            </div>
+            <button onClick={nextStep} disabled={!height || parseInt(height) < 100} className="w-full rounded-full bg-white px-8 py-4 text-lg font-semibold text-black transition-transform hover:scale-105 disabled:opacity-50">
+              Continue
+            </button>
+          </div>
+        )}
+
+        {/* Step 5: Weight */}
+        {inputStep === 5 && (
+          <div className="w-full space-y-8">
+            <h2 className="text-3xl font-semibold tracking-tight text-white">What is your weight?</h2>
+            <div className="relative">
+              <input 
+                type="number" 
+                value={weight} 
+                onChange={(e) => setWeight(e.target.value)} 
+                placeholder="e.g. 70" 
+                autoFocus
+                className="w-full text-center rounded-2xl bg-neutral-900 px-6 py-6 text-3xl text-white outline-none ring-1 ring-neutral-800 focus:ring-2 focus:ring-white transition-all" 
+              />
+              <span className="absolute right-6 top-1/2 -translate-y-1/2 text-neutral-500 font-medium">kg</span>
+            </div>
+            <p className="text-sm text-neutral-500">Height and weight are used to calculate BMI.</p>
+            <button onClick={handleSubmit} disabled={!weight || parseInt(weight) < 30} className="w-full rounded-full bg-rose-500 px-8 py-4 text-lg font-semibold text-white transition-transform hover:scale-105 disabled:opacity-50">
+              Calculate Risk
+            </button>
+          </div>
+        )}
+
       </Container>
     );
   }

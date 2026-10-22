@@ -47,7 +47,7 @@ export const COUNTRIES = [
   { name: "Romania", region: "Central Europe" },
   { name: "Serbia", region: "Central Europe" },
   { name: "Slovakia", region: "Central Europe" },
-  { name: "Sl "ovenia", region: "Central Europe" },
+  { name: "Slovenia", region: "Central Europe" },
 
   // --- Central Latin America ---
   { name: "Colombia", region: "Central Latin America" },
@@ -55,7 +55,7 @@ export const COUNTRIES = [
   { name: "El Salvador", region: "Central Latin America" },
   { name: "Guatemala", region: "Central Latin America" },
   { name: "Honduras", region: "Central Latin America" },
-  { name: "Mexico", region:Central Latin America" },
+  { name: "Mexico", region: "Central Latin America" },
   { name: "Nicaragua", region: "Central Latin America" },
   { name: "Panama", region: "Central Latin America" },
   { name: "Venezuela", region: "Central Latin America" },
