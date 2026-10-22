@@ -38,10 +38,9 @@ export default function RootLayout({
           </Container>
         </header>
         <div className="flex-1 flex flex-col">{children}</div>
-        <footer className="border-t border-neutral-800">
-          <Container className="py-8 text-xs text-neutral-500 flex justify-between">
-            <p>© {siteConfig.currentYear} {siteConfig.name}.</p>
-            <p>Not a medical device. No clinical claim.</p>
+       <footer className="border-t border-neutral-800">
+          <Container className="py-8 text-xs text-neutral-500 flex justify-center text-center">
+            <p>© {siteConfig.currentYear} {siteConfig.name}. A companion for your care, not a replacement for your doctor.</p>
           </Container>
         </footer>
       </body>
