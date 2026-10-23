@@ -45,7 +45,11 @@ export default function HomePage() {
             <span className="text-rose-500">Sanctos helps you navigate yours.</span>
           </p>
         </div>
-
+<div className="pt-4 pb-2">
+          <p className="text-xs text-neutral-500 max-w-sm mx-auto">
+            Risk calculations are performed in your browser. Sanctos is designed to minimize the collection of health information.
+          </p>
+        </div>
         <button
           onClick={() => setShowAssessor(true)}
           className="mt-4 rounded-full bg-white px-10 py-4 text-base font-semibold text-black transition-transform hover:scale-105"

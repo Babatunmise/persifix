@@ -11,28 +11,14 @@ export type RiskInputs = {
 
 export type RiskResult = {
   percentage: number;
-  category: "Low" | "Moderate" | "High";
+  category: "Low" | "Moderate" | "High" | "Very High" | "Highest";
 };
 
-// 1. Exact WHO 2019 Non-Laboratory Beta Coefficients
 const COEFFICIENTS = {
-  male: {
-    age: 0.0644,
-    sbp: 0.0126,
-    bmi: 0.0163,
-    smoke: 0.7521,
-  },
-  female: {
-    age: 0.0720,
-    sbp: 0.0152,
-    bmi: 0.0186,
-    smoke: 0.6151,
-  }
+  male: { age: 0.0644, sbp: 0.0126, bmi: 0.0163, smoke: 0.7521 },
+  female: { age: 0.0720, sbp: 0.0152, bmi: 0.0186, smoke: 0.6151 }
 };
 
-// 2. WHO Regional Baseline Survival Rates (S0)
-// These are the exact 10-year S0 values from the R repository.
-// We use the 60-64 age band as the standard reference S0 for the baseline.
 const REGION_S0: Record<string, { male: number; female: number }> = {
   "Andean Latin America": { male: 0.8781, female: 0.9082 },
   "Australasia": { male: 0.9225, female: 0.9431 },
@@ -58,34 +44,27 @@ const REGION_S0: Record<string, { male: number; female: number }> = {
 };
 
 export function calculateRisk(inputs: RiskInputs): RiskResult {
-  // 1. Get the sex-specific coefficients
   const beta = inputs.sex === "male" ? COEFFICIENTS.male : COEFFICIENTS.female;
-  
-  // 2. Get the regional baseline survival
-  // Default to Western Sub-Saharan Africa if region is missing
   const regionData = REGION_S0[inputs.region] || REGION_S0["Western Sub-Saharan Africa"];
   const s0 = inputs.sex === "male" ? regionData.male : regionData.female;
 
-  // 3. Calculate Linear Predictor (LP)
-  // WHO centers the variables at: Age 60, SBP 120, BMI 25
   const smoke_val = inputs.smoking === "yes" ? 1 : 0;
-  
   const lp = 
     (inputs.age - 60) * beta.age +
     (inputs.sbp - 120) * beta.sbp +
     (inputs.bmi - 25) * beta.bmi +
     (smoke_val * beta.smoke);
 
-  // 4. Calculate Probability: 1 - S0^exp(LP)
   const risk = 1 - Math.pow(s0, Math.exp(lp));
-  
-  // Convert to percentage
-  const percentage = Number((risk * 100).toFixed(1));
+  const rawPercentage = risk * 100;
+  const percentage = Number(rawPercentage.toFixed(1));
 
-  // 5. Determine Category (WHO standard bands)
-  let category: "Low" | "Moderate" | "High" = "Low";
-  if (percentage >= 5 && percentage < 20) category = "Moderate";
-  if (percentage >= 20) category = "High";
+  // 5-Band Logic using the raw percentage
+  let category: "Low" | "Moderate" | "High" | "Very High" | "Highest" = "Low";
+  if (rawPercentage >= 5 && rawPercentage < 10) category = "Moderate";
+  if (rawPercentage >= 10 && rawPercentage < 20) category = "High";
+  if (rawPercentage >= 20 && rawPercentage < 30) category = "Very High";
+  if (rawPercentage >= 30) category = "Highest";
 
   return { percentage, category };
 }

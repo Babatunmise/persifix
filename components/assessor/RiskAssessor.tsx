@@ -6,7 +6,7 @@ import { COUNTRIES } from "@/data/who-regions";
 import { calculateRisk, type RiskResult } from "@/lib/who-engine";
 
 export function RiskAssessor() {
-  const [step, setStep] = useState<"hook" | "location" | "established" | "high-risk" | "inputs" | "emergency" | "age-gate" | "result">("hook");
+  const [step, setStep] = useState<"hook" | "eligibility" | "suppressed" | "symptoms" | "location" | "established" | "high-risk" | "inputs" | "emergency" | "age-gate" | "result">("hook");
   
   // Location
   const [country, setCountry] = useState("");
@@ -18,14 +18,17 @@ export function RiskAssessor() {
   const [smoking, setSmoking] = useState<"yes" | "no" | "">("");
   const [smokingYears, setSmokingYears] = useState("");
   const [sbp, setSbp] = useState("");
+  const [dbp, setDbp] = useState("");
   const [height, setHeight] = useState("");
   const [weight, setWeight] = useState("");
+  const [diabetes, setDiabetes] = useState<"yes" | "no" | "">("");
+  const [meds, setMeds] = useState<"yes" | "no" | "">("");
 
   // Result
   const [result, setResult] = useState<RiskResult | null>(null);
   
   // Conversational Input Step
-  const [inputStep, setInputStep] = useState<"age" | "sex" | "smoking" | "smokingYears" | "sbp" | "height" | "weight">("age");
+  const [inputStep, setInputStep] = useState<"age" | "sex" | "smoking" | "smokingYears" | "sbp" | "height" | "weight" | "diabetes" | "meds">("age");
 
   const handleCountryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedCountry = e.target.value;
@@ -35,20 +38,22 @@ export function RiskAssessor() {
   };
 
   const handleSubmit = () => {
-    const numericAge = parseInt(age);
-    const numericSbp = parseInt(sbp);
     const numericHeight = parseInt(height);
     const numericWeight = parseInt(weight);
 
-    if (numericAge < 40 || numericAge > 80) { setStep("age-gate"); return; }
-    if (numericSbp >= 180) { setStep("emergency"); return; }
+    // Suppression Rule (Diabetes or Meds)
+    if (diabetes === "yes" || meds === "yes") {
+      setResult(null);
+      setStep("suppressed");
+      return;
+    }
 
     const bmi = numericWeight / Math.pow(numericHeight / 100, 2);
 
     const calculated = calculateRisk({
-      age: numericAge,
+      age: parseInt(age),
       sex: sex as "male" | "female",
-      sbp: numericSbp,
+      sbp: parseInt(sbp),
       smoking: smoking as "yes" | "no",
       bmi,
       region,
@@ -57,6 +62,8 @@ export function RiskAssessor() {
     setResult(calculated);
     setStep("result");
   };
+
+  const getBMI = () => (parseInt(weight) / Math.pow(parseInt(height) / 100, 2)).toFixed(1);
 
   // --- RENDER STEPS ---
 
@@ -67,9 +74,108 @@ export function RiskAssessor() {
         <p className="mt-6 max-w-md text-lg text-neutral-400 leading-relaxed">
           A 2-minute assessment to estimate your 10-year risk of a heart attack or stroke. No data is stored or sent to a server.
         </p>
-        <button onClick={() => setStep("location")} className="mt-10 rounded-full bg-white px-8 py-4 text-base font-semibold text-black transition-transform hover:scale-105">
+        <button onClick={() => setStep("eligibility")} className="mt-10 rounded-full bg-white px-8 py-4 text-base font-semibold text-black transition-transform hover:scale-105">
           Begin Assessment
         </button>
+      </Container>
+    );
+  }
+
+  if (step === "eligibility") {
+    return (
+      <Container className="flex flex-1 flex-col items-center justify-center py-24 text-center">
+        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Before we begin.</h1>
+        <p className="mt-6 max-w-lg text-lg text-neutral-300 leading-relaxed">
+          This tool is designed for adults aged 40-74 who do not have established heart disease, diabetes, or take medication for blood pressure or cholesterol.
+        </p>
+        <div className="mt-10 flex flex-col sm:flex-row gap-4 w-full max-w-md">
+          <button onClick={() => setStep("symptoms")} className="flex-1 rounded-xl bg-white px-6 py-4 text-base font-semibold text-black hover:scale-105 transition-transform">
+            I fit these criteria
+          </button>
+          <button onClick={() => setStep("suppressed")} className="flex-1 rounded-xl bg-neutral-800 px-6 py-4 text-base font-semibold text-white hover:bg-neutral-700 transition-colors">
+            I do not
+          </button>
+        </div>
+      </Container>
+    );
+  }
+
+  if (step === "suppressed") {
+    return (
+      <>
+        <div className="hidden print:block bg-white text-black p-12 max-w-3xl mx-auto w-full">
+          <div className="border-b-2 border-black pb-4 mb-8">
+            <h1 className="text-3xl font-bold">SANCTOS.</h1>
+            <p className="text-sm mt-1">Your medical sanctuary.</p>
+          </div>
+          <h2 className="text-xl font-semibold mb-4">Cardiovascular Risk Summary</h2>
+          <p className="mb-8 text-sm text-gray-600">This report is an educational estimate based on WHO 2019 guidelines. It does not diagnose disease.</p>
+          <div className="grid grid-cols-2 gap-8 mb-8">
+            <div>
+              <h3 className="font-semibold text-sm uppercase tracking-wider text-gray-500 mb-2">Patient Profile</h3>
+              <ul className="space-y-1 text-sm">
+                <li><strong>Age:</strong> {age || "—"}</li>
+                <li><strong>Sex:</strong> {sex || "—"}</li>
+                <li><strong>Region:</strong> {country || "—"} {region ? `(${region})` : ""}</li>
+                <li><strong>Blood Pressure:</strong> {sbp ? `${sbp}/${dbp} mmHg` : "—"}</li>
+                <li><strong>BMI:</strong> {height && weight ? `${getBMI()} kg/m²` : "—"}</li>
+                <li><strong>Smoker:</strong> {smoking || "—"} {smoking === "yes" ? `(${smokingYears} years)` : ""}</li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="font-semibold text-sm uppercase tracking-wider text-gray-500 mb-2">Estimated Risk</h3>
+              <div className="text-lg font-bold text-black border border-black p-3 mt-1">Risk score not calculated.</div>
+           <p className="text-sm mt-2 text-gray-600">Because of your answers, this calculator can’t reliably estimate your risk. The WHO 2019 non-laboratory model does not account for diabetes or cholesterol/blood pressure medications. Please consult a doctor for an accurate assessment.</p>
+            </div>
+          </div>
+          <div className="border border-gray-300 p-4 text-sm mb-8">
+            <p className="font-semibold mb-2">Questions to ask your doctor:</p>
+            <ul className="list-disc pl-5 space-y-1">
+              <li>Given my medical history, what is my actual cardiovascular risk?</li>
+              <li>Are my current blood pressure and cholesterol levels optimal?</li>
+              <li>What lifestyle changes would be most impactful for me?</li>
+              <li>How often should I be monitoring my blood pressure?</li>
+            </ul>
+          </div>
+          <div className="mt-12 pt-4 border-t border-gray-300 text-xs text-gray-500">
+            <p>Algorithm: WHO 2019 Non-Laboratory Cardiovascular Risk Model</p>
+            <p>Generated by SANCTOS (sanctos.health)</p>
+            <p>Not a medical device. No clinical claim.</p>
+          </div>
+        </div>
+
+        <Container className="print:hidden flex flex-1 flex-col items-center justify-center py-24 text-center">
+          <div className="rounded-2xl bg-neutral-900 p-8 ring-1 ring-neutral-800 max-w-lg">
+            <h1 className="text-2xl font-semibold tracking-tight text-white">Assessment Not Applicable</h1>
+          <p className="mt-4 text-base text-neutral-300">
+              Because of your answers, this calculator can’t reliably estimate your risk. The WHO 2019 non-laboratory model does not account for diabetes or medications.
+            </p>
+          </div>
+          <div className="mt-10 flex gap-4">
+            <button onClick={() => window.print()} className="rounded-full bg-white px-8 py-4 text-base font-semibold text-black hover:scale-105 transition-transform">
+              Download Sanctos Report
+            </button>
+          </div>
+        </Container>
+      </>
+    );
+  }
+
+  if (step === "symptoms") {
+    return (
+      <Container className="flex flex-1 flex-col items-center justify-center py-24 text-center">
+        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Are you experiencing any of the following right now?</h1>
+        <p className="mt-6 max-w-lg text-lg text-neutral-300 leading-relaxed">
+          Chest pain, severe shortness of breath, sudden weakness, or difficulty speaking.
+        </p>
+        <div className="mt-10 flex flex-col sm:flex-row gap-4 w-full max-w-md">
+          <button onClick={() => setStep("emergency")} className="flex-1 rounded-xl bg-rose-950 px-6 py-4 text-base font-semibold text-rose-400 ring-1 ring-rose-900 hover:bg-rose-900/50 transition-colors">
+            Yes, I have these symptoms
+          </button>
+          <button onClick={() => setStep("location")} className="flex-1 rounded-xl bg-white px-6 py-4 text-base font-semibold text-black hover:scale-105 transition-transform">
+            No, I do not
+          </button>
+        </div>
       </Container>
     );
   }
@@ -120,7 +226,7 @@ export function RiskAssessor() {
       <Container className="flex flex-1 flex-col items-center justify-center py-24 text-center">
         <div className="rounded-2xl bg-neutral-900 p-8 ring-1 ring-neutral-800 max-w-lg">
           <h1 className="text-2xl font-semibold tracking-tight text-white">Outside Assessment Range</h1>
-          <p className="mt-4 text-base text-neutral-300">This specific WHO risk chart is designed for adults aged 40 to 80. Because you are outside this range, your clinical risk profile requires a different assessment approach. Please consult a healthcare professional for an accurate evaluation.</p>
+          <p className="mt-4 text-base text-neutral-300">This specific WHO risk chart is designed for adults aged 40 to 74. Because you are outside this range, your clinical risk profile requires a different assessment approach. Please consult a healthcare professional for an accurate evaluation.</p>
         </div>
       </Container>
     );
@@ -138,23 +244,18 @@ export function RiskAssessor() {
   }
 
   if (step === "inputs") {
-    // Calculate progress based on whether they smoke or not
     const steps = smoking === "yes" 
-      ? ["age", "sex", "smoking", "smokingYears", "sbp", "height", "weight"] 
-      : ["age", "sex", "smoking", "sbp", "height", "weight"];
+      ? ["age", "sex", "smoking", "smokingYears", "sbp", "height", "weight", "diabetes", "meds"] 
+      : ["age", "sex", "smoking", "sbp", "height", "weight", "diabetes", "meds"];
     const currentIndex = steps.indexOf(inputStep);
     const progress = ((currentIndex + 1) / steps.length) * 100;
 
     return (
       <Container className="flex flex-1 flex-col items-center justify-center py-24 max-w-lg mx-auto w-full text-center">
         
-        {/* Progress Bar */}
         <div className="w-full max-w-xs mb-12">
           <div className="h-1 w-full bg-neutral-800 rounded-full overflow-hidden">
-            <div 
-              className="h-full bg-white transition-all duration-300"
-              style={{ width: `${progress}%` }}
-            />
+            <div className="h-full bg-white transition-all duration-300" style={{ width: `${progress}%` }} />
           </div>
         </div>
 
@@ -163,7 +264,17 @@ export function RiskAssessor() {
             <h2 className="text-3xl font-semibold tracking-tight text-white">How old are you?</h2>
             <input type="number" value={age} onChange={(e) => setAge(e.target.value)} placeholder="e.g. 45" autoFocus className="w-full text-center rounded-2xl bg-neutral-900 px-6 py-6 text-3xl text-white outline-none ring-1 ring-neutral-800 focus:ring-2 focus:ring-white transition-all" />
             <p className="text-sm text-neutral-500">Used to determine age-related baseline risk.</p>
-            <button onClick={() => setInputStep("sex")} disabled={!age || parseInt(age) < 1} className="w-full rounded-full bg-white px-8 py-4 text-lg font-semibold text-black transition-transform hover:scale-105 disabled:opacity-50">Continue</button>
+            <button 
+              onClick={() => {
+                const numericAge = parseInt(age);
+                if (numericAge < 40 || numericAge > 74) { setStep("age-gate"); return; }
+                setInputStep("sex");
+              }} 
+              disabled={!age || parseInt(age) < 1} 
+              className="w-full rounded-full bg-white px-8 py-4 text-lg font-semibold text-black transition-transform hover:scale-105 disabled:opacity-50"
+            >
+              Continue
+            </button>
           </div>
         )}
 
@@ -200,10 +311,34 @@ export function RiskAssessor() {
 
         {inputStep === "sbp" && (
           <div className="w-full space-y-8">
-            <h2 className="text-3xl font-semibold tracking-tight text-white">Systolic Blood Pressure</h2>
-            <p className="text-neutral-400">The top number on your reading.</p>
-            <input type="number" value={sbp} onChange={(e) => setSbp(e.target.value)} placeholder="e.g. 120" autoFocus className="w-full text-center rounded-2xl bg-neutral-900 px-6 py-6 text-3xl text-white outline-none ring-1 ring-neutral-800 focus:ring-2 focus:ring-white transition-all" />
-            <button onClick={() => setInputStep("height")} disabled={!sbp || parseInt(sbp) < 50} className="w-full rounded-full bg-white px-8 py-4 text-lg font-semibold text-black transition-transform hover:scale-105 disabled:opacity-50">Continue</button>
+            <h2 className="text-3xl font-semibold tracking-tight text-white">Blood Pressure</h2>
+            <p className="text-neutral-400">From your most recent reading.</p>
+            <div className="flex gap-4">
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-neutral-500 mb-2">Systolic (Top)</label>
+                <input type="number" value={sbp} onChange={(e) => setSbp(e.target.value)} placeholder="120" autoFocus className="w-full text-center rounded-2xl bg-neutral-900 px-4 py-6 text-2xl text-white outline-none ring-1 ring-neutral-800 focus:ring-2 focus:ring-white transition-all" />
+              </div>
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-neutral-500 mb-2">Diastolic (Bottom)</label>
+                <input type="number" value={dbp} onChange={(e) => setDbp(e.target.value)} placeholder="80" className="w-full text-center rounded-2xl bg-neutral-900 px-4 py-6 text-2xl text-white outline-none ring-1 ring-neutral-800 focus:ring-2 focus:ring-white transition-all" />
+              </div>
+            </div>
+            <button 
+              onClick={() => {
+                const numericSbp = parseInt(sbp);
+                const numericDbp = parseInt(dbp);
+                if (numericSbp >= 180 || numericDbp >= 120) { setStep("emergency"); return; }
+                setInputStep("height");
+              }} 
+              disabled={
+                !sbp || parseInt(sbp) < 50 || parseInt(sbp) > 300 || 
+                !dbp || parseInt(dbp) < 30 || 
+                parseInt(dbp) > parseInt(sbp)
+              } 
+              className="w-full rounded-full bg-white px-8 py-4 text-lg font-semibold text-black transition-transform hover:scale-105 disabled:opacity-50"
+            >
+              Continue
+            </button>
           </div>
         )}
 
@@ -226,7 +361,33 @@ export function RiskAssessor() {
               <span className="absolute right-6 top-1/2 -translate-y-1/2 text-neutral-500 font-medium">kg</span>
             </div>
             <p className="text-sm text-neutral-500">Height and weight are used to calculate BMI.</p>
-            <button onClick={handleSubmit} disabled={!weight || parseInt(weight) < 30} className="w-full rounded-full bg-rose-500 px-8 py-4 text-lg font-semibold text-white transition-transform hover:scale-105 disabled:opacity-50">Calculate Risk</button>
+         <button 
+              onClick={() => setInputStep("diabetes")} 
+              disabled={!weight || parseInt(weight) < 30 || (parseInt(weight) / Math.pow(parseInt(height) / 100, 2)) > 80} 
+              className="w-full rounded-full bg-white px-8 py-4 text-lg font-semibold text-black transition-transform hover:scale-105 disabled:opacity-50"
+            >
+              Continue
+            </button>
+          </div>
+        )}
+
+        {inputStep === "diabetes" && (
+          <div className="w-full space-y-8">
+            <h2 className="text-3xl font-semibold tracking-tight text-white">Have you been diagnosed with diabetes?</h2>
+            <div className="flex gap-4">
+              <button onClick={() => { setDiabetes("yes"); setInputStep("meds"); }} className="flex-1 rounded-2xl bg-neutral-900 py-8 text-xl font-semibold text-white ring-1 ring-neutral-800 hover:bg-neutral-800 transition-colors">Yes</button>
+              <button onClick={() => { setDiabetes("no"); setInputStep("meds"); }} className="flex-1 rounded-2xl bg-neutral-900 py-8 text-xl font-semibold text-white ring-1 ring-neutral-800 hover:bg-neutral-800 transition-colors">No</button>
+            </div>
+          </div>
+        )}
+
+        {inputStep === "meds" && (
+          <div className="w-full space-y-8">
+            <h2 className="text-3xl font-semibold tracking-tight text-white">Are you currently taking medication for blood pressure or cholesterol?</h2>
+            <div className="flex gap-4">
+              <button onClick={() => { setMeds("yes"); handleSubmit(); }} className="flex-1 rounded-2xl bg-neutral-900 py-8 text-xl font-semibold text-white ring-1 ring-neutral-800 hover:bg-neutral-800 transition-colors">Yes</button>
+              <button onClick={() => { setMeds("no"); handleSubmit(); }} className="flex-1 rounded-2xl bg-rose-500 py-8 text-xl font-semibold text-white hover:scale-105 transition-transform">No, Calculate</button>
+            </div>
           </div>
         )}
       </Container>
@@ -234,15 +395,17 @@ export function RiskAssessor() {
   }
 
   if (step === "result" && result) {
+    const isHighest = result.category === "Highest";
+    const isVeryHigh = result.category === "Very High";
     const isHigh = result.category === "High";
     const isMod = result.category === "Moderate";
-    const colorClass = isHigh ? "text-rose-400" : isMod ? "text-amber-400" : "text-emerald-400";
-    const bgClass = isHigh ? "bg-rose-950/30 ring-rose-900" : isMod ? "bg-amber-950/30 ring-amber-900" : "bg-emerald-950/30 ring-emerald-900";
-    const bmi = (parseInt(weight) / Math.pow(parseInt(height) / 100, 2)).toFixed(1);
+    
+    const colorClass = isHighest ? "text-rose-600" : isVeryHigh ? "text-rose-400" : isHigh ? "text-orange-400" : isMod ? "text-amber-400" : "text-emerald-400";
+    const bgClass = isHighest ? "bg-rose-950/50 ring-rose-900" : isVeryHigh ? "bg-rose-950/30 ring-rose-900" : isHigh ? "bg-orange-950/30 ring-orange-900" : isMod ? "bg-amber-950/30 ring-amber-900" : "bg-emerald-950/30 ring-emerald-900";
+    const bmi = getBMI();
 
     return (
       <>
-        {/* --- PRINTABLE REPORT (HIDDEN ON SCREEN) --- */}
         <div className="hidden print:block bg-white text-black p-12 max-w-3xl mx-auto w-full">
           <div className="border-b-2 border-black pb-4 mb-8">
             <h1 className="text-3xl font-bold">SANCTOS.</h1>
@@ -259,7 +422,7 @@ export function RiskAssessor() {
                 <li><strong>Age:</strong> {age}</li>
                 <li><strong>Sex:</strong> {sex}</li>
                 <li><strong>Region:</strong> {country} ({region})</li>
-                <li><strong>Blood Pressure:</strong> {sbp} mmHg</li>
+                <li><strong>Blood Pressure:</strong> {sbp}/{dbp} mmHg</li>
                 <li><strong>BMI:</strong> {bmi} kg/m²</li>
                 <li><strong>Smoker:</strong> {smoking} {smoking === "yes" ? `(${smokingYears} years)` : ""}</li>
               </ul>
@@ -272,8 +435,8 @@ export function RiskAssessor() {
             </div>
           </div>
 
-          <div className="border border-gray-300 p-4 text-sm">
-            <p><strong>Next Step:</strong> {isHigh || isMod ? "Because your risk is elevated, schedule a routine check-up with a healthcare professional." : "Continue maintaining healthy habits and routine check-ups."}</p>
+          <div className="border border-gray-300 p-4 text-sm mb-8">
+            <p><strong>Next Step:</strong> {isHighest || isVeryHigh || isHigh || isMod ? "Because your risk is elevated, schedule a routine check-up with a healthcare professional." : "Continue maintaining healthy habits and routine check-ups."}</p>
             {smoking === "yes" && smokingYears && (
               <p className="mt-2 text-sm font-semibold text-black">
                 Note: Because you have been smoking for {smokingYears} years, quitting is the single most impactful action you can take to lower this risk.
@@ -281,13 +444,23 @@ export function RiskAssessor() {
             )}
           </div>
 
+          <div className="border border-gray-300 p-4 text-sm">
+            <p className="font-semibold mb-2">Questions to ask your doctor:</p>
+            <ul className="list-disc pl-5 space-y-1">
+              <li>Given my risk score, do I need to start any medications?</li>
+              <li>Are my current blood pressure and cholesterol levels optimal?</li>
+              <li>What lifestyle changes would be most impactful for me?</li>
+              <li>How often should I be monitoring my blood pressure?</li>
+            </ul>
+          </div>
+
           <div className="mt-12 pt-4 border-t border-gray-300 text-xs text-gray-500">
+            <p>Algorithm: WHO 2019 Non-Laboratory Cardiovascular Risk Model</p>
             <p>Generated by SANCTOS (sanctos.health)</p>
             <p>Not a medical device. No clinical claim.</p>
           </div>
         </div>
 
-        {/* --- SCREEN UI (HIDDEN ON PRINT) --- */}
         <Container className="print:hidden flex flex-1 flex-col items-center justify-center py-24 text-center">
           <h1 className="text-2xl font-medium text-neutral-400">Your 10-year risk is</h1>
           <div className={`mt-6 text-7xl font-bold tracking-tighter ${colorClass}`}>
@@ -303,7 +476,7 @@ export function RiskAssessor() {
               It does not mean you personally will.
             </p>
             <p className="mt-4 text-base text-neutral-400">
-              {isHigh || isMod 
+              {isHighest || isVeryHigh || isHigh || isMod
                 ? "Because your risk is elevated, we recommend scheduling a routine check-up with a healthcare professional."
                 : "Continue maintaining your healthy habits and routine check-ups."}
             </p>
@@ -320,24 +493,15 @@ export function RiskAssessor() {
             </button>
           </div>
 
-          {/* Buttondown Newsletter Signup */}
           <div className="mt-16 w-full max-w-md border-t border-neutral-800 pt-8">
             <p className="text-sm font-medium text-white">Stay updated on Sanctos.</p>
             <p className="mt-2 text-xs text-neutral-500">
               Occasional updates on our cardiovascular tools. No health data is collected. Unsubscribe anytime.
             </p>
-            <form 
-              action="https://buttondown.com/api/emails/embed-subscribe/sanctos" 
-              method="post" 
-              target="popupwindow" 
-              onSubmit={() => window.open('https://buttondown.com/sanctos', 'popupwindow')} 
-              className="mt-4 flex gap-2"
-            >
+            <form action="https://buttondown.com/api/emails/embed-subscribe/sanctos" method="post" target="popupwindow" onSubmit={() => window.open('https://buttondown.com/sanctos', 'popupwindow')} className="mt-4 flex gap-2">
               <input type="email" name="email" placeholder="Email address" required className="flex-1 rounded-xl bg-neutral-800 px-4 py-3 text-sm text-white outline-none ring-1 ring-neutral-700 focus:ring-2 focus:ring-white" />
               <input type="hidden" value="1" name="embed" />
-              <button type="submit" className="rounded-xl bg-white px-6 py-3 text-sm font-semibold text-black hover:scale-105 transition-transform">
-                Subscribe
-              </button>
+              <button type="submit" className="rounded-xl bg-white px-6 py-3 text-sm font-semibold text-black hover:scale-105 transition-transform">Subscribe</button>
             </form>
           </div>
         </Container>
