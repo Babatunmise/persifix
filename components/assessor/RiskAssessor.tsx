@@ -156,6 +156,14 @@ export function RiskAssessor() {
               Download Sanctos Report
             </button>
           </div>
+          <div className="mt-8 w-full max-w-md border-t border-neutral-800 pt-8">
+            <p className="text-sm text-white">Sanctos is building continuous management tools for hypertension and medication tracking.</p>
+            <form action="https://buttondown.com/api/emails/embed-subscribe/sanctos" method="post" target="popupwindow" onSubmit={() => window.open('https://buttondown.com/sanctos', 'popupwindow')} className="mt-4 flex gap-2">
+              <input type="email" name="email" placeholder="Email address" required className="flex-1 rounded-xl bg-neutral-800 px-4 py-3 text-sm text-white outline-none ring-1 ring-neutral-700 focus:ring-2 focus:ring-white" />
+              <input type="hidden" value="1" name="embed" />
+              <button type="submit" className="rounded-xl bg-white px-6 py-3 text-sm font-semibold text-black hover:scale-105 transition-transform">Join Waitlist</button>
+            </form>
+          </div>
         </Container>
       </>
     );
@@ -216,6 +224,14 @@ export function RiskAssessor() {
         <div className="rounded-2xl bg-neutral-900 p-8 ring-1 ring-neutral-800 max-w-lg">
           <h1 className="text-2xl font-semibold tracking-tight text-rose-400">Highest Risk Category</h1>
           <p className="mt-4 text-base text-neutral-300">Established cardiovascular disease places you in the highest risk category. A risk score is not the right tool for you. Your focus should be on working with your doctor.</p>
+          <div className="mt-8 border-t border-neutral-800 pt-6">
+            <p className="text-sm text-white">We are building tools to help you organize your symptoms and BP logs for your next cardiology visit.</p>
+            <form action="https://buttondown.com/api/emails/embed-subscribe/sanctos" method="post" target="popupwindow" onSubmit={() => window.open('https://buttondown.com/sanctos', 'popupwindow')} className="mt-4 flex gap-2">
+              <input type="email" name="email" placeholder="Email address" required className="flex-1 rounded-xl bg-neutral-800 px-4 py-3 text-sm text-white outline-none ring-1 ring-neutral-700 focus:ring-2 focus:ring-white" />
+              <input type="hidden" value="1" name="embed" />
+              <button type="submit" className="rounded-xl bg-white px-6 py-3 text-sm font-semibold text-black hover:scale-105 transition-transform">Join Waitlist</button>
+            </form>
+          </div>
         </div>
       </Container>
     );
@@ -227,6 +243,14 @@ export function RiskAssessor() {
         <div className="rounded-2xl bg-neutral-900 p-8 ring-1 ring-neutral-800 max-w-lg">
           <h1 className="text-2xl font-semibold tracking-tight text-white">Outside Assessment Range</h1>
           <p className="mt-4 text-base text-neutral-300">This specific WHO risk chart is designed for adults aged 40 to 74. Because you are outside this range, your clinical risk profile requires a different assessment approach. Please consult a healthcare professional for an accurate evaluation.</p>
+          <div className="mt-8 border-t border-neutral-800 pt-6">
+            <p className="text-sm text-white">Sanctos is building tools to help you establish a healthy cardiovascular baseline early.</p>
+            <form action="https://buttondown.com/api/emails/embed-subscribe/sanctos" method="post" target="popupwindow" onSubmit={() => window.open('https://buttondown.com/sanctos', 'popupwindow')} className="mt-4 flex gap-2">
+              <input type="email" name="email" placeholder="Email address" required className="flex-1 rounded-xl bg-neutral-800 px-4 py-3 text-sm text-white outline-none ring-1 ring-neutral-700 focus:ring-2 focus:ring-white" />
+              <input type="hidden" value="1" name="embed" />
+              <button type="submit" className="rounded-xl bg-white px-6 py-3 text-sm font-semibold text-black hover:scale-105 transition-transform">Join Waitlist</button>
+            </form>
+          </div>
         </div>
       </Container>
     );
