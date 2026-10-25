@@ -1,0 +1,20 @@
+{
+  "generated_utc": "2026-10-25 13:55:35 UTC",
+  "generator_git": "ae868c463e6907518b4b996ceda043e9475717d3",
+  "r_version": "R version 4.6.1 (2026-06-24 ucrt)",
+  "oracle_package": "WHORiskCalculator",
+  "oracle_version": "1.0.0",
+  "seed": 20261023,
+  "risk_unit": "fraction (0-1), converted from package scale",
+  "package_scale": "fraction",
+  "band_thresholds": [0.05, 0.1, 0.2, 0.3],
+  "boundary_window": 0.0025,
+  "counts": {
+    "boundary": 289640,
+    "grid": 194040,
+    "random": 4968
+  },
+  "total_rows": 488648,
+  "regions": ["north_africa_middle_east", "central_subsaharan_africa", "eastern_subsaharan_africa", "southern_subsaharan_africa", "western_subsaharan_africa", "southern_latin_america", "high_income_north_america", "caribbean", "andean_latin_america", "central_latin_america", "tropical_latin_america", "east_asia", "south_asia", "southeast_asia", "central_asia", "high_income_asia_pacific", "western_europe", "central_europe", "eastern_europe", "oceania", "australasia"],
+  "sha256": "68de873e2da9d25840a326b750ea8f862e7cceb48e1c8bce33845ccc2a5d6ccd"
+}
