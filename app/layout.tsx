@@ -27,10 +27,10 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={outfit.variable}>
-      <body className="flex min-h-screen flex-col antialiased bg-[#121212] text-white font-sans">
+     <body className="flex min-h-screen flex-col antialiased bg-[#121212] text-white">
         <header className="border-b border-neutral-800">
           <Container className="flex h-16 items-center justify-between">
-            <img src="/sanctos-logo.png" alt="SANCTOS" className="h-6 w-auto" />
+            <img src="/sanctos-logo.png" alt="SANCTOS" className="h-10 w-32 object-cover object-center" />
         
             <span className="text-xs uppercase tracking-wider text-neutral-400">
               In development
