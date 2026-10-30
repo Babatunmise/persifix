@@ -18,3 +18,15 @@ body {
   color: var(--foreground);
   font-family: var(--font-sanctos), system-ui, sans-serif;
 }
+
+@keyframes breathe {
+  0% { transform: scale(1); }
+  25% { transform: scale(1.8); } /* Inhale (4s) */
+  50% { transform: scale(1.8); } /* Hold (4s) */
+  75% { transform: scale(1); }   /* Exhale (4s) */
+  100% { transform: scale(1); }  /* Hold (4s) */
+}
+
+.animate-breathe {
+  animation: breathe 16s infinite ease-in-out;
+}

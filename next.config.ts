@@ -9,11 +9,12 @@ const cspHeader = `
     object-src 'none';
     base-uri 'self';
     form-action 'self' https://buttondown.com;
-    connect-src 'self' https://buttondown.com https://*.buttondown.com;
+    connect-src 'self' https://buttondown.com https://*.buttondown.com https://*.sanity.io https://*.supabase.co wss://*.supabase.co;
     frame-ancestors 'none';
 `;
 
 const nextConfig: NextConfig = {
+  transpilePackages: ['swr'],
   async headers() {
     return [
       {
