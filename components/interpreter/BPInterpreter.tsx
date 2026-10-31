@@ -30,8 +30,28 @@ function PersistentTimer({ onFinish }: { onFinish: () => void }) {
     return () => clearInterval(timer);
   }, []);
 
+  // Calculate breathing text based on a 16-second cycle
+  const timeElapsed = 1800 - timeLeft;
+  const cycle = Math.floor(timeElapsed / 4) % 4; 
+  let text = "";
+  if (cycle === 0) text = "Breathe In";
+  else if (cycle === 1) text = "Hold";
+  else if (cycle === 2) text = "Breathe Out";
+  else text = "Hold";
+
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;
+
+  const handleEarlyExit = () => {
+    if (timeLeft > 0) {
+      const confirmLeave = window.confirm(
+        `You still have ${minutes} minutes and ${seconds} seconds left in your breathing exercise. We recommend resting for the full 30 minutes for a more accurate reading. Are you sure you want to check your blood pressure now?`
+      );
+      if (!confirmLeave) return;
+    }
+    localStorage.removeItem("sanctos_30m_target");
+    onFinish();
+  };
 
   return (
     <ScreenWrapper step="s9_30min_timer">
@@ -42,16 +62,22 @@ function PersistentTimer({ onFinish }: { onFinish: () => void }) {
         <p>Deep, slow breathing stimulates your vagus nerve, which acts as your body’s natural &apos;brake&apos; system. When you breathe slowly, you signal to your heart to slow down. At the same time, it tells your blood vessels to relax and widen (vasodilation). Think of it as giving your heart a well-deserved mini-vacation.</p>
       </div>
 
-      <div className="text-7xl font-mono tracking-tighter mt-12 mb-8 text-[#2E5B44] text-center">
+      <div className="text-7xl font-mono tracking-tighter mt-8 mb-6 text-[#2E5B44] text-center">
         {minutes}:{seconds.toString().padStart(2, '0')}
       </div>
 
+      <div className="relative flex items-center justify-center w-64 h-64 my-4 mx-auto">
+        <div className="absolute w-32 h-32 bg-[#2E5B44] rounded-full opacity-20 animate-breathe-circle" />
+        <div className="absolute w-32 h-32 bg-[#2E5B44] rounded-full opacity-40 animate-breathe-circle" style={{ animationDelay: '-0.2s' }} />
+        <div className="absolute w-32 h-32 bg-[#2E5B44] rounded-full animate-breathe-circle" />
+        <span className="absolute text-[#F9F8F6] text-2xl font-semibold z-10">{text}</span>
+      </div>
+
       <button 
-        onClick={() => { localStorage.removeItem("sanctos_30m_target"); onFinish(); }} 
-        disabled={timeLeft > 0}
-        className="mt-8 w-full rounded-full bg-[#2E5B44] py-5 text-xl font-semibold text-white disabled:opacity-50"
+        onClick={handleEarlyExit} 
+        className="mt-8 w-full rounded-full bg-[#2E5B44] py-5 text-xl font-semibold text-white"
       >
-        {timeLeft > 0 ? "Wait for timer..." : "Check Again Now"}
+        Check Again Now
       </button>
     </ScreenWrapper>
   );
@@ -125,6 +151,7 @@ export function BPInterpreter() {
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   
+  // 1 = Initial, 2 = Recheck after 10m, 3 = Recheck after 30m
   const [readingCount, setReadingCount] = useState(1);
 
   const [context, setContext] = useState({
@@ -137,6 +164,13 @@ export function BPInterpreter() {
   ];
 
   useEffect(() => {
+    const saved30mTimer = localStorage.getItem("sanctos_30m_target");
+    if (saved30mTimer && Number(saved30mTimer) > Date.now()) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setStep("s9_30min_timer");
+      return;
+    }
+
     const savedName = localStorage.getItem("sanctos_name");
     const savedTitle = localStorage.getItem("sanctos_title");
     const savedAge = localStorage.getItem("sanctos_age");
@@ -197,7 +231,7 @@ export function BPInterpreter() {
     setIsSubmitting(true);
 
     try {
-      const hasSymptoms = symptoms.length > 0;
+      const hasSymptoms = readingCount === 1 ? symptoms.length > 0 : false;
       
       if (hasSymptoms && (sys >= 140 || dia >= 90)) {
         await saveReadingToDB(true);
@@ -250,7 +284,6 @@ export function BPInterpreter() {
   const isHighReading = category !== "Normal" && category !== "Elevated";
   const isStage2 = category === "Stage 2 Hypertension";
 
-  // --- CLINICAL DYNAMIC COPY GENERATOR ---
   const meaningCopy = isHighReading 
     ? `Your reading of ${systolic}/${diastolic} is a bit higher than we would like to see regularly. The top number (${systolic}) is in the range doctors classify as ${isStage2 ? "Stage 2" : "Stage 1"}.`
     : `Your reading of ${systolic}/${diastolic} is within a healthy range.`;
@@ -264,7 +297,12 @@ export function BPInterpreter() {
   
   if (!contextCopy) contextCopy = "There are no obvious temporary factors affecting this reading today.";
 
-  const actionCopy = `Take a moment to sit quietly, keep your feet flat, and follow the breathing timer on your screen. After 10 minutes, let&apos;s check it again. ${context.meds === "no" ? "If you haven&apos;t taken your medication today, check your prescription schedule or call your pharmacist to ask if you should take it now." : ""}`;
+  let actionCopy = "";
+  if (readingCount === 3 && isHighReading) {
+    actionCopy = "Your blood pressure remains high even after two resting periods. We strongly recommend contacting your doctor today or seeking medical advice. Do not keep testing repeatedly. If you develop chest pain, shortness of breath, or sudden weakness, seek emergency care immediately.";
+  } else {
+    actionCopy = `Take a moment to sit quietly, keep your feet flat, and follow the breathing timer on your screen. After 10 minutes, let&apos;s check it again. ${context.meds === "no" ? "If you haven&apos;t taken your medication today, check your prescription schedule or call your pharmacist to ask if you should take it now." : ""}`;
+  }
 
   const doctorQuestion = context.meds === "no" 
     ? `"Since my top number tends to spike when I miss a dose, is my current medication schedule still right for me?"`
@@ -272,8 +310,6 @@ export function BPInterpreter() {
       ? `"My reading is ${systolic}/${diastolic}. Is this something I should monitor closely, or could it be related to my daily habits?"`
       : `"My reading is ${systolic}/${diastolic}. Does this look like a healthy baseline for me?"`;
 
-
-  // --- RENDER SCREENS ---
 
   if (step === "onboarding") {
     return (
@@ -339,7 +375,19 @@ export function BPInterpreter() {
           />
         </div>
 
-        <button onClick={() => setStep("s1_symptoms")} disabled={!systolic || !diastolic} className="w-full mt-16 rounded-full bg-[#2E5B44] py-5 text-xl font-semibold text-white disabled:opacity-50">Next</button>
+        <button 
+          onClick={() => {
+            if (readingCount > 1) {
+              handleFinalSubmit();
+            } else {
+              setStep("s1_symptoms");
+            }
+          }} 
+          disabled={!systolic || !diastolic} 
+          className="w-full mt-16 rounded-full bg-[#2E5B44] py-5 text-xl font-semibold text-white disabled:opacity-50"
+        >
+          Next
+        </button>
       </ScreenWrapper>
     );
   }
@@ -411,7 +459,6 @@ export function BPInterpreter() {
     );
   }
 
-  // WARM CLINICAL RESULT SCREEN
   if (step === "result") {
     return (
       <ScreenWrapper step={step}>
@@ -443,12 +490,24 @@ export function BPInterpreter() {
         {isHighReading ? (
           <button 
             onClick={() => { 
-              setReadingCount(prev => prev + 1); 
-              setStep("s9_timer"); 
+              if (readingCount === 1) {
+                setReadingCount(2); 
+                setStep("s9_timer"); 
+              } else if (readingCount === 2) {
+                setStep("s9_30min_timer");
+              } else {
+                setSystolic("");
+                setDiastolic("");
+                setSymptoms([]);
+                setReadingCount(1);
+                setStep("s1_bp");
+              }
             }} 
             className="mt-10 w-full rounded-full bg-[#2E5B44] py-5 text-xl font-semibold text-white"
           >
-            {readingCount === 1 ? "Rest and Breathe (10 Mins)" : "Rest and Breathe (10 Mins)"}
+            {readingCount === 1 ? "Rest and Breathe (10 Mins)" : 
+             readingCount === 2 ? "Wait 30 Minutes" : 
+             "Log Another Reading"}
           </button>
         ) : (
           <button 
@@ -468,16 +527,11 @@ export function BPInterpreter() {
     );
   }
 
-  // TIMERS
   if (step === "s9_timer") {
     return (
       <BreathingTimer 
         onFinish={() => {
-          if (readingCount > 1) {
-            setStep("s9_30min_timer");
-          } else {
-            setStep("s1_bp"); 
-          }
+          setStep("s1_bp"); 
         }} 
       />
     );
@@ -490,7 +544,7 @@ export function BPInterpreter() {
           setSystolic(""); 
           setDiastolic(""); 
           setSymptoms([]);
-          setReadingCount(1); 
+          setReadingCount(3);
           setStep("s1_bp"); 
         }} 
       />
@@ -499,4 +553,3 @@ export function BPInterpreter() {
 
   return null;
 }
-
