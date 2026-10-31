@@ -4,38 +4,58 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { BPInterpreter } from "@/components/interpreter/BPInterpreter";
 
+type BaselineReading = { sys: number; dia: number };
+
+function getCategoryColor(sys: number, dia: number) {
+  if (sys >= 140 || dia >= 90) return "bg-red-500";
+  if (sys >= 130 || dia >= 85) return "bg-orange-500";
+  if (sys >= 125) return "bg-yellow-500";
+  return "bg-emerald-500";
+}
+
 export default function HomePage() {
   const [isLogging, setIsLogging] = useState(false);
   const [title, setTitle] = useState("");
   const [lastReading, setLastReading] = useState<{sys: number, dia: number} | null>(null);
- const [greeting] = useState(() => {
-    const hour = new Date().getHours();
-    if (hour < 12) return "Good morning";
-    if (hour < 18) return "Good afternoon";
-    return "Good evening";
-  });
+  const [baselineHistory, setBaselineHistory] = useState<BaselineReading[]>([]);
+  const [greeting, setGreeting] = useState("Hello");
 
   useEffect(() => {
+    const hour = new Date().getHours();
+    // The local-time greeting must be set after hydration.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setGreeting(hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening");
+
     const loadData = async () => {
       const savedTitle = localStorage.getItem("sanctos_title") || "";
       setTitle(savedTitle);
 
       const supabase = createClient();
       const deviceId = localStorage.getItem("sanctos_device_id");
+
       if (deviceId) {
+        // Fetch the last 7 readings to build the baseline chart
         const { data } = await supabase
           .from("readings")
           .select("systolic, diastolic")
           .eq("user_id", deviceId)
           .order("recorded_at", { ascending: false })
-          .limit(1)
-          .single();
-        
-        if (data) setLastReading({ sys: data.systolic, dia: data.diastolic });
+          .limit(7);
+
+        if (data && data.length > 0) {
+          setLastReading({ sys: data[0].systolic, dia: data[0].diastolic });
+
+          // Reverse the array so the oldest is on the left, newest on the right
+          const history = data.map(d => ({ sys: d.systolic, dia: d.diastolic })).reverse();
+          setBaselineHistory(history);
+        } else {
+          setLastReading(null);
+          setBaselineHistory([]);
+        }
       }
     };
     loadData();
-  }, [isLogging]);
+  }, [isLogging]); // Reload data when they finish logging a reading
 
   if (isLogging) {
     return (
@@ -51,7 +71,7 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#121212] text-white pb-24 font-sans">
+    <div className="min-h-screen bg-[#121212] text-[#F9F8F6] pb-24 font-sans">
       <header className="max-w-md mx-auto px-6 py-6 flex justify-between items-center">
         <span className="text-xl font-semibold tracking-tight">getsanctos.</span>
         <button className="text-neutral-500 hover:text-white cursor-not-allowed" title="Coming soon">
@@ -66,29 +86,50 @@ export default function HomePage() {
           </h1>
           <p className="mt-2 text-neutral-400">Your health, finally explained.</p>
           
-          <button 
+          <button
             onClick={() => setIsLogging(true)}
             className="mt-8 w-full rounded-full bg-[#2E5B44] px-8 py-4 text-lg font-semibold text-white transition-transform hover:scale-[1.02]"
           >
-            Log Today's Reading
+            Log Today&apos;s Reading
           </button>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 shadow-sm">
+          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
             <p className="text-sm font-medium text-neutral-400">Last Reading</p>
             <p className="mt-2 text-3xl font-semibold tracking-tight text-white">
               {lastReading ? `${lastReading.sys}/${lastReading.dia}` : "--/--"}
             </p>
           </div>
-          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 shadow-sm">
+
+          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
             <p className="text-sm font-medium text-neutral-400">Your Baseline</p>
-            <div className="mt-4 flex items-end space-x-1 h-8">
-              <div className="w-2 bg-[#2E5B44] rounded-t-sm h-[40%]"></div>
-              <div className="w-2 bg-[#2E5B44] rounded-t-sm h-[60%]"></div>
-              <div className="w-2 bg-[#2E5B44] rounded-t-sm h-[50%]"></div>
-              <div className="w-2 bg-[#2E5B44] rounded-t-sm h-[80%]"></div>
-              <div className="w-2 bg-[#2E5B44] rounded-t-sm h-[70%]"></div>
+
+            {/* DYNAMIC BAR CHART */}
+            <div className="mt-4 flex items-end space-x-1 h-10 w-full">
+              {baselineHistory.length > 0 ? (
+                baselineHistory.map(({ sys, dia }, idx) => {
+                  // Scale the bar height relative to 180 (max reasonable systolic)
+                  // but ensure it's at least 20% tall so it's visible
+                  const heightPct = Math.min(100, Math.max(20, (sys / 180) * 100));
+                  return (
+                    <div
+                      key={idx}
+                      className={`${getCategoryColor(sys, dia)} rounded-t-sm flex-1`}
+                      style={{ height: `${heightPct}%` }}
+                    />
+                  );
+                })
+              ) : (
+                // Placeholder bars if no data yet
+                <>
+                  <div className="bg-neutral-800 rounded-t-sm h-[20%] flex-1"></div>
+                  <div className="bg-neutral-800 rounded-t-sm h-[40%] flex-1"></div>
+                  <div className="bg-neutral-800 rounded-t-sm h-[30%] flex-1"></div>
+                  <div className="bg-neutral-800 rounded-t-sm h-[60%] flex-1"></div>
+                  <div className="bg-neutral-800 rounded-t-sm h-[50%] flex-1"></div>
+                </>
+              )}
             </div>
           </div>
         </div>
