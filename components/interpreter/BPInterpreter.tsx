@@ -3,122 +3,175 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 
+const ScreenWrapper = ({ step, children }: { step: string, children: React.ReactNode }) => (
+  <div key={step} className="animate-fade-in-up max-w-md mx-auto min-h-[80vh] flex flex-col justify-center px-6 py-12 text-white">
+    {children}
+  </div>
+);
+
+function BreathingTimer({ onFinish }: { onFinish: () => void }) {
+  const [timeLeft, setTimeLeft] = useState(600);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Calculate text based on elapsed time (16 second cycle)
+  const timeElapsed = 600 - timeLeft;
+  const cycle = Math.floor(timeElapsed / 4) % 4; 
+  let text = "";
+  if (cycle === 0) text = "Breathe In";
+  else if (cycle === 1) text = "Hold";
+  else if (cycle === 2) text = "Breathe Out";
+  else text = "Hold";
+
+  const minutes = Math.floor(timeLeft / 60);
+  const seconds = timeLeft % 60;
+
+  return (
+    <ScreenWrapper step="s9_timer">
+      <h1 className="text-4xl font-semibold tracking-tight text-center text-white">Let's take a break.</h1>
+      <p className="mt-4 text-center text-neutral-400 text-lg">Rest for 10 minutes before checking again.</p>
+      
+      <div className="text-7xl font-mono tracking-tighter mt-12 mb-8 text-[#2E5B44] text-center">
+        {minutes}:{seconds.toString().padStart(2, '0')}
+      </div>
+
+      <div className="relative flex items-center justify-center w-64 h-64 my-8 mx-auto">
+        {/* Background pulsing circles */}
+        <div className="absolute w-32 h-32 bg-[#2E5B44] rounded-full opacity-20 animate-breathe-circle" />
+        <div className="absolute w-32 h-32 bg-[#2E5B44] rounded-full opacity-40 animate-breathe-circle" style={{ animationDelay: '-0.2s' }} />
+        
+        {/* Solid inner circle */}
+        <div className="absolute w-32 h-32 bg-[#2E5B44] rounded-full animate-breathe-circle" />
+        
+        {/* Text stays centered */}
+        <span className="absolute text-white text-2xl font-semibold z-10">{text}</span>
+      </div>
+
+      <button onClick={onFinish} className="mt-8 w-full rounded-full bg-[#2E5B44] py-5 text-xl font-semibold text-white">
+        Check Again Now
+      </button>
+    </ScreenWrapper>
+  );
+}
+
+
 export function BPInterpreter() {
-  const [step, setStep] = useState<"onboarding" | "s1_entry" | "s4_context" | "result" | "s9_timer" | "emergency" | "urgent">("onboarding");
+  const [step, setStep] = useState<
+    | "onboarding" 
+    | "s1_age" | "s1_sbp" | "s1_dbp" | "s1_symptoms" 
+    | "s4_coffee" | "s4_meal" | "s4_meds" | "s4_stress" 
+    | "result" | "s9_timer" | "emergency" | "urgent"
+  >("onboarding");
+  
   const [title, setTitle] = useState("");
   const [name, setName] = useState("");
 
-  // S1 Inputs
   const [age, setAge] = useState("");
   const [systolic, setSystolic] = useState("");
   const [diastolic, setDiastolic] = useState("");
   const [symptoms, setSymptoms] = useState<string[]>([]);
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // S4 Context
   const [context, setContext] = useState({
-    caffeine: "",
-    meds: "",
-    stress: "",
-    meal: ""
+    caffeine: "", meds: "", stress: "", meal: ""
   });
-
-  // S9 Timer State
-  const [timeLeft, setTimeLeft] = useState(600); // 10 minutes in seconds
-  const [pacerText, setPacerText] = useState("Breathe In");
 
   const symptomList = [
     "Chest pain", "Severe headache", "One-sided weakness", 
     "Trouble speaking", "Shortness of breath", "Confusion"
   ];
 
-  // S9 Timer Logic
   useEffect(() => {
-    if (step !== "s9_timer") return;
-    
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
-    }, 1000);
-
-    let cycleTime = 0;
-    const pacer = setInterval(() => {
-      cycleTime = (cycleTime + 1) % 16;
-      if (cycleTime < 4) setPacerText("Breathe In");
-      else if (cycleTime < 8) setPacerText("Hold");
-      else if (cycleTime < 12) setPacerText("Breathe Out");
-      else setPacerText("Hold");
-    }, 1000);
-
-    return () => {
-      clearInterval(timer);
-      clearInterval(pacer);
-    };
-  }, [step]);
+    const savedName = localStorage.getItem("sanctos_name");
+    const savedTitle = localStorage.getItem("sanctos_title");
+    if (savedName) {
+      setName(savedName);
+      setTitle(savedTitle || "");
+      setStep("s1_age");
+    }
+  }, []);
 
   const toggleSymptom = (symptom: string) => {
-    setSymptoms(prev => 
-      prev.includes(symptom) ? prev.filter(s => s !== symptom) : [...prev, symptom]
-    );
+    setSymptoms(prev => prev.includes(symptom) ? prev.filter(s => s !== symptom) : [...prev, symptom]);
   };
 
-  const handleEntrySubmit = () => {
+  const saveReadingToDB = async (isEmergency: boolean, currentContext = context) => {
+    const supabase = createClient();
+    let deviceId = localStorage.getItem("sanctos_device_id");
+    if (!deviceId) {
+      deviceId = crypto.randomUUID();
+      localStorage.setItem("sanctos_device_id", deviceId);
+    }
+
+    const { error: dbError } = await supabase.from("readings").insert({
+      user_id: deviceId,
+      systolic: parseInt(systolic),
+      diastolic: parseInt(diastolic),
+      context_notes: isEmergency ? "Emergency Gate Triggered" : JSON.stringify(currentContext)
+    });
+
+    if (dbError) throw new Error(dbError.message);
+  };
+
+  const handleFinalSubmit = async () => {
+    if (isSubmitting) return;
     const sys = parseInt(systolic);
     const dia = parseInt(diastolic);
-    const numAge = parseInt(age);
 
-    if (isNaN(sys) || isNaN(dia) || isNaN(numAge)) {
-      setError("Please enter your age and both blood pressure numbers.");
-      return;
-    }
     if (sys > 260 || sys < 60 || dia > 160 || dia < 30 || dia >= sys) {
-      setError("Please check your numbers. The bottom number cannot be higher than the top number, and the values must be realistic.");
+      setError("The numbers entered are physically impossible. Please start over.");
       return;
     }
-
-    const hasSymptoms = symptoms.length > 0;
-    if (hasSymptoms && (sys >= 140 || dia >= 90)) { setStep("emergency"); return; }
-    if (sys >= 180 || dia >= 120) { setStep("urgent"); return; }
 
     setError("");
-    setStep("s4_context");
-  };
+    setIsSubmitting(true);
 
-  // --- SUPABASE SAVE LOGIC ---
-const handleContextSubmit = async () => {
     try {
-      const supabase = createClient();
+      const hasSymptoms = symptoms.length > 0;
       
-      let deviceId = localStorage.getItem("sanctos_device_id");
-      if (!deviceId) {
-        deviceId = crypto.randomUUID();
-        localStorage.setItem("sanctos_device_id", deviceId);
+      if (hasSymptoms && (sys >= 140 || dia >= 90)) {
+        await saveReadingToDB(true);
+        setStep("emergency");
+        return;
+      }
+      if (sys >= 180 || dia >= 120) {
+        await saveReadingToDB(true);
+        setStep("urgent");
+        return;
       }
 
-      const { error } = await supabase.from("readings").insert({
-        user_id: deviceId,
-        systolic: parseInt(systolic),
-        diastolic: parseInt(diastolic),
-        context_notes: JSON.stringify(context)
-      });
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      setStep("result");
-    } catch (err: unknown) {
-      console.error("FULL ERROR:", err);
-      const message = err instanceof Error ? err.message : "Unknown network error";
-      alert(`SAVE FAILED: ${message}`);
+      setStep("s4_coffee");
+    } catch (err: any) {
+      setError(`Failed to save: ${err.message}`);
+    } finally {
+      setIsSubmitting(false);
     }
   };
-  // --- LOGIC FOR RESULT SCREEN ---
+
+  const handleContextSubmit = async (finalContext: typeof context) => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      await saveReadingToDB(false, finalContext);
+      setStep("result");
+    } catch (err: any) {
+      alert("SAVE FAILED: " + err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const getCategory = (sys: number, dia: number) => {
-    if (sys < 120 && dia < 80) return "Normal";
-    if (sys >= 120 && sys <= 129 && dia < 80) return "Elevated";
-    if ((sys >= 130 && sys <= 139) || (dia >= 80 && dia <= 89)) return "Stage 1 Hypertension";
     if (sys >= 140 || dia >= 90) return "Stage 2 Hypertension";
-    return "Unknown";
+    if (sys >= 130 || dia >= 80) return "Stage 1 Hypertension";
+    if (sys >= 120 && dia < 80) return "Elevated";
+    return "Normal";
   };
 
   const getInfluencerText = () => {
@@ -133,234 +186,181 @@ const handleContextSubmit = async () => {
   const category = getCategory(parseInt(systolic), parseInt(diastolic));
   const influencerText = getInfluencerText();
   const isIsolatedSystolic = parseInt(age) >= 60 && parseInt(systolic) >= 140 && parseInt(diastolic) < 90;
-  
   const isHighReading = category.includes("Stage");
-  const minutes = Math.floor(timeLeft / 60);
-  const seconds = timeLeft % 60;
-
-  // --- RENDER SCREENS ---
 
   if (step === "onboarding") {
     return (
-      <div className="max-w-md mx-auto py-24 px-6 text-[#121212]">
-        <h1 className="text-3xl font-semibold tracking-tight">Let's decode your numbers.</h1>
-        <p className="mt-4 text-neutral-600">First, what should we call you?</p>
-        <div className="mt-8 space-y-6">
+      <ScreenWrapper step={step}>
+        <h1 className="text-4xl font-semibold tracking-tight mb-2 text-white">Let's decode your numbers.</h1>
+        <p className="text-neutral-400 mb-12">First, what should we call you?</p>
+        <div className="space-y-8">
           <div>
-            <label className="block text-sm font-medium mb-2">Title (Optional)</label>
-            <select value={title} onChange={(e) => setTitle(e.target.value)} className="w-full rounded-xl border border-neutral-300 px-4 py-3 text-lg focus:border-[#121212] focus:outline-none">
-              <option value="">Select...</option>
-              <option value="Sir">Sir</option>
-              <option value="Ma">Ma</option>
-              <option value="Chief">Chief</option>
-              <option value="Dr.">Dr.</option>
+            <label className="block text-sm font-medium text-neutral-500 mb-2 uppercase tracking-wide">Title (Optional)</label>
+            <select value={title} onChange={(e) => setTitle(e.target.value)} className="w-full bg-transparent border-b border-neutral-700 py-4 text-2xl font-medium text-white focus:border-[#2E5B44] focus:outline-none">
+              <option value="" className="text-black">Select...</option>
+              <option value="Sir" className="text-black">Sir</option>
+              <option value="Ma" className="text-black">Ma</option>
+              <option value="Chief" className="text-black">Chief</option>
+              <option value="Dr." className="text-black">Dr.</option>
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-2">First Name</label>
-            <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Tunmise" className="w-full rounded-xl border border-neutral-300 px-4 py-3 text-lg focus:border-[#121212] focus:outline-none" />
+            <label className="block text-sm font-medium text-neutral-500 mb-2 uppercase tracking-wide">First Name</label>
+            <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Tunmise" className="w-full bg-transparent border-b border-neutral-700 py-4 text-2xl font-medium text-white placeholder-neutral-600 focus:border-[#2E5B44] focus:outline-none" />
           </div>
-          <button 
-            onClick={() => { 
-              localStorage.setItem("sanctos_title", title); 
-              setStep("s1_entry"); 
-            }} 
-            disabled={!name} 
-            className="w-full rounded-full bg-[#2E5B44] px-8 py-4 text-lg font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-          >
+          <button onClick={() => { localStorage.setItem("sanctos_name", name); localStorage.setItem("sanctos_title", title); setStep("s1_age"); }} disabled={!name} className="w-full mt-8 rounded-full bg-[#2E5B44] py-5 text-xl font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50">
             Continue
           </button>
         </div>
-      </div>
+      </ScreenWrapper>
     );
   }
 
-  if (step === "s9_timer") {
+  if (step === "s1_age") {
     return (
-      <div className="max-w-md mx-auto py-12 px-6 text-[#121212] flex flex-col items-center text-center min-h-screen">
-        <h1 className="text-3xl font-semibold tracking-tight mt-8">Let's take a break.</h1>
-        <p className="mt-4 text-neutral-600">Rest for 10 minutes before checking again. This can help relax your body and give a more accurate reading.</p>
-        
-        <div className="text-6xl font-mono tracking-tighter mt-12 mb-8 text-[#2E5B44]">
-          {minutes}:{seconds.toString().padStart(2, '0')}
-        </div>
-
-        <div className="relative flex items-center justify-center w-64 h-64 my-8">
-          <div className="absolute w-32 h-32 bg-[#2E5B44] rounded-full opacity-20 animate-breathe" />
-          <div className="absolute w-32 h-32 bg-[#2E5B44] rounded-full opacity-40 animate-breathe" style={{ animationDelay: '0.2s' }} />
-          <div className="absolute w-32 h-32 bg-[#2E5B44] rounded-full flex items-center justify-center text-white font-medium animate-breathe">
-            <span className="text-xl">{pacerText}</span>
-          </div>
-        </div>
-
-        <div className="mt-8 text-left bg-neutral-50 p-6 rounded-xl border border-neutral-200 w-full">
-          <p className="text-sm font-medium text-neutral-800 mb-2">Instructions:</p>
-          <ul className="text-sm text-neutral-600 space-y-2 list-disc pl-4">
-            <li>Sit comfortably. Keep your back supported and feet flat.</li>
-            <li>Follow the circle. Breathe in as it expands, out as it shrinks.</li>
-            <li>Do not talk or check your phone during this time.</li>
-            <li>If you feel unwell at any point, stop and seek medical care.</li>
-          </ul>
-        </div>
-
-        <button onClick={() => { setTimeLeft(600); setStep("s1_entry"); }} className="mt-8 w-full rounded-full bg-[#2E5B44] px-8 py-4 text-lg font-semibold text-white">
-          Check Again Now
-        </button>
-      </div>
+      <ScreenWrapper step={step}>
+        <p className="text-xl text-neutral-400 mb-4">Thanks, {title} {name}.</p>
+        <h2 className="text-5xl font-semibold tracking-tight mb-12 text-white">How old are you?</h2>
+        <input type="number" value={age} onChange={(e) => setAge(e.target.value)} autoFocus placeholder="45" className="w-full text-center bg-transparent border-b-2 border-neutral-700 pb-4 text-7xl font-semibold text-white placeholder-neutral-600 focus:border-[#2E5B44] focus:outline-none" />
+        <button onClick={() => { if(parseInt(age) < 1) return; setStep("s1_sbp"); }} disabled={!age} className="w-full mt-16 rounded-full bg-[#2E5B44] py-5 text-xl font-semibold text-white disabled:opacity-50">Next</button>
+      </ScreenWrapper>
     );
   }
+
+  if (step === "s1_sbp") {
+    return (
+      <ScreenWrapper step={step}>
+        <p className="text-xl text-neutral-400 mb-4">Got it.</p>
+        <h2 className="text-4xl font-semibold tracking-tight mb-2 text-white">What is your top number?</h2>
+        <p className="text-neutral-500 mb-12">(Systolic)</p>
+        <input type="number" value={systolic} onChange={(e) => setSystolic(e.target.value)} autoFocus placeholder="120" className="w-full text-center bg-transparent border-b-2 border-neutral-700 pb-4 text-7xl font-semibold text-white placeholder-neutral-600 focus:border-[#2E5B44] focus:outline-none" />
+        <button onClick={() => setStep("s1_dbp")} disabled={!systolic} className="w-full mt-16 rounded-full bg-[#2E5B44] py-5 text-xl font-semibold text-white disabled:opacity-50">Next</button>
+      </ScreenWrapper>
+    );
+  }
+
+  if (step === "s1_dbp") {
+    return (
+      <ScreenWrapper step={step}>
+        <h2 className="text-4xl font-semibold tracking-tight mb-2 text-white">And your bottom number?</h2>
+        <p className="text-neutral-500 mb-12">(Diastolic)</p>
+        <input type="number" value={diastolic} onChange={(e) => setDiastolic(e.target.value)} autoFocus placeholder="80" className="w-full text-center bg-transparent border-b-2 border-neutral-700 pb-4 text-7xl font-semibold text-white placeholder-neutral-600 focus:border-[#2E5B44] focus:outline-none" />
+        <button onClick={() => setStep("s1_symptoms")} disabled={!diastolic} className="w-full mt-16 rounded-full bg-[#2E5B44] py-5 text-xl font-semibold text-white disabled:opacity-50">Next</button>
+      </ScreenWrapper>
+    );
+  }
+
+  if (step === "s1_symptoms") {
+    return (
+      <ScreenWrapper step={step}>
+        <h2 className="text-3xl font-semibold tracking-tight mb-8 leading-tight text-white">Are you experiencing any of these right now?</h2>
+        <div className="space-y-3 w-full">
+          {symptomList.map(symptom => (
+            <button key={symptom} onClick={() => toggleSymptom(symptom)} className={`w-full p-5 rounded-2xl text-left text-lg font-medium border-2 transition-all ${symptoms.includes(symptom) ? "border-red-500 bg-red-900/20 text-red-400" : "border-neutral-700 bg-neutral-900 text-neutral-300"}`}>
+              {symptom}
+            </button>
+          ))}
+        </div>
+        {error && <p className="text-red-500 mt-4 text-sm">{error}</p>}
+        <button onClick={handleFinalSubmit} disabled={isSubmitting} className="w-full mt-10 rounded-full bg-[#2E5B44] py-5 text-xl font-semibold text-white disabled:opacity-50">
+          {isSubmitting ? "Checking..." : "Check Reading"}
+        </button>
+      </ScreenWrapper>
+    );
+  }
+
+  const ContextScreen = ({ question, valueKey, nextStep }: { question: string, valueKey: keyof typeof context, nextStep: any }) => (
+    <ScreenWrapper step={step}>
+      <h2 className="text-4xl font-semibold tracking-tight mb-12 leading-tight text-white">{question}</h2>
+      <div className="space-y-4 w-full">
+        <button onClick={() => { 
+          const newCtx = {...context, [valueKey]: "yes"};
+          setContext(newCtx); 
+          if(nextStep === "submit") handleContextSubmit(newCtx); 
+          else setStep(nextStep); 
+        }} className="w-full py-8 rounded-3xl bg-white text-black text-2xl font-semibold transition-transform hover:scale-105">Yes</button>
+        
+        <button onClick={() => { 
+          const newCtx = {...context, [valueKey]: "no"};
+          setContext(newCtx); 
+          if(nextStep === "submit") handleContextSubmit(newCtx); 
+          else setStep(nextStep); 
+        }} className="w-full py-8 rounded-3xl bg-neutral-800 text-white border border-neutral-700 text-2xl font-semibold transition-transform hover:scale-105">No</button>
+      </div>
+    </ScreenWrapper>
+  );
+
+  if (step === "s4_coffee") return <ContextScreen question="Did you just drink coffee, smoke, or exercise?" valueKey="caffeine" nextStep="s4_meal" />;
+  if (step === "s4_meal") return <ContextScreen question="Did you eat a heavy or salty meal recently?" valueKey="meal" nextStep="s4_meds" />;
+  if (step === "s4_meds") return <ContextScreen question="Have you taken your BP medication today?" valueKey="meds" nextStep="s4_stress" />;
+  if (step === "s4_stress") return <ContextScreen question="Did you sleep poorly or feel stressed today?" valueKey="stress" nextStep="submit" />;
 
   if (step === "emergency") {
     return (
-      <div className="max-w-md mx-auto py-24 px-6 text-[#121212]">
-        <div className="p-8 rounded-2xl bg-red-50 border border-red-200">
-          <h1 className="text-2xl font-bold text-red-800">Please seek immediate medical care.</h1>
-          <p className="mt-4 text-red-700 leading-relaxed">Your reading is high and you reported symptoms that require urgent attention. Please stop and go to the nearest emergency room, or call emergency services.</p>
+      <ScreenWrapper step={step}>
+        <div className="p-8 rounded-3xl bg-red-950 border border-red-900">
+          <h1 className="text-3xl font-bold text-red-400 leading-tight">Please seek immediate medical care.</h1>
+          <p className="mt-4 text-red-200 text-lg leading-relaxed">Your reading is high and you reported symptoms that require urgent attention. Please stop and go to the nearest emergency room.</p>
         </div>
-      </div>
+      </ScreenWrapper>
     );
   }
 
   if (step === "urgent") {
     return (
-      <div className="max-w-md mx-auto py-24 px-6 text-[#121212]">
-        <div className="p-8 rounded-2xl bg-orange-50 border border-orange-200">
-          <h1 className="text-2xl font-bold text-orange-800">Your reading is very high.</h1>
-          <p className="mt-4 text-orange-700 leading-relaxed">A reading of {systolic}/{diastolic} is in the hypertensive crisis range. Please rest for 5 minutes and test again. If it remains this high, contact your doctor immediately or seek urgent care.</p>
+      <ScreenWrapper step={step}>
+        <div className="p-8 rounded-3xl bg-orange-950 border border-orange-900">
+          <h1 className="text-3xl font-bold text-orange-400 leading-tight">Your reading is very high.</h1>
+          <p className="mt-4 text-orange-200 text-lg leading-relaxed">A reading of {systolic}/{diastolic} is in the hypertensive crisis range. Please rest for 5 minutes and test again. If it remains this high, contact your doctor immediately.</p>
         </div>
-      </div>
-    );
-  }
-
-  if (step === "s4_context") {
-    return (
-      <div className="max-w-md mx-auto py-24 px-6 text-[#121212]">
-        <h1 className="text-3xl font-semibold tracking-tight">A quick context check.</h1>
-        <p className="mt-4 text-neutral-600">These factors can temporarily affect a reading.</p>
-        
-        <div className="mt-8 space-y-6">
-          <div>
-            <label className="block text-sm font-medium mb-2">Did you just drink coffee, smoke, or exercise?</label>
-            <div className="flex gap-2">
-              <button onClick={() => setContext({...context, caffeine: "yes"})} className={`flex-1 rounded-xl py-3 font-medium border ${context.caffeine === "yes" ? "bg-[#2E5B44] text-white border-[#2E5B44]" : "border-neutral-300 text-neutral-700"}`}>Yes</button>
-              <button onClick={() => setContext({...context, caffeine: "no"})} className={`flex-1 rounded-xl py-3 font-medium border ${context.caffeine === "no" ? "bg-[#2E5B44] text-white border-[#2E5B44]" : "border-neutral-300 text-neutral-700"}`}>No</button>
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-2">Did you eat a heavy or salty meal in the last 2 hours?</label>
-            <div className="flex gap-2">
-              <button onClick={() => setContext({...context, meal: "yes"})} className={`flex-1 rounded-xl py-3 font-medium border ${context.meal === "yes" ? "bg-[#2E5B44] text-white border-[#2E5B44]" : "border-neutral-300 text-neutral-700"}`}>Yes</button>
-              <button onClick={() => setContext({...context, meal: "no"})} className={`flex-1 rounded-xl py-3 font-medium border ${context.meal === "no" ? "bg-[#2E5B44] text-white border-[#2E5B44]" : "border-neutral-300 text-neutral-700"}`}>No</button>
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-2">Have you taken your BP medication today?</label>
-            <div className="flex gap-2">
-              <button onClick={() => setContext({...context, meds: "yes"})} className={`flex-1 rounded-xl py-3 font-medium border ${context.meds === "yes" ? "bg-[#2E5B44] text-white border-[#2E5B44]" : "border-neutral-300 text-neutral-700"}`}>Yes</button>
-              <button onClick={() => setContext({...context, meds: "no"})} className={`flex-1 rounded-xl py-3 font-medium border ${context.meds === "no" ? "bg-[#2E5B44] text-white border-[#2E5B44]" : "border-neutral-300 text-neutral-700"}`}>No</button>
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-2">Did you sleep poorly or feel unusually stressed today?</label>
-            <div className="flex gap-2">
-              <button onClick={() => setContext({...context, stress: "yes"})} className={`flex-1 rounded-xl py-3 font-medium border ${context.stress === "yes" ? "bg-[#2E5B44] text-white border-[#2E5B44]" : "border-neutral-300 text-neutral-700"}`}>Yes</button>
-              <button onClick={() => setContext({...context, stress: "no"})} className={`flex-1 rounded-xl py-3 font-medium border ${context.stress === "no" ? "bg-[#2E5B44] text-white border-[#2E5B44]" : "border-neutral-300 text-neutral-700"}`}>No</button>
-            </div>
-          </div>
-          
-          <button onClick={handleContextSubmit} disabled={!context.caffeine || !context.meal || !context.meds || !context.stress} className="w-full rounded-full bg-[#2E5B44] px-8 py-4 text-lg font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50">
-            See My Result
-          </button>
-        </div>
-      </div>
+      </ScreenWrapper>
     );
   }
 
   if (step === "result") {
     return (
-      <div className="max-w-md mx-auto py-24 px-6 text-[#121212]">
+      <ScreenWrapper step={step}>
         {isHighReading ? (
           <div>
-            <h1 className="text-3xl font-semibold tracking-tight">{systolic}/{diastolic}.</h1>
-            <p className="mt-2 text-xl text-neutral-600">Higher than usual today. Let's slow down.</p>
-            <div className="mt-8 p-8 rounded-2xl bg-[#F3F4F6] border border-neutral-200">
-              <p className="text-lg text-neutral-800 leading-relaxed">
-                {influencerText && <span className="font-semibold">{influencerText} </span>}
+            <h1 className="text-6xl font-semibold tracking-tight text-white">{systolic}/{diastolic}.</h1>
+            <p className="mt-4 text-2xl text-neutral-400">Higher than usual today. Let's slow down.</p>
+            <div className="mt-10 p-8 rounded-3xl bg-neutral-900 border border-neutral-800">
+              <p className="text-xl text-neutral-200 leading-relaxed">
+                {influencerText && <span className="font-semibold block mb-2 text-white">{influencerText}</span>}
                 Your reading is in the range doctors classify as <strong>{category}</strong>.
               </p>
               {isIsolatedSystolic && (
-                <p className="mt-4 text-sm text-neutral-600 border-t border-neutral-300 pt-4">
-                  Because you are over 60 and your top number is high while your bottom number is normal, this is known as Isolated Systolic Hypertension. This is common as arteries stiffen with age, but still important to discuss with your doctor.
+                <p className="mt-6 text-sm text-neutral-400 border-t border-neutral-800 pt-4">
+                  Because you are over 60 and your top number is high while your bottom number is normal, this is known as Isolated Systolic Hypertension.
                 </p>
               )}
             </div>
-            <button onClick={() => setStep("s9_timer")} className="mt-8 w-full rounded-full bg-[#2E5B44] px-8 py-4 text-lg font-semibold text-white">
+            <button onClick={() => setStep("s9_timer")} className="mt-10 w-full rounded-full bg-[#2E5B44] py-5 text-xl font-semibold text-white">
               Rest and Breathe (10 Mins)
             </button>
           </div>
         ) : (
           <div>
-            <h1 className="text-3xl font-semibold tracking-tight">{systolic}/{diastolic}. Steady.</h1>
-            <p className="mt-2 text-xl text-neutral-600">A good start, {title} {name}.</p>
-            <div className="mt-8 p-8 rounded-2xl bg-[#F3F4F6] border border-neutral-200">
-              <p className="text-lg text-neutral-800 leading-relaxed">
-                {influencerText && <span className="font-semibold">{influencerText} </span>}
+            <h1 className="text-6xl font-semibold tracking-tight text-white">{systolic}/{diastolic}. Steady.</h1>
+            <p className="mt-4 text-2xl text-neutral-400">A good start, {title} {name}.</p>
+            <div className="mt-10 p-8 rounded-3xl bg-neutral-900 border border-neutral-800">
+              <p className="text-xl text-neutral-200 leading-relaxed">
+                {influencerText && <span className="font-semibold block mb-2 text-white">{influencerText}</span>}
                 Your reading is in the range doctors classify as <strong>{category}</strong>.
               </p>
             </div>
-            <button onClick={() => { setSystolic(""); setDiastolic(""); setSymptoms([]); setContext({ caffeine: "", meds: "", stress: "", meal: "" }); setStep("s1_entry"); }} className="mt-8 w-full rounded-full bg-[#2E5B44] px-8 py-4 text-lg font-semibold text-white">
+            <button onClick={() => { setSystolic(""); setDiastolic(""); setSymptoms([]); setContext({ caffeine: "", meds: "", stress: "", meal: "" }); setStep("s1_age"); }} className="mt-10 w-full rounded-full bg-[#2E5B44] py-5 text-xl font-semibold text-white">
               Log Another Reading
             </button>
           </div>
         )}
-      </div>
+      </ScreenWrapper>
     );
   }
 
-  return (
-    <div className="max-w-md mx-auto py-24 px-6 text-[#121212]">
-      <h1 className="text-3xl font-semibold tracking-tight">Good to see you, {title} {name}.</h1>
-      <p className="mt-4 text-neutral-600">Let's log your reading.</p>
-      
-      <div className="mt-8 space-y-8">
-        <div className="rounded-xl bg-neutral-100 p-6">
-          <p className="text-sm font-medium text-neutral-800">Day 0 Pre-Reading Checklist:</p>
-          <ul className="mt-2 list-disc pl-5 text-sm text-neutral-600 space-y-1">
-            <li>Sit with your back supported and feet flat.</li>
-            <li>Rest your arm on a table at heart level.</li>
-            <li>Stay quiet and relaxed for five minutes first.</li>
-          </ul>
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-2">Age</label>
-          <input type="number" value={age} onChange={(e) => setAge(e.target.value)} placeholder="e.g. 45" className="w-full rounded-xl border border-neutral-300 px-4 py-4 text-xl focus:border-[#121212] focus:outline-none" />
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">Systolic (Top)</label>
-            <input type="number" value={systolic} onChange={(e) => setSystolic(e.target.value)} placeholder="120" className="w-full rounded-xl border border-neutral-300 px-4 py-4 text-2xl focus:border-[#121212] focus:outline-none" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-2">Diastolic (Bottom)</label>
-            <input type="number" value={diastolic} onChange={(e) => setDiastolic(e.target.value)} placeholder="80" className="w-full rounded-xl border border-neutral-300 px-4 py-4 text-2xl focus:border-[#121212] focus:outline-none" />
-          </div>
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-3">Are you experiencing any of these right now?</label>
-          <div className="space-y-2">
-            {symptomList.map(symptom => (
-              <label key={symptom} className="flex items-center space-x-3 p-3 rounded-lg border border-neutral-200 cursor-pointer hover:bg-neutral-50">
-                <input type="checkbox" checked={symptoms.includes(symptom)} onChange={() => toggleSymptom(symptom)} className="h-5 w-5 rounded border-neutral-300 text-[#2E5B44] focus:ring-[#2E5B44]" />
-                <span className="text-neutral-700">{symptom}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-        {error && <div className="p-4 rounded-xl bg-red-50 text-red-700 text-sm border border-red-200">{error}</div>}
-        <button onClick={handleEntrySubmit} className="w-full rounded-full bg-[#2E5B44] px-8 py-4 text-lg font-semibold text-white transition-opacity hover:opacity-90">
-          Check Reading
-        </button>
-      </div>
-    </div>
-  );
+  if (step === "s9_timer") {
+    return <BreathingTimer onFinish={() => setStep("s1_age")} />;
+  }
+
+  return null;
 }
