@@ -4,10 +4,58 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 const ScreenWrapper = ({ step, children }: { step: string, children: React.ReactNode }) => (
-  <div key={step} className="animate-fade-in-up max-w-md mx-auto min-h-[80vh] flex flex-col justify-center px-6 py-12 text-white">
+  <div key={step} className="animate-fade-in-up max-w-md mx-auto min-h-[80vh] flex flex-col justify-center px-6 py-12 text-[#F9F8F6]">
     {children}
   </div>
 );
+
+// --- THE 30-MINUTE PERSISTENT TIMER ---
+function PersistentTimer({ onFinish }: { onFinish: () => void }) {
+  const [timeLeft, setTimeLeft] = useState(1800); // 30 mins
+
+  useEffect(() => {
+    let targetEndTime = Number(localStorage.getItem("sanctos_30m_target"));
+    if (!targetEndTime || targetEndTime < Date.now()) {
+      targetEndTime = Date.now() + 1800000; 
+      localStorage.setItem("sanctos_30m_target", String(targetEndTime));
+    }
+
+    const timer = setInterval(() => {
+      const now = Date.now();
+      const remaining = Math.max(0, Math.floor((targetEndTime - now) / 1000));
+      setTimeLeft(remaining);
+      if (remaining === 0) clearInterval(timer);
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  const minutes = Math.floor(timeLeft / 60);
+  const seconds = timeLeft % 60;
+
+  return (
+    <ScreenWrapper step="s9_30min_timer">
+      <h1 className="text-4xl font-semibold tracking-tight text-center text-[#F9F8F6]">Let&apos;s wait a bit longer.</h1>
+      
+      <div className="mt-6 p-6 rounded-2xl bg-neutral-900 border border-neutral-800 text-sm text-neutral-300 leading-relaxed text-left">
+        <p className="font-semibold text-[#F9F8F6] mb-2">Why are we breathing?</p>
+        <p>Deep, slow breathing stimulates your vagus nerve, which acts as your body’s natural &apos;brake&apos; system. When you breathe slowly, you signal to your heart to slow down. At the same time, it tells your blood vessels to relax and widen (vasodilation). Think of it as giving your heart a well-deserved mini-vacation.</p>
+      </div>
+
+      <div className="text-7xl font-mono tracking-tighter mt-12 mb-8 text-[#2E5B44] text-center">
+        {minutes}:{seconds.toString().padStart(2, '0')}
+      </div>
+
+      <button 
+        onClick={() => { localStorage.removeItem("sanctos_30m_target"); onFinish(); }} 
+        disabled={timeLeft > 0}
+        className="mt-8 w-full rounded-full bg-[#2E5B44] py-5 text-xl font-semibold text-white disabled:opacity-50"
+      >
+        {timeLeft > 0 ? "Wait for timer..." : "Check Again Now"}
+      </button>
+    </ScreenWrapper>
+  );
+}
 
 function BreathingTimer({ onFinish }: { onFinish: () => void }) {
   const [timeLeft, setTimeLeft] = useState(600);
@@ -19,7 +67,6 @@ function BreathingTimer({ onFinish }: { onFinish: () => void }) {
     return () => clearInterval(timer);
   }, []);
 
-  // Calculate text based on elapsed time (16 second cycle)
   const timeElapsed = 600 - timeLeft;
   const cycle = Math.floor(timeElapsed / 4) % 4; 
   let text = "";
@@ -33,23 +80,22 @@ function BreathingTimer({ onFinish }: { onFinish: () => void }) {
 
   return (
     <ScreenWrapper step="s9_timer">
-      <h1 className="text-4xl font-semibold tracking-tight text-center text-white">Let's take a break.</h1>
-      <p className="mt-4 text-center text-neutral-400 text-lg">Rest for 10 minutes before checking again.</p>
+      <h1 className="text-4xl font-semibold tracking-tight text-center text-[#F9F8F6]">Let&apos;s take a break.</h1>
       
-      <div className="text-7xl font-mono tracking-tighter mt-12 mb-8 text-[#2E5B44] text-center">
+      <div className="mt-6 p-6 rounded-2xl bg-neutral-900 border border-neutral-800 text-sm text-neutral-300 leading-relaxed text-left">
+        <p className="font-semibold text-[#F9F8F6] mb-2">Why are we breathing?</p>
+        <p>Deep, slow breathing stimulates your vagus nerve, which acts as your body’s natural &apos;brake&apos; system. When you breathe slowly, you signal to your heart to slow down. At the same time, it tells your blood vessels to relax and widen (vasodilation). Think of it as giving your heart a well-deserved mini-vacation.</p>
+      </div>
+
+      <div className="text-7xl font-mono tracking-tighter mt-8 mb-6 text-[#2E5B44] text-center">
         {minutes}:{seconds.toString().padStart(2, '0')}
       </div>
 
-      <div className="relative flex items-center justify-center w-64 h-64 my-8 mx-auto">
-        {/* Background pulsing circles */}
+      <div className="relative flex items-center justify-center w-64 h-64 my-4 mx-auto">
         <div className="absolute w-32 h-32 bg-[#2E5B44] rounded-full opacity-20 animate-breathe-circle" />
         <div className="absolute w-32 h-32 bg-[#2E5B44] rounded-full opacity-40 animate-breathe-circle" style={{ animationDelay: '-0.2s' }} />
-        
-        {/* Solid inner circle */}
         <div className="absolute w-32 h-32 bg-[#2E5B44] rounded-full animate-breathe-circle" />
-        
-        {/* Text stays centered */}
-        <span className="absolute text-white text-2xl font-semibold z-10">{text}</span>
+        <span className="absolute text-[#F9F8F6] text-2xl font-semibold z-10">{text}</span>
       </div>
 
       <button onClick={onFinish} className="mt-8 w-full rounded-full bg-[#2E5B44] py-5 text-xl font-semibold text-white">
@@ -63,20 +109,23 @@ function BreathingTimer({ onFinish }: { onFinish: () => void }) {
 export function BPInterpreter() {
   const [step, setStep] = useState<
     | "onboarding" 
-    | "s1_age" | "s1_sbp" | "s1_dbp" | "s1_symptoms" 
+    | "s1_age" | "s1_bp" | "s1_symptoms" 
     | "s4_coffee" | "s4_meal" | "s4_meds" | "s4_stress" 
-    | "result" | "s9_timer" | "emergency" | "urgent"
+    | "result" | "s9_timer" | "s9_30min_timer" | "emergency" | "urgent"
   >("onboarding");
   
   const [title, setTitle] = useState("");
   const [name, setName] = useState("");
-
   const [age, setAge] = useState("");
+  
   const [systolic, setSystolic] = useState("");
   const [diastolic, setDiastolic] = useState("");
+
   const [symptoms, setSymptoms] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const [readingCount, setReadingCount] = useState(1);
 
   const [context, setContext] = useState({
     caffeine: "", meds: "", stress: "", meal: ""
@@ -90,11 +139,25 @@ export function BPInterpreter() {
   useEffect(() => {
     const savedName = localStorage.getItem("sanctos_name");
     const savedTitle = localStorage.getItem("sanctos_title");
-   if (savedName) {
+    const savedAge = localStorage.getItem("sanctos_age");
+    const savedContext = localStorage.getItem("sanctos_context");
+
+    if (savedName) {
       setName(savedName);
       setTitle(savedTitle || "");
+    }
+
+    if (savedAge) {
+      setAge(savedAge);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setStep("s1_bp"); 
+    } else if (savedName) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setStep("s1_age");
+    }
+
+    if (savedContext) {
+      setContext(JSON.parse(savedContext));
     }
   }, []);
 
@@ -147,7 +210,14 @@ export function BPInterpreter() {
         return;
       }
 
-      setStep("s4_coffee");
+      localStorage.setItem("sanctos_age", age);
+
+      if (localStorage.getItem("sanctos_context")) {
+        await saveReadingToDB(false);
+        setStep("result");
+      } else {
+        setStep("s4_coffee");
+      }
     } catch (err: any) {
       setError(`Failed to save: ${err.message}`);
     } finally {
@@ -159,6 +229,7 @@ export function BPInterpreter() {
     if (isSubmitting) return;
     setIsSubmitting(true);
     try {
+      localStorage.setItem("sanctos_context", JSON.stringify(finalContext));
       await saveReadingToDB(false, finalContext);
       setStep("result");
     } catch (err: any) {
@@ -175,29 +246,44 @@ export function BPInterpreter() {
     return "Normal";
   };
 
-  const getInfluencerText = () => {
-    let text = "";
-    if (context.meds === "no") text += "You mentioned you missed your medication today. This can affect a reading. ";
-    if (context.meal === "yes") text += "You mentioned eating a heavy or salty meal recently. Digestion shifts blood flow, and salty foods can cause your body to hold onto water. These factors can temporarily affect a blood pressure reading. ";
-    if (context.caffeine === "yes") text += "You mentioned recent caffeine, smoking, or exercise. These can temporarily raise blood pressure. ";
-    if (context.stress === "yes") text += "You mentioned poor sleep or stress today. Stress hormones can cause temporary spikes. ";
-    return text.trim();
-  };
-
   const category = getCategory(parseInt(systolic), parseInt(diastolic));
-  const influencerText = getInfluencerText();
-  const isIsolatedSystolic = parseInt(age) >= 60 && parseInt(systolic) >= 140 && parseInt(diastolic) < 90;
-  const isHighReading = category.includes("Stage");
+  const isHighReading = category !== "Normal" && category !== "Elevated";
+  const isStage2 = category === "Stage 2 Hypertension";
+
+  // --- CLINICAL DYNAMIC COPY GENERATOR ---
+  const meaningCopy = isHighReading 
+    ? `Your reading of ${systolic}/${diastolic} is a bit higher than we would like to see regularly. The top number (${systolic}) is in the range doctors classify as ${isStage2 ? "Stage 2" : "Stage 1"}.`
+    : `Your reading of ${systolic}/${diastolic} is within a healthy range.`;
+
+  let contextCopy = "";
+  if (context.meds === "no") contextCopy += "You mentioned missing your medication today. Missing a dose can cause your numbers to rise. ";
+  if (context.meal === "yes") contextCopy += "You mentioned eating a heavy or salty meal recently. Digestion shifts blood flow, and salty foods can cause your body to hold onto water. These factors can temporarily affect a blood pressure reading. ";
+  if (context.caffeine === "yes") contextCopy += "You mentioned recent caffeine, smoking, or exercise. These can temporarily raise blood pressure. ";
+  if (context.stress === "yes") contextCopy += "You mentioned poor sleep or stress today. Stress hormones can cause temporary spikes. ";
+  if (parseInt(age) >= 60) contextCopy += `Also, because you are ${age}, it is very common for the top number to climb a bit higher as our blood vessels naturally stiffen with age.`;
+  
+  if (!contextCopy) contextCopy = "There are no obvious temporary factors affecting this reading today.";
+
+  const actionCopy = `Take a moment to sit quietly, keep your feet flat, and follow the breathing timer on your screen. After 10 minutes, let&apos;s check it again. ${context.meds === "no" ? "If you haven&apos;t taken your medication today, check your prescription schedule or call your pharmacist to ask if you should take it now." : ""}`;
+
+  const doctorQuestion = context.meds === "no" 
+    ? `"Since my top number tends to spike when I miss a dose, is my current medication schedule still right for me?"`
+    : isHighReading 
+      ? `"My reading is ${systolic}/${diastolic}. Is this something I should monitor closely, or could it be related to my daily habits?"`
+      : `"My reading is ${systolic}/${diastolic}. Does this look like a healthy baseline for me?"`;
+
+
+  // --- RENDER SCREENS ---
 
   if (step === "onboarding") {
     return (
       <ScreenWrapper step={step}>
-        <h1 className="text-4xl font-semibold tracking-tight mb-2 text-white">Let's decode your numbers.</h1>
+        <h1 className="text-4xl font-semibold tracking-tight mb-2 text-[#F9F8F6]">Let&apos;s decode your numbers.</h1>
         <p className="text-neutral-400 mb-12">First, what should we call you?</p>
         <div className="space-y-8">
           <div>
             <label className="block text-sm font-medium text-neutral-500 mb-2 uppercase tracking-wide">Title (Optional)</label>
-            <select value={title} onChange={(e) => setTitle(e.target.value)} className="w-full bg-transparent border-b border-neutral-700 py-4 text-2xl font-medium text-white focus:border-[#2E5B44] focus:outline-none">
+            <select value={title} onChange={(e) => setTitle(e.target.value)} className="w-full bg-transparent border-b border-neutral-700 py-4 text-2xl font-medium text-[#F9F8F6] focus:border-[#2E5B44] focus:outline-none">
               <option value="" className="text-black">Select...</option>
               <option value="Sir" className="text-black">Sir</option>
               <option value="Ma" className="text-black">Ma</option>
@@ -207,7 +293,7 @@ export function BPInterpreter() {
           </div>
           <div>
             <label className="block text-sm font-medium text-neutral-500 mb-2 uppercase tracking-wide">First Name</label>
-            <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Tunmise" className="w-full bg-transparent border-b border-neutral-700 py-4 text-2xl font-medium text-white placeholder-neutral-600 focus:border-[#2E5B44] focus:outline-none" />
+            <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Tunmise" className="w-full bg-transparent border-b border-neutral-700 py-4 text-2xl font-medium text-[#F9F8F6] placeholder-neutral-600 focus:border-[#2E5B44] focus:outline-none" />
           </div>
           <button onClick={() => { localStorage.setItem("sanctos_name", name); localStorage.setItem("sanctos_title", title); setStep("s1_age"); }} disabled={!name} className="w-full mt-8 rounded-full bg-[#2E5B44] py-5 text-xl font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50">
             Continue
@@ -221,32 +307,39 @@ export function BPInterpreter() {
     return (
       <ScreenWrapper step={step}>
         <p className="text-xl text-neutral-400 mb-4">Thanks, {title} {name}.</p>
-        <h2 className="text-5xl font-semibold tracking-tight mb-12 text-white">How old are you?</h2>
-        <input type="number" value={age} onChange={(e) => setAge(e.target.value)} autoFocus placeholder="45" className="w-full text-center bg-transparent border-b-2 border-neutral-700 pb-4 text-7xl font-semibold text-white placeholder-neutral-600 focus:border-[#2E5B44] focus:outline-none" />
-        <button onClick={() => { if(parseInt(age) < 1) return; setStep("s1_sbp"); }} disabled={!age} className="w-full mt-16 rounded-full bg-[#2E5B44] py-5 text-xl font-semibold text-white disabled:opacity-50">Next</button>
+        <h2 className="text-5xl font-semibold tracking-tight mb-12 text-[#F9F8F6]">How old are you?</h2>
+        <input type="number" value={age} onChange={(e) => setAge(e.target.value)} autoFocus placeholder="45" className="w-full text-center bg-transparent border-b-2 border-neutral-700 pb-4 text-7xl font-semibold text-[#F9F8F6] placeholder-neutral-600 focus:border-[#2E5B44] focus:outline-none" />
+        <button onClick={() => { if(parseInt(age) < 1) return; setStep("s1_bp"); }} disabled={!age} className="w-full mt-16 rounded-full bg-[#2E5B44] py-5 text-xl font-semibold text-white disabled:opacity-50">Next</button>
       </ScreenWrapper>
     );
   }
 
-  if (step === "s1_sbp") {
+  if (step === "s1_bp") {
     return (
       <ScreenWrapper step={step}>
         <p className="text-xl text-neutral-400 mb-4">Got it.</p>
-        <h2 className="text-4xl font-semibold tracking-tight mb-2 text-white">What is your top number?</h2>
-        <p className="text-neutral-500 mb-12">(Systolic)</p>
-        <input type="number" value={systolic} onChange={(e) => setSystolic(e.target.value)} autoFocus placeholder="120" className="w-full text-center bg-transparent border-b-2 border-neutral-700 pb-4 text-7xl font-semibold text-white placeholder-neutral-600 focus:border-[#2E5B44] focus:outline-none" />
-        <button onClick={() => setStep("s1_dbp")} disabled={!systolic} className="w-full mt-16 rounded-full bg-[#2E5B44] py-5 text-xl font-semibold text-white disabled:opacity-50">Next</button>
-      </ScreenWrapper>
-    );
-  }
+        <h2 className="text-4xl font-semibold tracking-tight mb-12 text-[#F9F8F6]">What is your reading?</h2>
+        
+        <div className="flex items-center justify-center gap-4 w-full">
+          <input 
+            type="number" 
+            value={systolic} 
+            onChange={(e) => setSystolic(e.target.value)} 
+            autoFocus 
+            placeholder="120" 
+            className="w-32 text-center bg-transparent border-b-2 border-neutral-700 pb-4 text-6xl font-semibold text-[#F9F8F6] placeholder-neutral-600 focus:border-[#2E5B44] focus:outline-none" 
+          />
+          <span className="text-6xl text-neutral-600 font-light">/</span>
+          <input 
+            type="number" 
+            value={diastolic} 
+            onChange={(e) => setDiastolic(e.target.value)} 
+            placeholder="80" 
+            className="w-32 text-center bg-transparent border-b-2 border-neutral-700 pb-4 text-6xl font-semibold text-[#F9F8F6] placeholder-neutral-600 focus:border-[#2E5B44] focus:outline-none" 
+          />
+        </div>
 
-  if (step === "s1_dbp") {
-    return (
-      <ScreenWrapper step={step}>
-        <h2 className="text-4xl font-semibold tracking-tight mb-2 text-white">And your bottom number?</h2>
-        <p className="text-neutral-500 mb-12">(Diastolic)</p>
-        <input type="number" value={diastolic} onChange={(e) => setDiastolic(e.target.value)} autoFocus placeholder="80" className="w-full text-center bg-transparent border-b-2 border-neutral-700 pb-4 text-7xl font-semibold text-white placeholder-neutral-600 focus:border-[#2E5B44] focus:outline-none" />
-        <button onClick={() => setStep("s1_symptoms")} disabled={!diastolic} className="w-full mt-16 rounded-full bg-[#2E5B44] py-5 text-xl font-semibold text-white disabled:opacity-50">Next</button>
+        <button onClick={() => setStep("s1_symptoms")} disabled={!systolic || !diastolic} className="w-full mt-16 rounded-full bg-[#2E5B44] py-5 text-xl font-semibold text-white disabled:opacity-50">Next</button>
       </ScreenWrapper>
     );
   }
@@ -254,7 +347,7 @@ export function BPInterpreter() {
   if (step === "s1_symptoms") {
     return (
       <ScreenWrapper step={step}>
-        <h2 className="text-3xl font-semibold tracking-tight mb-8 leading-tight text-white">Are you experiencing any of these right now?</h2>
+        <h2 className="text-3xl font-semibold tracking-tight mb-8 leading-tight text-[#F9F8F6]">Are you experiencing any of these right now?</h2>
         <div className="space-y-3 w-full">
           {symptomList.map(symptom => (
             <button key={symptom} onClick={() => toggleSymptom(symptom)} className={`w-full p-5 rounded-2xl text-left text-lg font-medium border-2 transition-all ${symptoms.includes(symptom) ? "border-red-500 bg-red-900/20 text-red-400" : "border-neutral-700 bg-neutral-900 text-neutral-300"}`}>
@@ -272,21 +365,21 @@ export function BPInterpreter() {
 
   const ContextScreen = ({ question, valueKey, nextStep }: { question: string, valueKey: keyof typeof context, nextStep: any }) => (
     <ScreenWrapper step={step}>
-      <h2 className="text-4xl font-semibold tracking-tight mb-12 leading-tight text-white">{question}</h2>
+      <h2 className="text-4xl font-semibold tracking-tight mb-12 leading-tight text-[#F9F8F6]">{question}</h2>
       <div className="space-y-4 w-full">
         <button onClick={() => { 
           const newCtx = {...context, [valueKey]: "yes"};
           setContext(newCtx); 
           if(nextStep === "submit") handleContextSubmit(newCtx); 
           else setStep(nextStep); 
-        }} className="w-full py-8 rounded-3xl bg-white text-black text-2xl font-semibold transition-transform hover:scale-105">Yes</button>
+        }} className="w-full py-8 rounded-3xl bg-[#F9F8F6] text-black text-2xl font-semibold transition-transform hover:scale-105">Yes</button>
         
         <button onClick={() => { 
           const newCtx = {...context, [valueKey]: "no"};
           setContext(newCtx); 
           if(nextStep === "submit") handleContextSubmit(newCtx); 
           else setStep(nextStep); 
-        }} className="w-full py-8 rounded-3xl bg-neutral-800 text-white border border-neutral-700 text-2xl font-semibold transition-transform hover:scale-105">No</button>
+        }} className="w-full py-8 rounded-3xl bg-neutral-800 text-[#F9F8F6] border border-neutral-700 text-2xl font-semibold transition-transform hover:scale-105">No</button>
       </div>
     </ScreenWrapper>
   );
@@ -318,50 +411,92 @@ export function BPInterpreter() {
     );
   }
 
+  // WARM CLINICAL RESULT SCREEN
   if (step === "result") {
     return (
       <ScreenWrapper step={step}>
+        <p className="text-2xl text-neutral-400 mb-2">Thanks for checking in today. It&apos;s always good to know where you stand.</p>
+        <h1 className="text-6xl font-semibold tracking-tight text-[#F9F8F6] mb-8">{systolic}/{diastolic}.</h1>
+        
+        <div className="space-y-6 text-lg leading-relaxed">
+          <div>
+            <span className="block text-sm uppercase tracking-widest text-neutral-500 mb-1">The Meaning</span>
+            <p className="text-neutral-200">{meaningCopy}</p>
+          </div>
+
+          <div>
+            <span className="block text-sm uppercase tracking-widest text-neutral-500 mb-1">The Context</span>
+            <p className="text-neutral-300">{contextCopy}</p>
+          </div>
+
+          <div>
+            <span className="block text-sm uppercase tracking-widest text-neutral-500 mb-1">The Action</span>
+            <p className="text-neutral-300">{actionCopy}</p>
+          </div>
+
+          <div className="border-t border-neutral-800 pt-6">
+            <span className="block text-sm uppercase tracking-widest text-neutral-500 mb-1">Ask your doctor</span>
+            <p className="text-[#F9F8F6] italic">{doctorQuestion}</p>
+          </div>
+        </div>
+
         {isHighReading ? (
-          <div>
-            <h1 className="text-6xl font-semibold tracking-tight text-white">{systolic}/{diastolic}.</h1>
-            <p className="mt-4 text-2xl text-neutral-400">Higher than usual today. Let's slow down.</p>
-            <div className="mt-10 p-8 rounded-3xl bg-neutral-900 border border-neutral-800">
-              <p className="text-xl text-neutral-200 leading-relaxed">
-                {influencerText && <span className="font-semibold block mb-2 text-white">{influencerText}</span>}
-                Your reading is in the range doctors classify as <strong>{category}</strong>.
-              </p>
-              {isIsolatedSystolic && (
-                <p className="mt-6 text-sm text-neutral-400 border-t border-neutral-800 pt-4">
-                  Because you are over 60 and your top number is high while your bottom number is normal, this is known as Isolated Systolic Hypertension.
-                </p>
-              )}
-            </div>
-            <button onClick={() => setStep("s9_timer")} className="mt-10 w-full rounded-full bg-[#2E5B44] py-5 text-xl font-semibold text-white">
-              Rest and Breathe (10 Mins)
-            </button>
-          </div>
+          <button 
+            onClick={() => { 
+              setReadingCount(prev => prev + 1); 
+              setStep("s9_timer"); 
+            }} 
+            className="mt-10 w-full rounded-full bg-[#2E5B44] py-5 text-xl font-semibold text-white"
+          >
+            {readingCount === 1 ? "Rest and Breathe (10 Mins)" : "Rest and Breathe (10 Mins)"}
+          </button>
         ) : (
-          <div>
-            <h1 className="text-6xl font-semibold tracking-tight text-white">{systolic}/{diastolic}. Steady.</h1>
-            <p className="mt-4 text-2xl text-neutral-400">A good start, {title} {name}.</p>
-            <div className="mt-10 p-8 rounded-3xl bg-neutral-900 border border-neutral-800">
-              <p className="text-xl text-neutral-200 leading-relaxed">
-                {influencerText && <span className="font-semibold block mb-2 text-white">{influencerText}</span>}
-                Your reading is in the range doctors classify as <strong>{category}</strong>.
-              </p>
-            </div>
-            <button onClick={() => { setSystolic(""); setDiastolic(""); setSymptoms([]); setContext({ caffeine: "", meds: "", stress: "", meal: "" }); setStep("s1_age"); }} className="mt-10 w-full rounded-full bg-[#2E5B44] py-5 text-xl font-semibold text-white">
-              Log Another Reading
-            </button>
-          </div>
+          <button 
+            onClick={() => { 
+              setSystolic(""); 
+              setDiastolic(""); 
+              setSymptoms([]); 
+              setReadingCount(1);
+              setStep("s1_bp"); 
+            }} 
+            className="mt-10 w-full rounded-full bg-[#2E5B44] py-5 text-xl font-semibold text-white"
+          >
+            Log Another Reading
+          </button>
         )}
       </ScreenWrapper>
     );
   }
 
+  // TIMERS
   if (step === "s9_timer") {
-    return <BreathingTimer onFinish={() => setStep("s1_age")} />;
+    return (
+      <BreathingTimer 
+        onFinish={() => {
+          if (readingCount > 1) {
+            setStep("s9_30min_timer");
+          } else {
+            setStep("s1_bp"); 
+          }
+        }} 
+      />
+    );
+  }
+
+  if (step === "s9_30min_timer") {
+    return (
+      <PersistentTimer 
+        onFinish={() => {
+          setSystolic(""); 
+          setDiastolic(""); 
+          setSymptoms([]);
+          setReadingCount(1); 
+          setStep("s1_bp"); 
+        }} 
+      />
+    );
   }
 
   return null;
 }
+
