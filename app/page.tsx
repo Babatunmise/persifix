@@ -8,14 +8,14 @@ export default function HomePage() {
   const [isLogging, setIsLogging] = useState(false);
   const [title, setTitle] = useState("");
   const [lastReading, setLastReading] = useState<{sys: number, dia: number} | null>(null);
-  const [greeting, setGreeting] = useState("Hello");
+ const [greeting] = useState(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 18) return "Good afternoon";
+    return "Good evening";
+  });
 
   useEffect(() => {
-    const hour = new Date().getHours();
-    if (hour < 12) setGreeting("Good morning");
-    else if (hour < 18) setGreeting("Good afternoon");
-    else setGreeting("Good evening");
-
     const loadData = async () => {
       const savedTitle = localStorage.getItem("sanctos_title") || "";
       setTitle(savedTitle);

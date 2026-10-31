@@ -90,9 +90,10 @@ export function BPInterpreter() {
   useEffect(() => {
     const savedName = localStorage.getItem("sanctos_name");
     const savedTitle = localStorage.getItem("sanctos_title");
-    if (savedName) {
+   if (savedName) {
       setName(savedName);
       setTitle(savedTitle || "");
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setStep("s1_age");
     }
   }, []);
