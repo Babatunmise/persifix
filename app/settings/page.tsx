@@ -109,47 +109,64 @@ export default function SettingsPage() {
             Manage your profile and preferences.
           </p>
           <div className="space-y-3">
-            {SETTINGS_ROWS.map((row) => (
-              <button
-                key={row.title}
-                type="button"
-                className={`group flex w-full items-center gap-4 rounded-2xl border border-neutral-800 bg-neutral-900/70 p-5 text-left transition-colors hover:border-neutral-700 hover:bg-neutral-900 sm:p-6 ${
-                  row.destructive ? "text-red-400" : "text-[#F9F8F6]"
-                }`}
-              >
-                <span
-                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
-                    row.destructive ? "bg-red-950/60" : "bg-[#2E5B44]/15"
-                  }`}
-                >
-                  <SettingsIcon name={row.icon} destructive={row.destructive} />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block font-medium">{row.title}</span>
+            {SETTINGS_ROWS.map((row) => {
+              const rowContent = (
+                <>
                   <span
-                    className={`mt-1 block text-sm ${
-                      row.destructive ? "text-red-400/70" : "text-neutral-500"
+                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
+                      row.destructive ? "bg-red-950/60" : "bg-[#2E5B44]/15"
                     }`}
                   >
-                    {row.description}
+                    <SettingsIcon name={row.icon} destructive={row.destructive} />
                   </span>
-                </span>
-                <svg
-                  className="h-5 w-5 shrink-0 text-neutral-600 transition-colors group-hover:text-neutral-300"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-medium">{row.title}</span>
+                    <span
+                      className={`mt-1 block text-sm ${
+                        row.destructive ? "text-red-400/70" : "text-neutral-500"
+                      }`}
+                    >
+                      {row.description}
+                    </span>
+                  </span>
+                  <svg
+                    className="h-5 w-5 shrink-0 text-neutral-600 transition-colors group-hover:text-neutral-300"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.8}
+                      d="M9 5l7 7-7 7"
+                    />
+                  </svg>
+                </>
+              );
+              const rowClassName = `group flex w-full items-center gap-4 rounded-2xl border border-neutral-800 bg-neutral-900/70 p-5 text-left transition-colors hover:border-neutral-700 hover:bg-neutral-900 sm:p-6 ${
+                  row.destructive ? "text-red-400" : "text-[#F9F8F6]"
+                }`;
+
+              return row.title === "Edit Profile" ? (
+                <Link
+                  key={row.title}
+                  href="/settings/profile"
+                  className={rowClassName}
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.8}
-                    d="M9 5l7 7-7 7"
-                  />
-                </svg>
-              </button>
-            ))}
+                  {rowContent}
+                </Link>
+              ) : (
+                <button
+                  key={row.title}
+                  type="button"
+                  className={rowClassName}
+                >
+                  {rowContent}
+                </button>
+              );
+            })}
           </div>
         </section>
       </main>
