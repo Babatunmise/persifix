@@ -73,7 +73,8 @@ export default function HistoryPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#121212] px-5 py-8 text-[#F9F8F6] sm:px-8 sm:py-12">
+    <div className="min-h-screen bg-[#121212] pb-24">
+      <main className="min-h-screen px-5 py-8 text-[#F9F8F6] sm:px-8 sm:py-12">
       <div className="mx-auto max-w-2xl">
         <header className="mb-8 flex items-center justify-between gap-4">
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
@@ -251,6 +252,40 @@ export default function HistoryPage() {
           )}
         </section>
       </div>
-    </main>
+      </main>
+      <nav className="fixed bottom-0 w-full border-t border-neutral-800 bg-[#121212] pb-safe">
+        <div className="mx-auto flex h-16 max-w-md items-center justify-around">
+          <Link
+            href="/"
+            className="flex flex-col items-center text-neutral-500 transition-colors hover:text-[#F9F8F6]"
+          >
+            <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+              <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
+            </svg>
+            <span className="mt-1 text-[10px] font-medium">Home</span>
+          </Link>
+          <Link
+            href="/history"
+            aria-current="page"
+            className="flex flex-col items-center text-[#F9F8F6] transition-colors"
+          >
+            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="mt-1 text-[10px] font-medium">History</span>
+          </Link>
+          <Link
+            href="/settings"
+            className="flex flex-col items-center text-neutral-500 transition-colors hover:text-[#F9F8F6]"
+          >
+            <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924-1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-2.37 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <span className="mt-1 text-[10px] font-medium">Settings</span>
+          </Link>
+        </div>
+      </nav>
+    </div>
   );
 }
