@@ -17,20 +17,31 @@ const getGreeting = () => {
   return "Good evening";
 };
 
-// Accessibility: Get text label for the reading
-const getCategoryLabel = (sys?: number, dia?: number) => {
-  if (!sys || !dia) return "";
-  if (sys >= 140 || dia >= 90) return "High";
-  if (sys >= 130 || dia >= 85) return "Elevated";
-  if (sys >= 125) return "Rising";
+type ReadingCategory = "Normal" | "Elevated" | "Stage 1" | "Stage 2";
+
+function getReadingCategory(sys: number, dia: number): ReadingCategory {
+  if (sys >= 140 || dia >= 90) return "Stage 2";
+  if (sys >= 130 || dia >= 85) return "Stage 1";
+  if (sys >= 125) return "Elevated";
   return "Normal";
-};
+}
+
+function getCategoryLabel(sys: number, dia: number) {
+  const category = getReadingCategory(sys, dia);
+  return category === "Stage 1" || category === "Stage 2" ? "High" : category;
+}
 
 export default function HomePage() {
   const [isLogging, setIsLogging] = useState(false);
   const [title, setTitle] = useState("");
-  const [lastReading, setLastReading] = useState<{sys: number, dia: number} | null>(null);
-  const [baselineHistory, setBaselineHistory] = useState<{sys: number, dia: number}[]>([]);
+  const [lastReading, setLastReading] = useState<{
+    sys: number;
+    dia: number;
+  } | null>(null);
+  const [baselineHistory, setBaselineHistory] = useState<
+    { sys: number; dia: number }[]
+  >([]);
+  const [trendError, setTrendError] = useState("");
   const greeting = useSyncExternalStore(
     subscribeToGreeting,
     getGreeting,
@@ -38,33 +49,89 @@ export default function HomePage() {
   );
 
   useEffect(() => {
+    let isActive = true;
+
     const loadData = async () => {
       const savedTitle = localStorage.getItem("sanctos_title") || "";
-      setTitle(savedTitle);
+      if (isActive) setTitle(savedTitle);
 
-      const supabase = createClient();
       const deviceId = localStorage.getItem("sanctos_device_id");
-      
-      if (deviceId) {
-        const { data } = await supabase
+      if (!deviceId) {
+        if (isActive) {
+          setLastReading(null);
+          setBaselineHistory([]);
+          setTrendError("");
+        }
+        return;
+      }
+
+      try {
+        const supabase = createClient();
+        const { data, error } = await supabase
           .from("readings")
           .select("systolic, diastolic")
           .eq("user_id", deviceId)
           .order("recorded_at", { ascending: false })
           .limit(7);
-        
+
+        if (error) throw error;
+
         if (data && data.length > 0) {
-          setLastReading({ sys: data[0].systolic, dia: data[0].diastolic });
-          const history = data.map(d => ({ sys: d.systolic, dia: d.diastolic })).reverse();
-          setBaselineHistory(history);
+          if (isActive) {
+            setLastReading({ sys: data[0].systolic, dia: data[0].diastolic });
+            setBaselineHistory(
+              data
+                .map((reading) => ({
+                  sys: reading.systolic,
+                  dia: reading.diastolic,
+                }))
+                .reverse(),
+            );
+            setTrendError("");
+          }
         } else {
+          if (isActive) {
+            setLastReading(null);
+            setBaselineHistory([]);
+            setTrendError("");
+          }
+        }
+      } catch {
+        if (isActive) {
           setLastReading(null);
           setBaselineHistory([]);
+          setTrendError("We couldn't load your recent readings.");
         }
       }
     };
-    loadData();
+
+    void loadData();
+    return () => {
+      isActive = false;
+    };
   }, [isLogging]);
+
+  const categoryCounts: Record<ReadingCategory, number> = {
+    Normal: 0,
+    Elevated: 0,
+    "Stage 1": 0,
+    "Stage 2": 0,
+  };
+  for (const reading of baselineHistory) {
+    categoryCounts[getReadingCategory(reading.sys, reading.dia)] += 1;
+  }
+
+  const highCount = categoryCounts["Stage 1"] + categoryCounts["Stage 2"];
+  const latestCategory = lastReading
+    ? getReadingCategory(lastReading.sys, lastReading.dia)
+    : null;
+  const trendSummary = !baselineHistory.length
+    ? "Your recent readings will appear here once you log a check-in."
+    : categoryCounts.Normal === baselineHistory.length
+      ? "Your recent readings have all been in the healthy range. Keep up the good work."
+      : highCount > 0
+        ? `Your last reading was ${latestCategory}, but ${highCount} of your last ${baselineHistory.length} readings were High. We should talk about this trend.`
+        : `Your last reading was ${latestCategory}. Your recent readings include ${categoryCounts.Elevated} Elevated reading${categoryCounts.Elevated === 1 ? "" : "s"}, with no Stage 1 or Stage 2 readings.`;
 
   if (isLogging) {
     return (
@@ -75,7 +142,7 @@ export default function HomePage() {
            </button>
         </div>
         <div className="flex-1">
-          <BPInterpreter />
+          <BPInterpreter onExit={() => setIsLogging(false)} />
         </div>
       </div>
     );
@@ -124,7 +191,7 @@ export default function HomePage() {
           
           <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
             <div className="flex justify-between items-start">
-              <p className="text-sm font-medium text-neutral-400">Your Usual BP</p>
+              <p className="text-sm font-medium text-neutral-400">Clinical Trend Summary</p>
               {/* ACCESSIBILITY TEXT LABEL */}
               {lastReading && (
                 <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
@@ -133,33 +200,16 @@ export default function HomePage() {
               )}
             </div>
             
-            {/* DYNAMIC BAR CHART */}
-            <div className="mt-4 flex items-end space-x-1 h-10 w-full">
-              {baselineHistory.length > 0 ? (
-                baselineHistory.map((r, idx) => {
-                  const heightPct = Math.min(100, Math.max(20, (r.sys / 180) * 100));
-                  
-                  let bgColor = "bg-emerald-500";
-                  if (r.sys >= 140 || r.dia >= 90) bgColor = "bg-red-500";
-                  else if (r.sys >= 130 || r.dia >= 85) bgColor = "bg-orange-500";
-                  else if (r.sys >= 125) bgColor = "bg-yellow-500";
-
-                  return (
-                    <div 
-                      key={idx} 
-                      className={`${bgColor} rounded-t-sm flex-1`} 
-                      style={{ height: `${heightPct}%` }}
-                    />
-                  );
-                })
-              ) : (
-                <>
-                  <div className="bg-neutral-800 rounded-t-sm h-[20%] flex-1"></div>
-                  <div className="bg-neutral-800 rounded-t-sm h-[40%] flex-1"></div>
-                  <div className="bg-neutral-800 rounded-t-sm h-[30%] flex-1"></div>
-                </>
-              )}
-            </div>
+            <p className="mt-4 text-sm leading-6 text-neutral-300">
+              {trendError || trendSummary}
+            </p>
+            {!trendError && baselineHistory.length > 0 && (
+              <p className="mt-3 text-xs leading-5 text-neutral-500">
+                Last {baselineHistory.length}: {categoryCounts.Normal} Normal ·{" "}
+                {categoryCounts.Elevated} Elevated · {categoryCounts["Stage 1"]}{" "}
+                Stage 1 · {categoryCounts["Stage 2"]} Stage 2
+              </p>
+            )}
           </div>
         </div>
         

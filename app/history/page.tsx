@@ -1,24 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
 
 type Reading = {
   id: number;
-  time: string;
-  sys: number;
-  dia: number;
-  context: string;
-};
-
-const MOCK_READINGS: Record<string, Reading[]> = {
-  "2026-11-01": [
-    { id: 1, time: "02:32", sys: 124, dia: 82, context: "Missed Meds" },
-    { id: 2, time: "02:13", sys: 149, dia: 85, context: "Stressed" },
-  ],
-  "2026-10-31": [
-    { id: 3, time: "19:25", sys: 159, dia: 87, context: "Missed Meds" },
-  ],
+  systolic: number;
+  diastolic: number;
+  recorded_at: string;
+  context_notes: string | null;
 };
 
 const WEEKDAYS = ["S", "M", "T", "W", "T", "F", "S"];
@@ -30,11 +21,34 @@ function getDateKey(year: number, month: number, day: number) {
 }
 
 function getIndicatorColor(readings: Reading[]) {
-  const highestSystolic = Math.max(...readings.map((reading) => reading.sys));
+  const highestSystolic = Math.max(
+    ...readings.map((reading) => reading.systolic),
+  );
 
   if (highestSystolic >= 140) return "bg-red-500";
   if (highestSystolic >= 130) return "bg-orange-400";
   return "bg-emerald-500";
+}
+
+function getContextTags(contextNotes: string | null) {
+  if (!contextNotes) return [];
+
+  let context: Record<string, unknown>;
+  try {
+    const parsed: unknown = JSON.parse(contextNotes);
+    if (typeof parsed !== "object" || parsed === null) return [];
+    context = parsed as Record<string, unknown>;
+  } catch {
+    return [];
+  }
+
+  const tags: string[] = [];
+  if (context.caffeine === "yes") tags.push("Recent Caffeine");
+  if (context.meal === "yes") tags.push("Recent Heavy Meal");
+  if (context.meds === "no") tags.push("Missed Meds");
+  if (context.meds === "yes") tags.push("Medication Taken");
+  if (context.stress === "yes") tags.push("Stress / Poor Sleep");
+  return tags;
 }
 
 function formatSelectedDate(dateKey: string) {
@@ -51,6 +65,67 @@ export default function HistoryPage() {
   const [currentMonth, setCurrentMonth] = useState(INITIAL_MONTH);
   const [currentYear, setCurrentYear] = useState(INITIAL_YEAR);
   const [selectedDate, setSelectedDate] = useState("2026-11-01");
+  const [readingsByDate, setReadingsByDate] = useState<
+    Record<string, Reading[]>
+  >({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadReadings = async () => {
+      const deviceId = localStorage.getItem("sanctos_device_id");
+      if (!deviceId) {
+        if (isActive) {
+          setReadingsByDate({});
+          setIsLoading(false);
+        }
+        return;
+      }
+
+      try {
+        const supabase = createClient();
+        const { data, error: queryError } = await supabase
+          .from("readings")
+          .select("id, systolic, diastolic, recorded_at, context_notes")
+          .eq("user_id", deviceId)
+          .order("recorded_at", { ascending: false });
+
+        if (queryError) throw queryError;
+
+        const groupedReadings: Record<string, Reading[]> = {};
+        for (const reading of data ?? []) {
+          const dateKey = reading.recorded_at.slice(0, 10);
+          groupedReadings[dateKey] ??= [];
+          groupedReadings[dateKey].push({
+            id: reading.id,
+            systolic: reading.systolic,
+            diastolic: reading.diastolic,
+            recorded_at: reading.recorded_at,
+            context_notes: reading.context_notes,
+          });
+        }
+
+        if (isActive) {
+          setReadingsByDate(groupedReadings);
+          setError("");
+        }
+      } catch {
+        if (isActive) {
+          setError("We couldn't load your readings. Please try again.");
+        }
+      } finally {
+        if (isActive) setIsLoading(false);
+      }
+    };
+
+    void loadReadings();
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
   const startingWeekday = new Date(currentYear, currentMonth, 1).getDay();
   const calendarCells: (number | null)[] = [
@@ -61,9 +136,7 @@ export default function HistoryPage() {
     "en-US",
     { month: "long", year: "numeric" },
   );
-  const selectedReadings = selectedDate
-    ? MOCK_READINGS[selectedDate] ?? []
-    : [];
+  const selectedReadings = selectedDate ? readingsByDate[selectedDate] ?? [] : [];
 
   const changeMonth = (offset: number) => {
     const nextMonth = new Date(currentYear, currentMonth + offset, 1);
@@ -143,7 +216,7 @@ export default function HistoryPage() {
               }
 
               const dateKey = getDateKey(currentYear, currentMonth, day);
-              const dayReadings = MOCK_READINGS[dateKey] ?? [];
+              const dayReadings = readingsByDate[dateKey] ?? [];
               const isSelected = selectedDate === dateKey;
 
               return (
@@ -212,7 +285,15 @@ export default function HistoryPage() {
             )}
           </div>
 
-          {selectedDate && selectedReadings.length > 0 ? (
+          {error ? (
+            <div className="rounded-2xl border border-red-900/70 bg-red-950/30 px-6 py-6 text-center">
+              <p role="alert" className="text-sm text-red-300">{error}</p>
+            </div>
+          ) : isLoading ? (
+            <div className="rounded-2xl border border-neutral-800 bg-neutral-900/50 px-6 py-10 text-center">
+              <p className="font-medium text-neutral-300">Loading readings…</p>
+            </div>
+          ) : selectedDate && selectedReadings.length > 0 ? (
             <div className="space-y-3">
               {selectedReadings.map((reading) => (
                 <article
@@ -221,17 +302,33 @@ export default function HistoryPage() {
                 >
                   <div>
                     <p className="text-3xl font-semibold tracking-tight">
-                      {reading.sys}
+                      {reading.systolic}
                       <span className="mx-1 text-neutral-600">/</span>
-                      {reading.dia}
+                      {reading.diastolic}
                     </p>
                     <p className="mt-1 text-sm text-neutral-500">
-                      {reading.time}
+                      {new Date(reading.recorded_at).toLocaleTimeString(
+                        undefined,
+                        { hour: "2-digit", minute: "2-digit" },
+                      )}
                     </p>
                   </div>
-                  <span className="rounded-full border border-neutral-700 bg-neutral-800/80 px-3 py-1.5 text-xs font-medium text-neutral-300">
-                    {reading.context}
-                  </span>
+                  <div className="flex flex-wrap justify-end gap-2">
+                    {getContextTags(reading.context_notes).length > 0 ? (
+                      getContextTags(reading.context_notes).map((tag) => (
+                        <span
+                          key={tag}
+                          className="rounded-full border border-neutral-700 bg-neutral-800/80 px-3 py-1.5 text-xs font-medium text-neutral-300"
+                        >
+                          {tag}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-xs text-neutral-500">
+                        No context tags
+                      </span>
+                    )}
+                  </div>
                 </article>
               ))}
             </div>

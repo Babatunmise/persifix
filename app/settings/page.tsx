@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 type SettingsIconName = "profile" | "medications" | "records" | "clear" | "about";
 
@@ -84,6 +85,24 @@ function SettingsIcon({
 }
 
 export default function SettingsPage() {
+  const router = useRouter();
+
+  const clearAllData = () => {
+    const confirmed = window.confirm(
+      "Are you sure you want to clear all your data? This cannot be undone.",
+    );
+    if (!confirmed) return;
+
+    for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+      const key = localStorage.key(index);
+      if (key?.startsWith("sanctos_")) {
+        localStorage.removeItem(key);
+      }
+    }
+
+    router.push("/");
+  };
+
   return (
     <div className="min-h-screen bg-[#121212] pb-24">
       <main className="mx-auto min-h-screen max-w-2xl px-5 py-8 text-[#F9F8F6] sm:px-8 sm:py-12">
@@ -149,18 +168,55 @@ export default function SettingsPage() {
                   row.destructive ? "text-red-400" : "text-[#F9F8F6]"
                 }`;
 
-              return row.title === "Edit Profile" ? (
-                <Link
-                  key={row.title}
-                  href="/settings/profile"
-                  className={rowClassName}
-                >
-                  {rowContent}
-                </Link>
-              ) : (
+              if (row.title === "Edit Profile") {
+                return (
+                  <Link
+                    key={row.title}
+                    href="/settings/profile"
+                    className={rowClassName}
+                  >
+                    {rowContent}
+                  </Link>
+                );
+              }
+              if (row.title === "Medications") {
+                return (
+                  <Link
+                    key={row.title}
+                    href="/settings/medications"
+                    className={rowClassName}
+                  >
+                    {rowContent}
+                  </Link>
+                );
+              }
+              if (row.title === "Health Records") {
+                return (
+                  <Link
+                    key={row.title}
+                    href="/settings/records"
+                    className={rowClassName}
+                  >
+                    {rowContent}
+                  </Link>
+                );
+              }
+              if (row.title === "About Sanctos") {
+                return (
+                  <Link
+                    key={row.title}
+                    href="/settings/about"
+                    className={rowClassName}
+                  >
+                    {rowContent}
+                  </Link>
+                );
+              }
+              return (
                 <button
                   key={row.title}
                   type="button"
+                  onClick={row.title === "Clear All Data" ? clearAllData : undefined}
                   className={rowClassName}
                 >
                   {rowContent}

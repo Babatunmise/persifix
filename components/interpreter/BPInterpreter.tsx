@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 type Step =
@@ -16,6 +15,7 @@ type Step =
   | "result"
   | "s9_timer"
   | "s9_30min_timer"
+  | "resume_session"
   | "emergency"
   | "urgent";
 
@@ -59,6 +59,7 @@ const steps: Step[] = [
   "result",
   "s9_timer",
   "s9_30min_timer",
+  "resume_session",
   "emergency",
   "urgent",
 ];
@@ -93,6 +94,13 @@ function isSessionSnapshot(value: unknown): value is SessionSnapshot {
   );
 }
 
+function isCompletedSession(step: Step, readingCount: number) {
+  return (
+    readingCount === 3 &&
+    (step === "result" || step === "emergency" || step === "urgent")
+  );
+}
+
 function getErrorMessage(error: unknown) {
   return error instanceof Error
     ? error.message
@@ -101,10 +109,12 @@ function getErrorMessage(error: unknown) {
 
 function getInitialState(): SessionSnapshot & {
   thirtyMinuteTarget: number | null;
+  resumeStep: Step | null;
   error: string;
 } {
   const defaults: SessionSnapshot & {
     thirtyMinuteTarget: number | null;
+    resumeStep: Step | null;
     error: string;
   } = {
     sessionId: "",
@@ -118,6 +128,7 @@ function getInitialState(): SessionSnapshot & {
     diastolic: "",
     symptoms: [],
     thirtyMinuteTarget: null,
+    resumeStep: null,
     error: "",
   };
 
@@ -141,16 +152,22 @@ function getInitialState(): SessionSnapshot & {
   }
 
   if (isSessionSnapshot(restoredSession)) {
-    const timerWasLost =
-      restoredSession.step === "s9_30min_timer" && timerTarget <= 0;
+    const activeThirtyMinuteTimer =
+      restoredSession.step === "s9_30min_timer" && timerTarget > Date.now();
+    const expiredThirtyMinuteTimer =
+      restoredSession.step === "s9_30min_timer" && !activeThirtyMinuteTimer;
+    const shouldOfferResume =
+      restoredSession.readingCount > 1 && !activeThirtyMinuteTimer;
+    const resumeStep = expiredThirtyMinuteTimer
+      ? "s1_bp"
+      : restoredSession.step;
+
     return {
       ...restoredSession,
-      readingCount: timerWasLost ? 3 : restoredSession.readingCount,
-      step: timerWasLost ? "s1_bp" : restoredSession.step,
-      thirtyMinuteTarget:
-        restoredSession.step === "s9_30min_timer" && timerTarget > 0
-          ? timerTarget
-          : null,
+      readingCount: expiredThirtyMinuteTimer ? 3 : restoredSession.readingCount,
+      step: shouldOfferResume ? "resume_session" : restoredSession.step,
+      resumeStep: shouldOfferResume ? resumeStep : null,
+      thirtyMinuteTarget: activeThirtyMinuteTimer ? timerTarget : null,
       error,
     };
   }
@@ -167,6 +184,7 @@ function getInitialState(): SessionSnapshot & {
     age: savedAge,
     sessionId: savedAge ? crypto.randomUUID() : "",
     step: savedAge ? "s1_bp" : savedName ? "s1_age" : "onboarding",
+    resumeStep: null,
     error,
   };
 }
@@ -192,6 +210,19 @@ function InlineError({ error }: { error: string }) {
       {error}
     </p>
   ) : null;
+}
+
+function GoHomeButton({ onExit }: { onExit: () => void }) {
+  return (
+    <div className="mt-6 border-t border-neutral-800 pt-6">
+      <button
+        onClick={onExit}
+        className="w-full rounded-full bg-transparent py-4 text-lg font-medium text-neutral-400 transition-colors hover:text-white"
+      >
+        Go Home
+      </button>
+    </div>
+  );
 }
 
 function ContextScreen({
@@ -382,8 +413,7 @@ function BreathingTimer({ onFinish }: { onFinish: () => void }) {
   );
 }
 
-export function BPInterpreter() {
-  const router = useRouter();
+export function BPInterpreter({ onExit }: { onExit: () => void }) {
   const [initialState] = useState(getInitialState);
   const [step, setStep] = useState<Step>(initialState.step);
   const [title, setTitle] = useState(initialState.title);
@@ -399,9 +429,13 @@ export function BPInterpreter() {
   const [sessionContext, setSessionContext] = useState<SessionContext>(
     initialState.sessionContext,
   );
+  const [resumeStep, setResumeStep] = useState<Step | null>(
+    initialState.resumeStep,
+  );
   const [thirtyMinuteTarget, setThirtyMinuteTarget] = useState<number | null>(
     initialState.thirtyMinuteTarget,
   );
+  const completedSessionRef = useRef(false);
   const isHydrated = useSyncExternalStore(
     subscribeToHydration,
     getClientHydration,
@@ -419,6 +453,7 @@ export function BPInterpreter() {
 
   useEffect(() => {
     if (!isHydrated || !sessionId) return;
+    if (step === "resume_session") return;
 
     if (step !== "s9_30min_timer") {
       localStorage.removeItem(TIMER_STORAGE_KEY);
@@ -451,11 +486,54 @@ export function BPInterpreter() {
     title,
   ]);
 
+  useEffect(() => {
+    completedSessionRef.current = isCompletedSession(step, readingCount);
+  }, [readingCount, step]);
+
+  useEffect(
+    () => () => {
+      if (completedSessionRef.current) {
+        localStorage.removeItem(SESSION_STORAGE_KEY);
+        localStorage.removeItem(TIMER_STORAGE_KEY);
+      }
+    },
+    [],
+  );
+
+  const clearCompletedSession = () => {
+    localStorage.removeItem(SESSION_STORAGE_KEY);
+    localStorage.removeItem(TIMER_STORAGE_KEY);
+    setThirtyMinuteTarget(null);
+    setSessionId("");
+    setSessionContext({ caffeine: "", meds: "", stress: "", meal: "" });
+    setReadingCount(1);
+    setSystolic("");
+    setDiastolic("");
+    setSymptoms([]);
+    setError("");
+    setResumeStep(null);
+  };
+
+  const exitInterpreter = () => {
+    if (isCompletedSession(step, readingCount)) {
+      clearCompletedSession();
+    }
+    onExit();
+  };
+
+  const continueSavedSession = () => {
+    localStorage.removeItem(TIMER_STORAGE_KEY);
+    setThirtyMinuteTarget(null);
+    setStep(resumeStep ?? "s1_bp");
+    setResumeStep(null);
+  };
+
   const startNewSession = () => {
     localStorage.removeItem(TIMER_STORAGE_KEY);
     localStorage.removeItem(SESSION_STORAGE_KEY);
     setThirtyMinuteTarget(null);
     setSessionId(crypto.randomUUID());
+    setResumeStep(null);
     setSessionContext({ caffeine: "", meds: "", stress: "", meal: "" });
     setReadingCount(1);
     setSystolic("");
@@ -681,6 +759,40 @@ export function BPInterpreter() {
 
   if (!isHydrated) return null;
 
+  if (step === "resume_session") {
+    return (
+      <ScreenWrapper step={step}>
+        <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">
+          Reading session saved
+        </p>
+        <h1 className="text-4xl font-semibold tracking-tight">
+          Continue where you left off?
+        </h1>
+        <p className="mt-4 text-neutral-400">
+          Reading {readingCount} of 3 is in progress. You can continue this
+          session or start a fresh check.
+        </p>
+        <InlineError error={error} />
+        <div className="mt-10 space-y-3">
+          <button
+            type="button"
+            onClick={continueSavedSession}
+            className="w-full rounded-full bg-[#2E5B44] py-5 text-xl font-semibold text-white"
+          >
+            Continue Session
+          </button>
+          <button
+            type="button"
+            onClick={startNewSession}
+            className="w-full rounded-full bg-neutral-800 py-5 text-xl font-semibold text-white"
+          >
+            Start a New Check
+          </button>
+        </div>
+      </ScreenWrapper>
+    );
+  }
+
   if (step === "onboarding") {
     return (
       <ScreenWrapper step={step}>
@@ -900,6 +1012,7 @@ export function BPInterpreter() {
             Please go to the nearest emergency room.
           </p>
         </div>
+        <GoHomeButton onExit={exitInterpreter} />
       </ScreenWrapper>
     );
   }
@@ -915,6 +1028,7 @@ export function BPInterpreter() {
             your doctor.
           </p>
         </div>
+        <GoHomeButton onExit={exitInterpreter} />
       </ScreenWrapper>
     );
   }
@@ -1006,14 +1120,7 @@ export function BPInterpreter() {
           </div>
         )}
 
-        <div className="mt-6 border-t border-neutral-800 pt-6">
-          <button
-            onClick={() => router.push("/")}
-            className="w-full rounded-full bg-transparent py-4 text-lg font-medium text-neutral-400 transition-colors hover:text-white"
-          >
-            Go Home
-          </button>
-        </div>
+        <GoHomeButton onExit={exitInterpreter} />
       </ScreenWrapper>
     );
   }
