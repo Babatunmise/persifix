@@ -86,7 +86,7 @@ export default function HistoryPage() {
                       <h3 className="text-xs font-bold uppercase tracking-widest text-[#2E5B44] mb-3">{timeOfDay}</h3>
                       <div className="space-y-3">
                         {timeReadings.map((r) => {
-                          let chips = [];
+                          const chips: string[] = [];
                           try {
                             const ctx = JSON.parse(r.context_notes);
                             if (ctx.caffeine === "yes") chips.push("Coffee/Exercise");
@@ -94,7 +94,7 @@ export default function HistoryPage() {
                             if (ctx.meds === "no") chips.push("Missed Meds");
                             if (ctx.stress === "yes") chips.push("Stressed");
                             if (ctx.didBreathing) chips.push("Breathing Done");
-                          } catch (e) {}
+                          } catch {}
 
                           return (
                             <div key={r.id} className="p-4 rounded-xl bg-neutral-900 border border-neutral-800">

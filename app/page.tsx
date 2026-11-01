@@ -1,8 +1,20 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { BPInterpreter } from "@/components/interpreter/BPInterpreter";
+
+const subscribeToGreeting = (onStoreChange: () => void) => {
+  const interval = window.setInterval(onStoreChange, 60_000);
+  return () => window.clearInterval(interval);
+};
+
+const getGreeting = () => {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
+};
 
 // Accessibility: Get text label for the reading
 const getCategoryLabel = (sys?: number, dia?: number) => {
@@ -18,14 +30,13 @@ export default function HomePage() {
   const [title, setTitle] = useState("");
   const [lastReading, setLastReading] = useState<{sys: number, dia: number} | null>(null);
   const [baselineHistory, setBaselineHistory] = useState<{sys: number, dia: number}[]>([]);
-  const [greeting, setGreeting] = useState("Hello");
+  const greeting = useSyncExternalStore(
+    subscribeToGreeting,
+    getGreeting,
+    () => "Hello",
+  );
 
   useEffect(() => {
-    const hour = new Date().getHours();
-    if (hour < 12) setGreeting("Good morning");
-    else if (hour < 18) setGreeting("Good afternoon");
-    else setGreeting("Good evening");
-
     const loadData = async () => {
       const savedTitle = localStorage.getItem("sanctos_title") || "";
       setTitle(savedTitle);
@@ -85,13 +96,13 @@ export default function HomePage() {
           <h1 className="text-3xl font-semibold tracking-tight">
             {greeting}{title ? `, ${title}` : ""}.
           </h1>
-          <p className="mt-2 text-neutral-400">Let's check in on your health today.</p>
+          <p className="mt-2 text-neutral-400">Let&apos;s check in on your health today.</p>
           
           <button 
             onClick={() => setIsLogging(true)}
             className="mt-8 w-full rounded-full bg-[#2E5B44] px-8 py-4 text-lg font-semibold text-white transition-transform hover:scale-[1.02]"
           >
-            Let's check your BP together
+            Let&apos;s check your BP together
           </button>
         </div>
 

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { Outfit } from "next/font/google";
 import "./globals.css";
 import { Container } from "@/components/ui/Container";
@@ -26,7 +27,7 @@ export default function RootLayout({
       <body className="flex min-h-screen flex-col antialiased bg-[#121212] text-[#F9F8F6]">
         <header className="border-b border-neutral-800 bg-[#121212]">
           <Container className="flex h-16 items-center justify-between">
-            <img src="/sanctos-logo.png" alt="getsanctos" className="h-6 w-auto object-contain" />
+            <Image src="/sanctos-logo.png" alt="getsanctos" width={32} height={32} className="h-6 w-auto object-contain" />
             {/* The "In Development" badge has been removed */}
           </Container>
         </header>
