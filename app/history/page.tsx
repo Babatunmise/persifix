@@ -1,128 +1,256 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
 
 type Reading = {
-  id: string;
-  systolic: number;
-  diastolic: number;
-  recorded_at: string;
-  context_notes: string;
+  id: number;
+  time: string;
+  sys: number;
+  dia: number;
+  context: string;
 };
 
+const MOCK_READINGS: Record<string, Reading[]> = {
+  "2026-11-01": [
+    { id: 1, time: "02:32", sys: 124, dia: 82, context: "Missed Meds" },
+    { id: 2, time: "02:13", sys: 149, dia: 85, context: "Stressed" },
+  ],
+  "2026-10-31": [
+    { id: 3, time: "19:25", sys: 159, dia: 87, context: "Missed Meds" },
+  ],
+};
+
+const WEEKDAYS = ["S", "M", "T", "W", "T", "F", "S"];
+const INITIAL_MONTH = 10;
+const INITIAL_YEAR = 2026;
+
+function getDateKey(year: number, month: number, day: number) {
+  return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function getIndicatorColor(readings: Reading[]) {
+  const highestSystolic = Math.max(...readings.map((reading) => reading.sys));
+
+  if (highestSystolic >= 140) return "bg-red-500";
+  if (highestSystolic >= 130) return "bg-orange-400";
+  return "bg-emerald-500";
+}
+
+function formatSelectedDate(dateKey: string) {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 export default function HistoryPage() {
-  const [readings, setReadings] = useState<Reading[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [currentMonth, setCurrentMonth] = useState(INITIAL_MONTH);
+  const [currentYear, setCurrentYear] = useState(INITIAL_YEAR);
+  const [selectedDate, setSelectedDate] = useState("2026-11-01");
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const startingWeekday = new Date(currentYear, currentMonth, 1).getDay();
+  const calendarCells: (number | null)[] = [
+    ...Array.from({ length: startingWeekday }, () => null),
+    ...Array.from({ length: daysInMonth }, (_, index) => index + 1),
+  ];
+  const monthLabel = new Date(currentYear, currentMonth, 1).toLocaleDateString(
+    "en-US",
+    { month: "long", year: "numeric" },
+  );
+  const selectedReadings = selectedDate
+    ? MOCK_READINGS[selectedDate] ?? []
+    : [];
 
-  useEffect(() => {
-    const fetchReadings = async () => {
-      const supabase = createClient();
-      const deviceId = localStorage.getItem("sanctos_device_id");
-      
-      if (!deviceId) {
-        setLoading(false);
-        return;
-      }
-
-      const { data } = await supabase
-        .from("readings")
-        .select("*")
-        .eq("user_id", deviceId)
-        .order("recorded_at", { ascending: false });
-
-      if (data) setReadings(data);
-      setLoading(false);
-    };
-
-    fetchReadings();
-  }, []);
-
-  const groupedReadings = useMemo(() => {
-    const groups: Record<string, Record<string, Reading[]>> = {};
-    
-    readings.forEach((r) => {
-      const d = new Date(r.recorded_at);
-      const dayStr = d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-      
-      const hour = d.getHours();
-      let timeOfDay = "Night";
-      if (hour >= 5 && hour < 12) timeOfDay = "Morning";
-      else if (hour >= 12 && hour < 17) timeOfDay = "Afternoon";
-
-      if (!groups[dayStr]) groups[dayStr] = { Morning: [], Afternoon: [], Night: [] };
-      groups[dayStr][timeOfDay].push(r);
-    });
-
-    return groups;
-  }, [readings]);
+  const changeMonth = (offset: number) => {
+    const nextMonth = new Date(currentYear, currentMonth + offset, 1);
+    setCurrentMonth(nextMonth.getMonth());
+    setCurrentYear(nextMonth.getFullYear());
+    setSelectedDate("");
+  };
 
   return (
-    <div className="max-w-md mx-auto py-12 px-6 text-[#F9F8F6] min-h-screen bg-[#121212]">
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-semibold tracking-tight">Your History</h1>
-        <Link href="/" className="text-sm font-medium text-[#2E5B44] hover:text-white underline">
-          Back to Home
-        </Link>
-      </div>
+    <main className="min-h-screen bg-[#121212] px-5 py-8 text-[#F9F8F6] sm:px-8 sm:py-12">
+      <div className="mx-auto max-w-2xl">
+        <header className="mb-8 flex items-center justify-between gap-4">
+          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+            Your History
+          </h1>
+          <Link
+            href="/"
+            className="rounded-full border border-neutral-800 px-4 py-2 text-sm font-medium text-neutral-300 transition-colors hover:border-neutral-600 hover:text-white"
+          >
+            Back to Home
+          </Link>
+        </header>
 
-      {loading ? (
-        <p className="text-neutral-500">Loading...</p>
-      ) : readings.length === 0 ? (
-        <p className="text-neutral-500">No readings logged yet.</p>
-      ) : (
-        <div className="space-y-8">
-          {Object.entries(groupedReadings).map(([day, times]) => (
-            <div key={day}>
-              <h2 className="text-lg font-semibold text-neutral-400 border-b border-neutral-800 pb-2 mb-4">{day}</h2>
-              
-              <div className="space-y-6">
-                {Object.entries(times).map(([timeOfDay, timeReadings]) => {
-                  if (timeReadings.length === 0) return null;
-                  
-                  return (
-                    <div key={timeOfDay}>
-                      <h3 className="text-xs font-bold uppercase tracking-widest text-[#2E5B44] mb-3">{timeOfDay}</h3>
-                      <div className="space-y-3">
-                        {timeReadings.map((r) => {
-                          const chips: string[] = [];
-                          try {
-                            const ctx = JSON.parse(r.context_notes);
-                            if (ctx.caffeine === "yes") chips.push("Coffee/Exercise");
-                            if (ctx.meal === "yes") chips.push("Heavy Meal");
-                            if (ctx.meds === "no") chips.push("Missed Meds");
-                            if (ctx.stress === "yes") chips.push("Stressed");
-                            if (ctx.didBreathing) chips.push("Breathing Done");
-                          } catch {}
-
-                          return (
-                            <div key={r.id} className="p-4 rounded-xl bg-neutral-900 border border-neutral-800">
-                              <div className="flex justify-between items-center mb-2">
-                                <p className="text-2xl font-semibold">{r.systolic}/{r.diastolic}</p>
-                                <p className="text-xs text-neutral-500">
-                                  {new Date(r.recorded_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </p>
-                              </div>
-                              {chips.length > 0 && (
-                                <div className="flex flex-wrap gap-2 mt-2">
-                                  {chips.map(c => (
-                                    <span key={c} className="text-[10px] bg-neutral-800 text-neutral-300 px-2 py-1 rounded-md">{c}</span>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
+        <section
+          aria-label={`${monthLabel} calendar`}
+          className="rounded-3xl border border-neutral-800 bg-neutral-900/70 p-5 shadow-2xl shadow-black/20 sm:p-8"
+        >
+          <div className="mb-7 flex items-end justify-between gap-4">
+            <div className="flex items-end gap-3 sm:gap-5">
+              <button
+                type="button"
+                aria-label="Previous month"
+                onClick={() => changeMonth(-1)}
+                className="mb-1 flex h-9 w-9 items-center justify-center rounded-full border border-neutral-800 text-lg text-neutral-300 transition-colors hover:border-neutral-600 hover:bg-neutral-800 hover:text-white"
+              >
+                &lt;
+              </button>
+              <div>
+              <p className="mb-1 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">
+                Blood pressure log
+              </p>
+              <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+                {monthLabel}
+              </h2>
               </div>
+              <button
+                type="button"
+                aria-label="Next month"
+                onClick={() => changeMonth(1)}
+                className="mb-1 flex h-9 w-9 items-center justify-center rounded-full border border-neutral-800 text-lg text-neutral-300 transition-colors hover:border-neutral-600 hover:bg-neutral-800 hover:text-white"
+              >
+                &gt;
+              </button>
             </div>
-          ))}
-        </div>
-      )}
-    </div>
+            <span className="rounded-full border border-neutral-800 px-3 py-1.5 text-xs font-medium text-neutral-400">
+              Monthly view
+            </span>
+          </div>
+
+          <div className="grid grid-cols-7 gap-2">
+            {WEEKDAYS.map((weekday, index) => (
+              <div
+                key={`${weekday}-${index}`}
+                className="pb-2 text-center text-xs font-semibold uppercase tracking-wider text-neutral-500"
+                aria-label={
+                  ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][index]
+                }
+              >
+                {weekday}
+              </div>
+            ))}
+
+            {calendarCells.map((day, index) => {
+              if (day === null) {
+                return <div key={`blank-${index}`} aria-hidden="true" />;
+              }
+
+              const dateKey = getDateKey(currentYear, currentMonth, day);
+              const dayReadings = MOCK_READINGS[dateKey] ?? [];
+              const isSelected = selectedDate === dateKey;
+
+              return (
+                <button
+                  key={dateKey}
+                  type="button"
+                  aria-label={`${formatSelectedDate(dateKey)}${dayReadings.length ? `, ${dayReadings.length} readings` : ", no readings"}`}
+                  aria-pressed={isSelected}
+                  onClick={() => setSelectedDate(dateKey)}
+                  className={`flex aspect-square flex-col items-center justify-center gap-1 rounded-2xl border text-sm font-medium transition-colors sm:text-base ${
+                    isSelected
+                      ? "border-[#F9F8F6] bg-[#F9F8F6] text-black"
+                      : "border-transparent text-neutral-300 hover:border-neutral-700 hover:bg-neutral-800"
+                  }`}
+                >
+                  <span>{day}</span>
+                  {dayReadings.length > 0 ? (
+                    <span
+                      aria-hidden="true"
+                      className={`h-1.5 w-1.5 rounded-full ${getIndicatorColor(dayReadings)}`}
+                    />
+                  ) : (
+                    <span aria-hidden="true" className="h-1.5 w-1.5" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-6 flex items-center gap-4 border-t border-neutral-800 pt-5">
+            <span className="text-xs font-medium uppercase tracking-wider text-neutral-500">
+              Reading range
+            </span>
+            <span className="flex items-center gap-1.5 text-xs text-neutral-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              In range
+            </span>
+            <span className="flex items-center gap-1.5 text-xs text-neutral-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-orange-400" />
+              Elevated
+            </span>
+            <span className="flex items-center gap-1.5 text-xs text-neutral-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+              High
+            </span>
+          </div>
+        </section>
+
+        <section className="mt-8" aria-live="polite">
+          <div className="mb-4 flex items-end justify-between gap-4">
+            <div>
+              <p className="mb-1 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">
+                Selected day
+              </p>
+              <h2 className="text-xl font-semibold sm:text-2xl">
+                {selectedDate
+                  ? formatSelectedDate(selectedDate)
+                  : "Select a day"}
+              </h2>
+            </div>
+            {selectedReadings.length > 0 && (
+              <span className="text-sm text-neutral-500">
+                {selectedReadings.length}{" "}
+                {selectedReadings.length === 1 ? "reading" : "readings"}
+              </span>
+            )}
+          </div>
+
+          {selectedDate && selectedReadings.length > 0 ? (
+            <div className="space-y-3">
+              {selectedReadings.map((reading) => (
+                <article
+                  key={reading.id}
+                  className="flex items-center justify-between gap-4 rounded-2xl border border-neutral-800 bg-neutral-900/70 p-5 sm:p-6"
+                >
+                  <div>
+                    <p className="text-3xl font-semibold tracking-tight">
+                      {reading.sys}
+                      <span className="mx-1 text-neutral-600">/</span>
+                      {reading.dia}
+                    </p>
+                    <p className="mt-1 text-sm text-neutral-500">
+                      {reading.time}
+                    </p>
+                  </div>
+                  <span className="rounded-full border border-neutral-700 bg-neutral-800/80 px-3 py-1.5 text-xs font-medium text-neutral-300">
+                    {reading.context}
+                  </span>
+                </article>
+              ))}
+            </div>
+          ) : selectedDate ? (
+            <div className="rounded-2xl border border-neutral-800 bg-neutral-900/50 px-6 py-10 text-center">
+              <p className="font-medium text-neutral-300">No readings logged</p>
+              <p className="mt-1 text-sm text-neutral-500">
+                Readings for this day will appear here.
+              </p>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-neutral-800 bg-neutral-900/50 px-6 py-10 text-center">
+              <p className="font-medium text-neutral-300">Choose a date</p>
+              <p className="mt-1 text-sm text-neutral-500">
+                Select a day on the calendar to view its readings.
+              </p>
+            </div>
+          )}
+        </section>
+      </div>
+    </main>
   );
 }
