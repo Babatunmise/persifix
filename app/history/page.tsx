@@ -336,7 +336,7 @@ export default function HistoryPage() {
             <div className="rounded-2xl border border-neutral-800 bg-neutral-900/50 px-6 py-10 text-center">
               <p className="font-medium text-neutral-300">No readings logged</p>
               <p className="mt-1 text-sm text-neutral-500">
-                Readings for this day will appear here.
+                No readings logged on this day. It&apos;s okay to skip a day.
               </p>
             </div>
           ) : (
@@ -370,6 +370,15 @@ export default function HistoryPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <span className="mt-1 text-[10px] font-medium">History</span>
+          </Link>
+          <Link
+            href="/trends"
+            className="flex flex-col items-center text-neutral-500 transition-colors hover:text-[#F9F8F6]"
+          >
+            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 3v18h18M7 14l4-4 4 3 6-7" />
+            </svg>
+            <span className="mt-1 text-[10px] font-medium">Trends</span>
           </Link>
           <Link
             href="/settings"

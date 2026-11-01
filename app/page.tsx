@@ -34,6 +34,7 @@ function getCategoryLabel(sys: number, dia: number) {
 export default function HomePage() {
   const [isLogging, setIsLogging] = useState(false);
   const [title, setTitle] = useState("");
+  const [name, setName] = useState("");
   const [lastReading, setLastReading] = useState<{
     sys: number;
     dia: number;
@@ -49,12 +50,20 @@ export default function HomePage() {
   );
 
   useEffect(() => {
+    const handleFocus = () => {
+      setName(localStorage.getItem("sanctos_name") || "");
+      setTitle(localStorage.getItem("sanctos_title") || "");
+    };
+
+    handleFocus();
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
+  }, []);
+
+  useEffect(() => {
     let isActive = true;
 
     const loadData = async () => {
-      const savedTitle = localStorage.getItem("sanctos_title") || "";
-      if (isActive) setTitle(savedTitle);
-
       const deviceId = localStorage.getItem("sanctos_device_id");
       if (!deviceId) {
         if (isActive) {
@@ -126,7 +135,7 @@ export default function HomePage() {
     ? getReadingCategory(lastReading.sys, lastReading.dia)
     : null;
   const trendSummary = !baselineHistory.length
-    ? "Your recent readings will appear here once you log a check-in."
+    ? "No readings yet. Tap 'Let's check your BP together' to start building your baseline."
     : categoryCounts.Normal === baselineHistory.length
       ? "Your recent readings have all been in the healthy range. Keep up the good work."
       : highCount > 0
@@ -169,7 +178,8 @@ export default function HomePage() {
         {/* WARM HERO CARD */}
         <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-8 shadow-xl">
           <h1 className="text-3xl font-semibold tracking-tight">
-            {greeting}{title ? `, ${title}` : ""}.
+            {greeting}
+            {title || name ? `, ${[title, name].filter(Boolean).join(" ")}` : ""}.
           </h1>
           <p className="mt-2 text-neutral-400">Let&apos;s check in on your health today.</p>
           
@@ -189,15 +199,33 @@ export default function HomePage() {
             </p>
           </div>
           
-          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
+          <Link
+            href="/trends"
+            className="flex flex-col justify-between rounded-2xl border border-neutral-800 bg-neutral-900 p-6 text-left shadow-sm transition-colors hover:border-neutral-700 hover:bg-neutral-900/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6D9A7F]"
+          >
             <div className="flex justify-between items-start">
               <p className="text-sm font-medium text-neutral-400">Clinical Trend Summary</p>
-              {/* ACCESSIBILITY TEXT LABEL */}
-              {lastReading && (
-                <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-                  {getCategoryLabel(lastReading.sys, lastReading.dia)}
-                </span>
-              )}
+              <span className="flex items-center gap-2">
+                {lastReading && (
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                    {getCategoryLabel(lastReading.sys, lastReading.dia)}
+                  </span>
+                )}
+                <svg
+                  className="h-4 w-4 text-neutral-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
+              </span>
             </div>
             
             <p className="mt-4 text-sm leading-6 text-neutral-300">
@@ -210,7 +238,7 @@ export default function HomePage() {
                 Stage 1 · {categoryCounts["Stage 2"]} Stage 2
               </p>
             )}
-          </div>
+          </Link>
         </div>
         
       </main>
@@ -224,6 +252,10 @@ export default function HomePage() {
           <Link href="/history" className="flex flex-col items-center text-neutral-500 transition-colors hover:text-[#F9F8F6]">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             <span className="text-[10px] font-medium mt-1">History</span>
+          </Link>
+          <Link href="/trends" className="flex flex-col items-center text-neutral-500 transition-colors hover:text-[#F9F8F6]">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 3v18h18M7 14l4-4 4 3 6-7" /></svg>
+            <span className="text-[10px] font-medium mt-1">Trends</span>
           </Link>
           <Link href="/settings" className="flex flex-col items-center text-neutral-500 transition-colors hover:text-[#F9F8F6]">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>

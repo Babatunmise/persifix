@@ -44,13 +44,12 @@ export default function HealthRecordsPage() {
           <p className="mt-3 leading-7 text-neutral-400">
             Export your readings as a PDF to share with your doctor.
           </p>
-          <button
-            type="button"
-            onClick={() => window.alert("PDF generation coming in Phase 3!")}
-            className="mt-8 w-full rounded-full bg-[#2E5B44] px-6 py-4 text-base font-semibold text-white transition-colors hover:bg-[#376c51] sm:w-auto sm:min-w-64"
+          <Link
+            href="/reports"
+            className="mt-8 inline-flex w-full items-center justify-center rounded-full bg-[#2E5B44] px-6 py-4 text-base font-semibold text-white transition-colors hover:bg-[#376c51] sm:w-auto sm:min-w-64"
           >
             Generate PDF Report
-          </button>
+          </Link>
         </section>
       </main>
 

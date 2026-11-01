@@ -2,8 +2,16 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState, type FormEvent } from "react";
+import { useToast } from "@/components/ui/Toast";
 
-type SettingsIconName = "profile" | "medications" | "records" | "clear" | "about";
+type SettingsIconName =
+  | "profile"
+  | "medications"
+  | "records"
+  | "reminders"
+  | "clear"
+  | "about";
 
 const SETTINGS_ROWS: {
   icon: SettingsIconName;
@@ -25,6 +33,11 @@ const SETTINGS_ROWS: {
     icon: "records",
     title: "Health Records",
     description: "Export PDF",
+  },
+  {
+    icon: "reminders",
+    title: "Reminders",
+    description: "Daily check-in",
   },
   {
     icon: "clear",
@@ -76,6 +89,13 @@ function SettingsIcon({
       </svg>
     );
   }
+  if (name === "reminders") {
+    return (
+      <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M18 8a6 6 0 00-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9m-8 12a2 2 0 004 0" />
+      </svg>
+    );
+  }
   return (
     <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
       <circle cx="12" cy="12" r="9" strokeWidth={1.7} />
@@ -86,6 +106,14 @@ function SettingsIcon({
 
 export default function SettingsPage() {
   const router = useRouter();
+  const toast = useToast();
+  const [newsletterEmail, setNewsletterEmail] = useState("");
+
+  const subscribeToNewsletter = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    toast.success("Welcome to the Sanctos newsletter!");
+    setNewsletterEmail("");
+  };
 
   const clearAllData = () => {
     const confirmed = window.confirm(
@@ -201,6 +229,17 @@ export default function SettingsPage() {
                   </Link>
                 );
               }
+              if (row.title === "Reminders") {
+                return (
+                  <Link
+                    key={row.title}
+                    href="/settings/reminders"
+                    className={rowClassName}
+                  >
+                    {rowContent}
+                  </Link>
+                );
+              }
               if (row.title === "About Sanctos") {
                 return (
                   <Link
@@ -225,6 +264,40 @@ export default function SettingsPage() {
             })}
           </div>
         </section>
+
+        <section className="mt-8 rounded-3xl border border-neutral-800 bg-neutral-900/70 p-6 sm:p-8">
+          <p className="mb-1 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">
+            Notes from Sanctos
+          </p>
+          <h2 className="text-xl font-semibold">Stay Updated</h2>
+          <p className="mt-2 text-sm leading-6 text-neutral-400">
+            Get occasional product news and thoughtful health check-in tips.
+          </p>
+          <form
+            onSubmit={subscribeToNewsletter}
+            className="mt-5 flex flex-col gap-3 sm:flex-row"
+          >
+            <label htmlFor="newsletter-email" className="sr-only">
+              Email address
+            </label>
+            <input
+              id="newsletter-email"
+              type="email"
+              required
+              value={newsletterEmail}
+              onChange={(event) => setNewsletterEmail(event.target.value)}
+              placeholder="Your email address"
+              className="min-w-0 flex-1 rounded-xl border border-neutral-700 bg-[#121212] px-4 py-3 text-[#F9F8F6] placeholder:text-neutral-600 focus:border-[#6D9A7F] focus:outline-none"
+            />
+            <button
+              type="submit"
+              className="rounded-xl bg-[#2E5B44] px-6 py-3 font-semibold text-white transition-colors hover:bg-[#376c51]"
+            >
+              Subscribe
+            </button>
+          </form>
+        </section>
+        <p className="mt-6 text-center text-xs text-neutral-600">Version 1.0.0</p>
       </main>
 
       <nav className="fixed bottom-0 w-full border-t border-neutral-800 bg-[#121212] pb-safe">
@@ -246,6 +319,15 @@ export default function SettingsPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <span className="mt-1 text-[10px] font-medium">History</span>
+          </Link>
+          <Link
+            href="/trends"
+            className="flex flex-col items-center text-neutral-500 transition-colors hover:text-[#F9F8F6]"
+          >
+            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 3v18h18M7 14l4-4 4 3 6-7" />
+            </svg>
+            <span className="mt-1 text-[10px] font-medium">Trends</span>
           </Link>
           <Link
             href="/settings"
