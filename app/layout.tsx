@@ -32,12 +32,15 @@ export default function RootLayout({
     <html lang="en" className={outfit.variable}>
       <body className="flex min-h-screen flex-col antialiased bg-[#121212] text-[#F9F8F6]">
         <ToastProvider>
-          <header className="border-b border-neutral-800 bg-[#121212]">
-            <Container className="flex h-16 items-center justify-between">
-              <Image src="/sanctos-logo.png" alt="getsanctos" width={32} height={32} className="h-6 w-auto object-contain" />
-              {/* The "In Development" badge has been removed */}
-            </Container>
-          </header>
+         <header className="border-b border-neutral-800 bg-[#121212]">
+          <Container className="flex h-20 items-center justify-between">
+            <img 
+              src="/sanctos-logo.png" 
+              alt="SANCTOS" 
+              className="h-18 w-auto object-contain" 
+            />
+          </Container>
+        </header>
 
           <div className="flex-1 flex flex-col">{children}</div>
 
