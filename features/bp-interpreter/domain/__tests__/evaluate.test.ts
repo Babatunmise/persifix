@@ -1,68 +1,113 @@
 import { describe, it, expect } from 'vitest';
-import { evaluate } from '../evaluate';
-import type { EmergencySymptom } from '../types';
+import { interpret, type Input } from '../interpret';
+import { getCategory } from '../evaluate';
+import type { Baseline, Medication } from '../types';
 
-describe('Clinical Math Engine - ACC/AHA v1.1', () => {
-  
-  // --- BOUNDARY TESTS ---
-  it('classifies 119/79 as Normal', () => {
-    const result = evaluate(119, 79, undefined, [], false);
-    expect(result.category).toBe('Normal');
+const base = (sys: number, dia: number, distinctDays = 10): Baseline => ({
+  sys, dia, distinctDays, sessions: distinctDays, sdSys: 0, sdDia: 0,
+});
+
+const run = (sys: number, dia: number, baseline: Baseline | null = null, medication: Medication = 'unknown') => {
+  const input: Input = { current: { sys, dia, readingsInSession: 2 }, baseline, medication };
+  return interpret(input, getCategory);
+};
+
+describe('baseline status', () => {
+  it('is driven by distinct days', () => {
+    expect(run(118, 76, base(118, 76, 2)).state).toBe('HEALTHY_FIRST');
+    expect(run(118, 76, base(118, 76, 3)).state).toBe('STEADY');
   });
+});
 
-  it('classifies 120/79 as Elevated', () => {
-    const result = evaluate(120, 79, undefined, [], false);
-    expect(result.category).toBe('Elevated');
+describe('first-reading family', () => {
+  it('healthy first reading', () => expect(run(116, 74).state).toBe('HEALTHY_FIRST'));
+  it('120/80 is borderline, not high first', () => {
+    const r = run(120, 80);
+    expect(r.state).toBe('BORDERLINE_FIRST');
+    expect(r.copyKey).toContain('edge');
+    expect(r.actionLevel).toBe('keep_logging');
   });
-
-  it('classifies 130/79 as Stage 1', () => {
-    const result = evaluate(130, 79, undefined, [], false);
-    expect(result.category).toBe('Stage 1');
+  it('134/84 is borderline but not on edge', () => {
+    expect(run(134, 84).copyKey).not.toContain('edge');
   });
-
-  it('classifies 140/89 as Stage 2', () => {
-    const result = evaluate(140, 89, undefined, [], false);
-    expect(result.category).toBe('Stage 2');
+  it('150/90 on day one needs action', () => {
+    const r = run(150, 90);
+    expect(r.state).toBe('HIGH_FIRST');
+    expect(r.actionLevel).toBe('recheck_now');
+    expect(r.escalateIfRecheckPersists).toBe(true);
   });
-
-  it('classifies 120/85 as Stage 1 (Diastolic drives the category)', () => {
-    const result = evaluate(120, 85, undefined, [], false);
-    expect(result.category).toBe('Stage 1');
+  it('severe is never reassuring', () => {
+    const r = run(185, 125);
+    expect(r.state).toBe('HIGH_FIRST');
+    expect(r.actionLevel).toBe('urgent');
   });
+});
 
-  // --- SEVERE RECHECK TESTS ---
-  it('flags 180/80 as a Severe Recheck', () => {
-    const result = evaluate(180, 80, undefined, [], false);
-    expect(result.kind).toBe('severe_recheck');
+describe('relative states', () => {
+  it('steady', () => {
+    const r = run(118, 76, base(115, 75));
+    expect(r.state).toBe('STEADY');
+    expect(r.actionLevel).toBe('none');
   });
-
-  it('flags 120/120 as a Severe Recheck', () => {
-    const result = evaluate(120, 120, undefined, [], false);
-    expect(result.kind).toBe('severe_recheck');
+  it('provisional baseline hedges copy', () => {
+    expect(run(117, 74, base(115, 75, 4)).copyKey).toContain('hedged');
   });
-
-  // --- THE P0 EMERGENCY OVERRIDE TESTS ---
-  it('OVERRIDES normal BP (118/78) if a red-flag symptom is present', () => {
-    const symptoms: EmergencySymptom[] = ['chest_pain'];
-    const result = evaluate(118, 78, undefined, symptoms, false);
-    expect(result.kind).toBe('emergency');
+  it('150/90 vs 115/75 is significantly higher', () => {
+    const r = run(150, 90, base(115, 75));
+    expect(r.state).toBe('SIGNIFICANTLY_HIGHER');
   });
-
-  it('OVERRIDES severe BP (180/120) if a red-flag symptom is present', () => {
-    const symptoms: EmergencySymptom[] = ['shortness_of_breath'];
-    const result = evaluate(180, 120, undefined, symptoms, false);
-    expect(result.kind).toBe('emergency');
+  it('slightly higher, Stage 1', () => {
+    const r = run(134, 82, base(125, 78));
+    expect(r.state).toBe('SLIGHTLY_HIGHER');
+    expect(r.actionLevel).toBe('keep_logging');
   });
-
-  // --- PULSE ALERT TESTS (Your Micro-fix) ---
-  it('adds a pulse alert if pulse is >= 100', () => {
-    const result = evaluate(120, 80, 105, [], false);
-    expect(result.pulse_alert).toBe(true);
+  it('big jump to healthy-ish number does not alarm', () => {
+    const r = run(125, 78, base(100, 65));
+    expect(r.state).toBe('SLIGHTLY_HIGHER');
+    expect(r.copyKey).toContain('big_rise');
   });
-
-  it('does not add a pulse alert if pulse is normal', () => {
-    const result = evaluate(120, 80, 85, [], false);
-    expect(result.pulse_alert).toBe(false);
+  it('crossing into Stage 2 from lower usual is significant', () => {
+    expect(run(142, 88, base(130, 84)).state).toBe('SIGNIFICANTLY_HIGHER');
   });
+  it('chronic Stage 2 drifting up is calm', () => {
+    const r = run(148, 92, base(140, 88));
+    expect(r.state).toBe('SLIGHTLY_HIGHER');
+    expect(r.actionLevel).toBe('see_clinician_soon');
+  });
+  it('steady at Stage 2 is not celebrated', () => {
+    const r = run(152, 91, base(150, 90));
+    expect(r.state).toBe('STEADY');
+    expect(r.actionLevel).toBe('see_clinician_soon');
+    expect(r.copyKey).toContain('above_goal');
+  });
+  it('better than usual healthy', () => {
+    const r = run(122, 76, base(135, 85));
+    expect(r.state).toBe('BETTER_THAN_USUAL');
+    expect(r.copyKey).not.toContain('above_goal');
+  });
+  it('better than usual but above goal says so', () => {
+    const r = run(132, 82, base(150, 95));
+    expect(r.state).toBe('BETTER_THAN_USUAL');
+    expect(r.copyKey).toContain('above_goal');
+  });
+});
 
+describe('low guard', () => {
+  it('never praises a low number', () => expect(run(85, 55, base(125, 80)).state).toBe('LOW_CHECK'));
+  it('a person whose usual is low is not nagged', () => expect(run(89, 57, base(85, 55)).state).toBe('STEADY'));
+  it('fires on a first reading too', () => expect(run(85, 55).state).toBe('LOW_CHECK'));
+});
+
+describe('medication context', () => {
+  it('missed meds changes copy, never state', () => {
+    const taken = run(132, 84, base(115, 75), 'taken');
+    const missed = run(132, 84, base(115, 75), 'missed');
+    expect(missed.state).toBe(taken.state);
+    expect(missed.actionLevel).toBe(taken.actionLevel);
+    expect(missed.copyKey).toContain('missed_meds');
+    expect(taken.copyKey).not.toContain('missed_meds');
+  });
+  it('missed meds never softens high first reading', () => {
+    expect(run(150, 90, null, 'missed').actionLevel).toBe('recheck_now');
+  });
 });

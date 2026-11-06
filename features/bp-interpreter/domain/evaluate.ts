@@ -3,12 +3,12 @@ import type { InterpretationResult, BPCategory, EmergencySymptom } from "./types
 
 export const RULESET_VERSION = "2025-ACC-AHA-v1.1";
 
-// Helper to determine the highest category
 export function getCategory(systolic: number, diastolic: number): BPCategory {
-  if (systolic >= 140 || diastolic >= 90) return "Stage 2";
-  if (systolic >= 130 || diastolic >= 80) return "Stage 1";
-  if (systolic >= 120 && diastolic < 80) return "Elevated";
-  return "Normal";
+  if (systolic >= 180 || diastolic >= 120) return "severe";
+  if (systolic >= 140 || diastolic >= 90) return "stage2";
+  if (systolic >= 130 || diastolic >= 80) return "stage1";
+  if (systolic >= 120 && diastolic < 80) return "elevated";
+  return "normal";
 }
 
 export function evaluate(
@@ -25,30 +25,16 @@ export function evaluate(
     requiresRecheck: isProvisional, 
   };
 
-  // 1. P0 EMERGENCY GATE (Overrides ALL BP math)
-  // If any red-flag symptom is present, we do not look at the numbers.
   if (symptoms.length > 0) {
-    return {
-      ...baseResult,
-      kind: "emergency",
-      category: undefined,
-    };
+    return { ...baseResult, kind: "emergency", category: undefined };
   }
 
-  // 2. SEVERE RECHECK (Hypertensive Crisis)
-  // If BP is dangerously high (>= 180/120), but no symptoms are present.
-  if (systolic >= 180 || diastolic >= 120) {
-    return {
-      ...baseResult,
-      kind: "severe_recheck",
-      category: "Stage 2",
-    };
-  }
-
-  // 3. STANDARD CLASSIFICATION (Highest category wins)
   const category = getCategory(systolic, diastolic);
+  
+  if (category === "severe") {
+    return { ...baseResult, kind: "severe_recheck", category };
+  }
 
-  // 4. PULSE ALERT (Micro-fix 1)
   const hasPulseAlert = pulse !== undefined && pulse >= 100;
 
   return {
