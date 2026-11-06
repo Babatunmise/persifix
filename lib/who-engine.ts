@@ -75,13 +75,13 @@ const INCIDENCE: Record<string, { mi: { male: number[], female: number[] }, stro
 
 export function calculateRiskRaw(inputs: RiskInputs): number {
   const rKey = REGION_MAP[inputs.region] || "western_subsaharan_africa";
-  const inc = INCIDENCE[rKey];
+  const inc = INCIDENCE[rKey]!;
   
   // FIXED: Correct 0-indexed age group calculation (40-44 = 0, 45-49 = 1, etc.)
   const ageGroupIndex = Math.floor((inputs.age - 40) / 5);
   
-  const inc_mi = inc.mi[inputs.sex][ageGroupIndex];
-  const inc_stroke = inc.stroke[inputs.sex][ageGroupIndex];
+ const inc_mi = inc.mi[inputs.sex][ageGroupIndex] || 0;
+  const inc_stroke = inc.stroke[inputs.sex][ageGroupIndex] || 0;
 
   const c_mi = COEFFICIENTS.mi[inputs.sex];
   const c_stroke = COEFFICIENTS.stroke[inputs.sex];
