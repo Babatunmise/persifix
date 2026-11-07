@@ -23,7 +23,7 @@ export async function POST(req: Request) {
 
     // 3. Parse the incoming data
     const body = await req.json();
-    const { systolic, diastolic, medication } = body;
+    const { systolic, diastolic, medication, fullContext } = body;
 
     // 4. Basic server-side validation (Never trust the client)
     if (
@@ -41,23 +41,23 @@ export async function POST(req: Request) {
     const category = getCategory(systolic, diastolic);
     
     // 6. Save to the database securely
-    const { data, error: dbError } = await supabase
+  const { data, error: dbError } = await supabase
       .from("readings")
       .insert({
-        id: crypto.randomUUID(), // Generate a unique ID
-        user_id: user.id,        // Link to the anonymous user
+        id: crypto.randomUUID(),
+        user_id: user.id,
         systolic,
         diastolic,
         taken_at: new Date().toISOString(),
         tz: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
         context: { 
-          medication,
-          serverCategory: category // Store the verified clinical category for the Doctor Report later
+          ...(fullContext || {}), // This spreads the new Morning/Evening tags
+          medication: medication, // This saves the "Yes"/"No"
+          serverCategory: category 
         }
       })
       .select()
       .single();
-
     if (dbError) {
       console.error("DB Error:", dbError);
       return NextResponse.json({ error: "Failed to save reading" }, { status: 500 });

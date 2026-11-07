@@ -10,7 +10,7 @@ type Reading = {
   systolic: number;
   diastolic: number;
   taken_at: string;
-  context: any; // Add context for the tags
+  context: any;
 };
 
 export default function HistoryPage() {
@@ -19,7 +19,6 @@ export default function HistoryPage() {
   const [readingsByDate, setReadingsByDate] = useState<Record<string, Reading[]>>({});
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch readings from Supabase on mount
   useEffect(() => {
     const fetchReadings = async () => {
       try {
@@ -27,7 +26,6 @@ export default function HistoryPage() {
         if (!session) return;
 
         const supabase = createClient();
-        // Added 'context' to the select query
         const { data } = await supabase
           .from("readings")
           .select("id, systolic, diastolic, taken_at, context")
@@ -54,7 +52,6 @@ export default function HistoryPage() {
     fetchReadings();
   }, []);
 
-  // Calendar Math
   const { daysInMonth, startingDay } = useMemo(() => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
@@ -69,10 +66,43 @@ export default function HistoryPage() {
 
   const monthName = currentDate.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
 
-  // Helper to format the selected date nicely
   const formattedSelectedDate = selectedDate 
     ? new Date(selectedDate).toLocaleDateString("en-GB", { weekday: 'long', day: "numeric", month: "long" })
     : null;
+
+  // --- THE NARRATIVE ENGINE ---
+  const getNarrativeText = (reading: Reading) => {
+    const ctx = reading.context;
+    if (!ctx) return null;
+
+    const isHigh = reading.systolic >= 140 || reading.diastolic >= 90;
+    const messages = [];
+
+  // Catch all variations of the missed medication tag
+    if (ctx.medication === "No" || ctx.medication === "missed" || ctx.medication === "missed_meds") {
+      messages.push(isHigh 
+        ? "You logged that you missed your medication. Missing a dose often causes numbers to run higher." 
+        : "You logged that you missed your medication, but your numbers are holding steady."
+      );
+    }
+
+    if (ctx.stress && ctx.stress !== "None") {
+      messages.push(isHigh
+        ? `You mentioned feeling stressed (${ctx.stress}). On days like this, your numbers tend to run a bit higher.`
+        : `You mentioned feeling stressed (${ctx.stress}). It's good to see your numbers staying in range despite the stress.`
+      );
+    }
+
+    if (ctx.sleep === "Less than 5 hrs") {
+      messages.push("You logged less than 5 hours of sleep. Poor sleep can temporarily elevate blood pressure.");
+    }
+
+    if (ctx.diet === "Heavy on Maggi" || ctx.diet === "Ate out") {
+      messages.push("You logged a heavier meal. Digestion shifts blood flow, and sodium can cause your body to hold onto water.");
+    }
+
+    return messages.length > 0 ? messages.join(" ") : null;
+  };
 
   return (
     <div className="max-w-md mx-auto py-12 px-6 text-[#F9F8F6] min-h-screen pb-24">
@@ -84,22 +114,17 @@ export default function HistoryPage() {
         </Link>
       </div>
 
-      {/* Calendar Card */}
       <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-6 mb-8">
-        
-        {/* Month Navigation */}
         <div className="flex justify-between items-center mb-6">
           <button onClick={prevMonth} className="p-2 text-neutral-400 hover:text-white">&lt;</button>
           <h2 className="text-xl font-semibold">{monthName}</h2>
           <button onClick={nextMonth} className="p-2 text-neutral-400 hover:text-white">&gt;</button>
         </div>
 
-        {/* Days of Week */}
         <div className="grid grid-cols-7 gap-2 mb-2 text-center text-xs font-medium text-neutral-500">
           <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
         </div>
 
-        {/* Days Grid */}
         <div className="grid grid-cols-7 gap-2 text-center">
           {Array.from({ length: startingDay }).map((_, i) => (
             <div key={`empty-${i}`} className="h-10"></div>
@@ -138,7 +163,6 @@ export default function HistoryPage() {
         </div>
       </div>
 
-      {/* Micro View (Day Details) */}
       <div className="mt-8">
         {selectedDate ? (
           <div>
@@ -146,29 +170,28 @@ export default function HistoryPage() {
               {formattedSelectedDate}
             </h3>
             
-            <div className="space-y-3">
+            <div className="space-y-4">
               {readingsByDate[selectedDate]?.map((reading) => {
-                // Parse context tags
-                const tags = [];
-                if (reading.context?.medication === "missed") tags.push("Missed Meds");
+                const narrative = getNarrativeText(reading);
                 
                 return (
-                  <div key={reading.id} className="p-4 rounded-xl bg-neutral-900 border border-neutral-800 flex justify-between items-center">
-                    <div>
+                  <div key={reading.id} className="p-5 rounded-2xl bg-neutral-900 border border-neutral-800">
+                    <div className="flex justify-between items-center mb-2">
                       <p className="text-2xl font-semibold">{reading.systolic}/{reading.diastolic}</p>
-                      {tags.length > 0 && (
-                        <div className="flex gap-2 mt-2">
-                          {tags.map(tag => (
-                            <span key={tag} className="text-[10px] bg-neutral-800 text-neutral-300 px-2 py-1 rounded-md uppercase tracking-wider">
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      )}
+                      <div className="text-sm text-neutral-500">
+                        {new Date(reading.taken_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </div>
                     </div>
-                    <div className="text-sm text-neutral-500">
-                      {new Date(reading.taken_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </div>
+
+                    {/* THE NARRATIVE CONNECTION */}
+                    {narrative && (
+                      <div className="mt-3 pt-3 border-t border-neutral-800">
+                        <p className="text-sm text-emerald-400/90 leading-relaxed">
+                          <span className="font-semibold text-emerald-500 mr-1">The Connection:</span>
+                          {narrative}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 );
               })}

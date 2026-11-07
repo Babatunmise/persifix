@@ -7,6 +7,7 @@ export default function SettingsPage() {
   const rows = [
     { title: "Edit Profile", desc: "Name, Age, and baseline setup", href: "/settings/profile" },
     { title: "Medications", desc: "Track your prescription schedule", href: "/settings/medications" },
+       { title: "Caregiver Circle", desc: "Invite family and friends to support you", href: "/settings/caregiver" },
     { title: "Reminders", desc: "Set daily check-in notifications", href: "/settings/reminders" },
     { title: "About Sanctos", desc: "Version 1.0.0 and medical disclaimers", href: "/settings/about" },
   ];

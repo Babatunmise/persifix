@@ -13,7 +13,6 @@ export default function HomePage() {
   const [lastReading, setLastReading] = useState<{ sys: number; dia: number } | null>(null);
   const [readingCount, setReadingCount] = useState(0);
 
-  // 1. Handle Dynamic Time & Greeting
   useEffect(() => {
     setMounted(true);
     const hour = new Date().getHours();
@@ -33,7 +32,6 @@ export default function HomePage() {
     if (storedName) setUserName(storedName);
   }, []);
 
-  // 2. Fetch Real Data from Supabase
   useEffect(() => {
     if (!mounted) return;
 
@@ -43,21 +41,18 @@ export default function HomePage() {
         if (!session) return;
 
         const supabase = createClient();
-        // Fetch the last 3 readings to determine baseline status and the latest reading
+        // Fetch count and the latest reading
         const { data, count } = await supabase
           .from("readings")
           .select("systolic, diastolic", { count: "exact" })
           .eq("user_id", session.user.id)
           .order("taken_at", { ascending: false })
-          .limit(3);
+          .limit(1);
 
         if (data && data.length > 0) {
           setLastReading({ sys: data[0].systolic, dia: data[0].diastolic });
-          setReadingCount(count || data.length);
-        } else {
-          setLastReading(null);
-          setReadingCount(0);
         }
+        setReadingCount(count || 0);
       } catch (err) {
         console.error(err);
       }
@@ -65,30 +60,29 @@ export default function HomePage() {
 
     fetchLatestReading();
 
+    // Refresh data when returning to the tab
     window.addEventListener("focus", fetchLatestReading);
     return () => window.removeEventListener("focus", fetchLatestReading);
   }, [mounted]);
 
-  // Determine the background class
   const bgClass = 
     timeOfDay === "morning" ? "bg-[#111a16]" : 
     timeOfDay === "afternoon" ? "bg-[#121212]" : 
     "bg-[#0d0d12]";
 
-  // Determine Today's Focus OR Guided Baseline Logic
+  // Guided Baseline Logic
+  const isBaselineForming = readingCount < 3;
+  const readingsNeeded = 3 - readingCount;
+
   let focusTitle = "Today's Focus";
   let focusText = "";
-  let showProgress = false;
 
-  if (readingCount < 3) {
+  if (isBaselineForming) {
     focusTitle = "Guided Baseline";
-    showProgress = true;
-    const readingsNeeded = 3 - readingCount;
     focusText = readingsNeeded === 1 
       ? "We're learning your usual range. Log 1 more reading to unlock your personalized insights."
       : `We're learning your usual range. Log ${readingsNeeded} more readings to unlock your personalized insights.`;
   } else {
-    // We have 3+ readings, show the normal focus
     if (lastReading) {
       if (lastReading.sys >= 140 || lastReading.dia >= 90) {
         focusText = "Let's focus on consistency today. Have you checked your medication schedule?";
@@ -97,21 +91,16 @@ export default function HomePage() {
       } else {
         focusText = "Maintenance mode. Keep up the great habits—your numbers are looking healthy.";
       }
-    } else {
-      focusText = "Log your first reading today to get a personalized focus.";
     }
   }
 
-  if (!mounted) {
-    return <div className="min-h-screen bg-[#121212]" />;
-  }
+  if (!mounted) return <div className="min-h-screen bg-[#121212]" />;
 
   return (
     <div className={`min-h-screen ${bgClass} text-[#F9F8F6] pb-24 font-sans transition-colors duration-1000`}>
       
       <main className="max-w-md mx-auto px-6 pt-12 space-y-8">
         
-        {/* Hero Section */}
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">
             {greeting}{userName ? `, ${userName}` : ""}.
@@ -121,7 +110,6 @@ export default function HomePage() {
           </p>
         </div>
 
-        {/* Main CTA */}
         <Link 
           href="/interpret"
           className="block w-full rounded-full bg-[#2E5B44] px-6 py-5 text-center text-lg font-semibold text-white transition-transform hover:scale-[1.02]"
@@ -129,7 +117,6 @@ export default function HomePage() {
           Tell me your blood pressure today and we’ll understand it together.
         </Link>
 
-        {/* Today's Focus / Guided Baseline */}
         <div className="rounded-3xl border border-neutral-800 bg-neutral-900/50 p-6 backdrop-blur-sm">
           <p className="text-xs font-semibold uppercase tracking-widest text-[#2E5B44] mb-2">
             {focusTitle}
@@ -138,8 +125,8 @@ export default function HomePage() {
             {focusText}
           </p>
           
-          {/* Visual Progress Tracker */}
-          {showProgress && (
+          {/* Visual Progress Tracker for Baseline */}
+          {isBaselineForming && (
             <div className="flex gap-2">
               {[1, 2, 3].map((step) => (
                 <div 
@@ -151,7 +138,6 @@ export default function HomePage() {
           )}
         </div>
 
-        {/* Quick Stats Row */}
         <div className="grid grid-cols-2 gap-4">
           <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6">
             <p className="text-sm font-medium text-neutral-500 mb-1">Last Check-in</p>
@@ -174,7 +160,6 @@ export default function HomePage() {
 
       </main>
 
-      {/* Bottom Navigation */}
       <nav className="fixed bottom-0 w-full bg-[#121212] border-t border-neutral-800 pb-safe">
         <div className="max-w-md mx-auto flex justify-around items-center h-16">
           <Link href="/" className="flex flex-col items-center text-[#F9F8F6]">
