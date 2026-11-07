@@ -21,6 +21,7 @@ export type BPCategory = "normal" | "elevated" | "stage1" | "stage2" | "severe";
 export type UiState = 
   | "HEALTHY_FIRST" 
   | "BORDERLINE_FIRST" 
+  | "BORDERLINE_FIRST_EDGE"
   | "HIGH_FIRST" 
   | "STEADY" 
   | "SLIGHTLY_HIGHER" 

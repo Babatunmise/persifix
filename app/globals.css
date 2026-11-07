@@ -33,3 +33,27 @@ body {
 .animate-breathe-circle {
   animation: breathe-circle 16s infinite ease-in-out;
 }
+
+
+/* --- SANCTOS BREATHER ANIMATION --- */
+@keyframes breathe-sphere {
+  0% { 
+    transform: scale(1); 
+    box-shadow: 0 0 40px 10px rgba(46, 91, 68, 0.2); 
+  }
+  40% { 
+    transform: scale(1.6); 
+    box-shadow: 0 0 80px 30px rgba(46, 91, 68, 0.5); 
+  }
+  100% { 
+    transform: scale(1); 
+    box-shadow: 0 0 40px 10px rgba(46, 91, 68, 0.2); 
+  }
+}
+
+.animate-breathe-sphere {
+  /* 10 seconds total: 4s expanding (40%), 6s contracting (60%) */
+  animation: breathe-sphere 10s infinite ease-in-out;
+  /* Creates the 3D sphere look */
+  background: radial-gradient(circle at 30% 30%, #4a8a69, #2E5B44, #14291f);
+}

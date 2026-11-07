@@ -1,10 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { evaluate, getCategory } from "@/features/bp-interpreter/domain/evaluate";
 import { interpret } from "@/features/bp-interpreter/domain/interpret";
+import { calculateBaseline } from "@/features/bp-interpreter/domain/baseline";
 import type { Baseline, Medication, ContextualInterpretation } from "@/features/bp-interpreter/domain/types";
 import { COPY } from "@/features/bp-interpreter/domain/copy";
+import { ensureAnonymousSession } from "@/lib/supabase/auth";
+import { createClient } from "@/lib/supabase/client";
 
 export function BPInputForm() {
   const [step, setStep] = useState<"input" | "context" | "result">("input");
@@ -13,12 +16,38 @@ export function BPInputForm() {
   const [medication, setMedication] = useState<Medication>("unknown");
   const [interpretation, setInterpretation] = useState<ContextualInterpretation | null>(null);
   const [error, setError] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  
+  // REAL BASELINE STATE
+  const [realBaseline, setRealBaseline] = useState<Baseline | null>(null);
 
-  // --- MOCK BASELINE FOR TESTING ---
-  // Change this to null to test the "First Reading" experience.
-  // Change it to an object to test the "Usual Baseline" experience.
-  const MOCK_BASELINE: Baseline | null = null; 
-  // Example with baseline: { sys: 120, dia: 80, distinctDays: 10, sessions: 10 }
+  useEffect(() => {
+    const initApp = async () => {
+      try {
+        // 1. Ensure Auth
+        const session = await ensureAnonymousSession();
+        if (!session) return;
+
+        // 2. Fetch the last 14 readings to calculate the baseline
+        const supabase = createClient();
+        const { data, error } = await supabase
+          .from("readings")
+          .select("systolic, diastolic, taken_at")
+          .eq("user_id", session.user.id)
+          .order("taken_at", { ascending: false })
+          .limit(14);
+
+        if (!error && data) {
+          const baseline = calculateBaseline(data);
+          setRealBaseline(baseline);
+        }
+      } catch (err) {
+        console.error("Initialization error:", err);
+      }
+    };
+
+    initApp();
+  }, []);
 
   const handleInitialSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,26 +69,55 @@ export function BPInputForm() {
     setStep("context");
   };
 
-  const handleFinalSubmit = (med: Medication) => {
+  const handleFinalSubmit = async (med: Medication) => {
     setMedication(med);
+    setError("");
+    setIsSaving(true);
+
     const sys = parseInt(systolic, 10);
     const dia = parseInt(diastolic, 10);
     
-    // Call the pure math engine
-    const clinicalResult = evaluate(sys, dia, undefined, [], true); 
-    
-    // Call the smart translation engine
-    const smartResult = interpret({
-      current: { sys, dia, readingsInSession: 2 },
-      baseline: MOCK_BASELINE,
-      medication: med
-    }, getCategory);
+    try {
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
 
-    setInterpretation(smartResult);
-    setStep("result");
+      if (!session) throw new Error("No active session found. Please try again.");
+
+      const response = await fetch("/api/readings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          systolic: sys,
+          diastolic: dia,
+          medication: med,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to save reading");
+      }
+
+      // 3. Calculate the smart interpretation USING THE REAL BASELINE
+      const smartResult = interpret({
+        current: { sys, dia, readingsInSession: 2 },
+        baseline: realBaseline, // <-- Injected here
+        medication: med
+      }, getCategory);
+
+      setInterpretation(smartResult);
+      setStep("result");
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || "Something went wrong. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  // --- RENDER STEP 1: BP INPUT ---
   if (step === "input") {
     return (
       <form onSubmit={handleInitialSubmit} className="space-y-6">
@@ -95,40 +153,42 @@ export function BPInputForm() {
     );
   }
 
-  // --- RENDER STEP 2: CONTEXT ---
   if (step === "context") {
     return (
       <div className="space-y-6 text-center">
         <h2 className="text-2xl font-semibold mb-8">Have you taken your BP medication today?</h2>
+        
+        {error && <p className="text-red-500 text-center text-sm mb-4">{error}</p>}
+
         <div className="space-y-4">
           <button
             onClick={() => handleFinalSubmit("taken")}
-            className="w-full rounded-3xl bg-[#F9F8F6] py-6 text-xl font-semibold text-black transition-opacity hover:opacity-90"
+            disabled={isSaving}
+            className="w-full rounded-3xl bg-[#F9F8F6] py-6 text-xl font-semibold text-black transition-opacity hover:opacity-90 disabled:opacity-50"
           >
-            Yes, I took it
+            {isSaving ? "Saving..." : "Yes, I took it"}
           </button>
           <button
             onClick={() => handleFinalSubmit("missed")}
-            className="w-full rounded-3xl bg-neutral-800 py-6 text-xl font-semibold text-[#F9F8F6] transition-opacity hover:opacity-90"
+            disabled={isSaving}
+            className="w-full rounded-3xl bg-neutral-800 py-6 text-xl font-semibold text-[#F9F8F6] transition-opacity hover:opacity-90 disabled:opacity-50"
           >
-            No, I missed it
+            {isSaving ? "Saving..." : "No, I missed it"}
           </button>
         </div>
       </div>
     );
   }
 
-  // --- RENDER STEP 3: THE WARM CONTEXTUAL RESULT SCREEN ---
   if (!interpretation) return null;
 
- // Look up the copy based on the engine's specific key and edge flag
   let copyKeyToUse = interpretation.state as string;
   if (interpretation.state === "BORDERLINE_FIRST" && interpretation.flags.edge) {
     copyKeyToUse = "BORDERLINE_FIRST_EDGE";
   }
   
-  // Fallback to Healthy First just in case
   const copy = COPY[copyKeyToUse as keyof typeof COPY] || COPY.HEALTHY_FIRST;
+
   return (
     <div className="space-y-6">
       <div className="text-center mb-8">
@@ -138,7 +198,6 @@ export function BPInputForm() {
 
       <div className="p-6 rounded-3xl bg-neutral-900 border border-neutral-800 space-y-6">
         
-        {/* The Meaning (Driven by the Smart Engine) */}
         <div>
           <p className="text-xs font-semibold uppercase tracking-widest text-neutral-500 mb-1">The Meaning</p>
           <h3 className="text-xl font-semibold text-[#F9F8F6] mb-2">{copy.headline}</h3>
@@ -147,7 +206,6 @@ export function BPInputForm() {
           </p>
         </div>
 
-        {/* The Context (Driven by the flags) */}
         {interpretation.flags.missedMeds && (
           <div>
             <p className="text-xs font-semibold uppercase tracking-widest text-neutral-500 mb-1">The Context</p>
@@ -157,7 +215,6 @@ export function BPInputForm() {
           </div>
         )}
 
-        {/* The Action (Driven by the actionLevel) */}
         {interpretation.actionLevel !== "none" && (
           <div className="pt-4 border-t border-neutral-800">
             <p className="text-xs font-semibold uppercase tracking-widest text-neutral-500 mb-1">The Action</p>

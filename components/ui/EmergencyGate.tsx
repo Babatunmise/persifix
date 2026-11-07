@@ -20,13 +20,12 @@ export function EmergencyGate() {
   return (
     <>
       {/* The Persistent Floating Button */}
-      <button
+    <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 rounded-full border border-red-900/50 bg-[#1a0a0a] px-6 py-3 text-sm font-semibold text-red-400 shadow-lg backdrop-blur-md transition-transform hover:scale-105"
+        className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 rounded-full border border-red-900/50 bg-[#1a0a0a] px-6 py-3 text-sm font-semibold text-red-400 shadow-lg backdrop-blur-md transition-transform hover:scale-105"
       >
         Feeling unwell right now?
       </button>
-
       {/* The Modal Overlay */}
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 backdrop-blur-sm sm:items-center">
