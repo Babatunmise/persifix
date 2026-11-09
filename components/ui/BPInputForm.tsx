@@ -144,6 +144,7 @@ export function BPInputForm() {
     const eveningQuestions = [
       { key: "stress", title: "What's weighing on you today?", options: ["Work", "Money", "Family", "None"] },
       { key: "diet", title: "What did your last meal look like?", options: ["Light", "Heavy on Maggi", "Ate out"] },
+        { key: "alcohol", title: "Did you have any alcohol today?", options: ["Yes", "No"] }, // <-- ADD THIS LINE
       { key: "medication", title: "Have you taken your BP medication today?", options: ["Yes", "No"] },
       { key: "nsaids", title: "Do you take pain relievers (like Ibuprofen) often?", options: ["Yes", "No"] }
     ];
@@ -185,12 +186,40 @@ export function BPInputForm() {
         <p className="text-lg text-neutral-400 mb-2">Thanks for checking in today.</p>
         <h2 className="text-6xl font-semibold text-[#F9F8F6]">{systolic}/{diastolic}</h2>
       </div>
-      <div className="p-6 rounded-3xl bg-neutral-900 border border-neutral-800 space-y-6">
+    <div className="p-6 rounded-3xl bg-neutral-900 border border-neutral-800 space-y-6">
+        
+        {/* The Meaning */}
         <div>
           <p className="text-xs font-semibold uppercase tracking-widest text-neutral-500 mb-1">The Meaning</p>
           <h3 className="text-xl font-semibold text-[#F9F8F6] mb-2">{copy.headline}</h3>
           <p className="text-neutral-300 leading-relaxed text-sm">{copy.subtext}</p>
         </div>
+
+        {/* The Context (Dynamically generated from answers) */}
+        {(contextAnswers.medication === "No" || contextAnswers.alcohol === "Yes" || contextAnswers.stress && contextAnswers.stress !== "None" || contextAnswers.diet === "Heavy on Maggi" || contextAnswers.sleep === "Less than 5 hrs") && (
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-widest text-neutral-500 mb-1">The Context</p>
+            <div className="text-amber-500/90 text-sm leading-relaxed space-y-2">
+              {contextAnswers.medication === "No" && (
+                <p>You mentioned missing your medication today. On days you miss a dose, your numbers tend to run higher.</p>
+              )}
+              {contextAnswers.alcohol === "Yes" && (
+                <p>You mentioned having alcohol today. Alcohol can temporarily raise blood pressure, and heavy drinking over time can cause it to stay elevated.</p>
+              )}
+              {contextAnswers.stress && contextAnswers.stress !== "None" && (
+                <p>You mentioned feeling stressed ({contextAnswers.stress}). On days like this, your numbers tend to run a bit higher.</p>
+              )}
+              {contextAnswers.diet === "Heavy on Maggi" && (
+                <p>You mentioned a heavier meal. Salty foods can cause your body to hold onto water.</p>
+              )}
+              {contextAnswers.sleep === "Less than 5 hrs" && (
+                <p>You logged less than 5 hours of sleep. Poor sleep can temporarily elevate blood pressure.</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* The Action */}
         {interpretation.actionLevel !== "none" && (
           <div className="pt-4 border-t border-neutral-800">
             <p className="text-xs font-semibold uppercase tracking-widest text-neutral-500 mb-1">The Action</p>
@@ -201,6 +230,7 @@ export function BPInputForm() {
             </p>
           </div>
         )}
+
       </div>
       <button onClick={() => { setStep("input"); setContextStep(0); setContextAnswers({}); setInterpretation(null); setSystolic(""); setDiastolic(""); }} className="w-full rounded-full bg-transparent py-4 text-sm font-medium text-[#2E5B44] underline">Log another reading</button>
     </div>

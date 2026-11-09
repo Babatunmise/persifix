@@ -62,6 +62,9 @@ export default function SanctosPage() {
         <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-2xl mb-8 space-y-4">
           <p className="text-sm font-semibold text-emerald-400">Before you begin:</p>
           <p className="text-sm text-neutral-300 leading-relaxed">
+            Breathe in slowly through your nose... and out through your mouth.
+          </p>
+          <p className="text-sm text-neutral-300 leading-relaxed">
             Take small, easy breaths, not deep ones. If you feel lightheaded, just breathe normally.
           </p>
           <p className="text-sm text-neutral-300 leading-relaxed">
@@ -112,10 +115,11 @@ export default function SanctosPage() {
           </span>
         </div>
 
-        <div className="absolute bottom-12 text-center w-full px-6">
+        {/* Changed bottom-12 to bottom-32 to prevent overlapping with the Emergency button */}
+        <div className="absolute bottom-32 text-center w-full px-6">
           <button 
             onClick={endSession}
-            className="rounded-full border border-neutral-800 px-8 py-3 text-sm text-neutral-400 hover:text-white transition-colors"
+            className="rounded-full border border-neutral-800 bg-[#121212] px-8 py-3 text-sm text-neutral-400 hover:text-white transition-colors"
           >
             Done for now.
           </button>
