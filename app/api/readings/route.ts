@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
 import { evaluate, getCategory } from "@/features/bp-interpreter/domain/evaluate";
 import type { Medication } from "@/features/bp-interpreter/domain/types";
+import { BPInputSchema } from "@/features/bp-interpreter/domain/validate";
 
 export async function POST(req: Request) {
   try {
@@ -21,19 +22,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 3. Parse the incoming data
+ // 3. Parse and Validate the incoming data using Zod
     const body = await req.json();
     const { systolic, diastolic, medication, fullContext } = body;
 
-    // 4. Basic server-side validation (Never trust the client)
-    if (
-      typeof systolic !== "number" || 
-      typeof diastolic !== "number" || 
-      systolic <= diastolic ||
-      systolic < 40 || systolic > 300 ||
-      diastolic < 20 || diastolic > 200
-    ) {
-      return NextResponse.json({ error: "Invalid blood pressure values" }, { status: 400 });
+    const validation = BPInputSchema.safeParse({
+      systolic,
+      diastolic,
+      measuredAt: new Date().toISOString(), // Pass a valid date so Zod is happy
+    });
+
+    if (!validation.success) {
+      return NextResponse.json({ error: "Invalid blood pressure values. Please check your numbers." }, { status: 400 });
     }
 
     // 5. Recompute the clinical math on the server (Defense in Depth)

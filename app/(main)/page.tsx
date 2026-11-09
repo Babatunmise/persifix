@@ -10,7 +10,7 @@ export default function HomePage() {
   const [timeOfDay, setTimeOfDay] = useState<"morning" | "afternoon" | "evening">("morning");
   const [greeting, setGreeting] = useState("Hello");
   const [userName, setUserName] = useState("");
-  const [lastReading, setLastReading] = useState<{ sys: number; dia: number } | null>(null);
+ const [lastReading, setLastReading] = useState<{ sys: number; dia: number; takenAt: string } | null>(null);
   const [readingCount, setReadingCount] = useState(0);
 
   useEffect(() => {
@@ -44,13 +44,17 @@ export default function HomePage() {
         // Fetch count and the latest reading
         const { data, count } = await supabase
           .from("readings")
-          .select("systolic, diastolic", { count: "exact" })
+          .select("systolic, diastolic, taken_at", { count: "exact" })
           .eq("user_id", session.user.id)
           .order("taken_at", { ascending: false })
           .limit(1);
 
         if (data && data.length > 0) {
-          setLastReading({ sys: data[0].systolic, dia: data[0].diastolic });
+          setLastReading({ 
+            sys: data[0].systolic, 
+            dia: data[0].diastolic, 
+            takenAt: data[0].taken_at 
+          });
         }
         setReadingCount(count || 0);
       } catch (err) {
@@ -71,17 +75,29 @@ export default function HomePage() {
     "bg-[#0d0d12]";
 
   // Guided Baseline Logic
-  const isBaselineForming = readingCount < 3;
+ const isBaselineForming = readingCount < 3;
   const readingsNeeded = 3 - readingCount;
+  
+  // Check if the last reading was today
+  const lastReadingDate = lastReading?.takenAt ? new Date(lastReading.takenAt).toDateString() : null;
+  const todayDate = new Date().toDateString();
+  const hasLoggedToday = lastReadingDate === todayDate;
 
   let focusTitle = "Today's Focus";
   let focusText = "";
 
   if (isBaselineForming) {
     focusTitle = "Guided Baseline";
-    focusText = readingsNeeded === 1 
-      ? "We're learning your usual range. Log 1 more reading to unlock your personalized insights."
-      : `We're learning your usual range. Log ${readingsNeeded} more readings to unlock your personalized insights.`;
+    
+    if (hasLoggedToday) {
+      focusText = readingsNeeded === 1
+        ? "Great check-in. We need just 1 more reading to establish your baseline. We'll prompt you again tomorrow morning."
+        : `Great check-in. We need ${readingsNeeded} more readings. We'll prompt you again tomorrow.`;
+    } else {
+      focusText = readingsNeeded === 1 
+        ? "We're learning your usual range. Log 1 more reading today to unlock your personalized insights."
+        : `We're learning your usual range. Log ${readingsNeeded} more readings to unlock your personalized insights.`;
+    }
   } else {
     if (lastReading) {
       if (lastReading.sys >= 140 || lastReading.dia >= 90) {
