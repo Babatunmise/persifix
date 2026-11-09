@@ -24,7 +24,7 @@ export async function POST(req: Request) {
 
  // 3. Parse and Validate the incoming data using Zod
     const body = await req.json();
-    const { systolic, diastolic, medication, fullContext } = body;
+    const { systolic, diastolic, medication, fullContext, taken_at } = body;
 
     const validation = BPInputSchema.safeParse({
       systolic,
@@ -48,7 +48,7 @@ export async function POST(req: Request) {
         user_id: user.id,
         systolic,
         diastolic,
-        taken_at: new Date().toISOString(),
+        taken_at: taken_at || new Date().toISOString(),
         tz: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
         context: { 
           ...(fullContext || {}), // This spreads the new Morning/Evening tags

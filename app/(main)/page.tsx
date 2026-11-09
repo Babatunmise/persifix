@@ -10,9 +10,10 @@ export default function HomePage() {
   const [timeOfDay, setTimeOfDay] = useState<"morning" | "afternoon" | "evening">("morning");
   const [greeting, setGreeting] = useState("Hello");
   const [userName, setUserName] = useState("");
- const [lastReading, setLastReading] = useState<{ sys: number; dia: number; takenAt: string } | null>(null);
+  const [lastReading, setLastReading] = useState<{ sys: number; dia: number; takenAt: string } | null>(null);
   const [readingCount, setReadingCount] = useState(0);
 
+  // 1. Handle Dynamic Time & Greeting
   useEffect(() => {
     setMounted(true);
     const hour = new Date().getHours();
@@ -32,16 +33,51 @@ export default function HomePage() {
     if (storedName) setUserName(storedName);
   }, []);
 
+  // 2. Sync Offline Readings & Fetch Latest Data
   useEffect(() => {
     if (!mounted) return;
 
-    const fetchLatestReading = async () => {
+    const syncAndFetch = async () => {
       try {
         const session = await ensureAnonymousSession();
         if (!session) return;
 
+        // --- SYNC OFFLINE READINGS ---
+        const pendingStr = localStorage.getItem("sanctos_pending_readings");
+        if (pendingStr) {
+          const pending = JSON.parse(pendingStr);
+          if (Array.isArray(pending) && pending.length > 0) {
+            const successfulSync = [];
+            
+            for (const reading of pending) {
+              try {
+                const res = await fetch("/api/readings", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session.access_token}` },
+                  body: JSON.stringify({
+                    systolic: reading.systolic,
+                    diastolic: reading.diastolic,
+                    medication: reading.medication,
+                    fullContext: reading.fullContext,
+                    taken_at: reading.taken_at
+                  })
+                });
+                if (res.ok) successfulSync.push(reading);
+              } catch (e) {
+                console.error("Failed to sync a reading:", e);
+              }
+            }
+
+            // Clear synced readings from local storage
+            if (successfulSync.length > 0) {
+              const remaining = pending.filter((r: any) => !successfulSync.includes(r));
+              localStorage.setItem("sanctos_pending_readings", JSON.stringify(remaining));
+            }
+          }
+        }
+
+        // --- FETCH LATEST DATA ---
         const supabase = createClient();
-        // Fetch count and the latest reading
         const { data, count } = await supabase
           .from("readings")
           .select("systolic, diastolic, taken_at", { count: "exact" })
@@ -58,15 +94,15 @@ export default function HomePage() {
         }
         setReadingCount(count || 0);
       } catch (err) {
-        console.error(err);
+        console.error("Home Hub fetch error:", err);
       }
     };
 
-    fetchLatestReading();
+    syncAndFetch();
 
     // Refresh data when returning to the tab
-    window.addEventListener("focus", fetchLatestReading);
-    return () => window.removeEventListener("focus", fetchLatestReading);
+    window.addEventListener("focus", syncAndFetch);
+    return () => window.removeEventListener("focus", syncAndFetch);
   }, [mounted]);
 
   const bgClass = 
@@ -75,10 +111,9 @@ export default function HomePage() {
     "bg-[#0d0d12]";
 
   // Guided Baseline Logic
- const isBaselineForming = readingCount < 3;
+  const isBaselineForming = readingCount < 3;
   const readingsNeeded = 3 - readingCount;
   
-  // Check if the last reading was today
   const lastReadingDate = lastReading?.takenAt ? new Date(lastReading.takenAt).toDateString() : null;
   const todayDate = new Date().toDateString();
   const hasLoggedToday = lastReadingDate === todayDate;

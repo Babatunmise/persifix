@@ -103,25 +103,38 @@ export function BPInputForm() {
     setError("");
     const sys = parseInt(systolic, 10);
     const dia = parseInt(diastolic, 10);
-
-    try {
+try {
       const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("No active session.");
+      
+      // 1. If they somehow lost auth, fallback to local
+      if (!session) throw new Error("No session");
 
-      const response = await fetch("/api/readings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session.access_token}` },
-        body: JSON.stringify({ 
-          systolic: sys, 
-          diastolic: dia, 
-          medication: finalContext.medication || "unknown",
-          fullContext: finalContext
-        }),
-      });
+      const payload = { 
+        systolic: sys, 
+        diastolic: dia, 
+        medication: finalContext.medication || "unknown",
+        fullContext: finalContext
+      };
 
-      if (!response.ok) throw new Error("Failed to save.");
+      try {
+        // Try to send to the server
+        const response = await fetch("/api/readings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session.access_token}` },
+          body: JSON.stringify(payload),
+        });
 
+        if (!response.ok) throw new Error("Server rejected reading");
+      } catch (networkError) {
+        // OFFLINE FALLBACK: Save to localStorage if the network fails
+        console.warn("Network failed. Saving reading locally.");
+        const pending = JSON.parse(localStorage.getItem("sanctos_pending_readings") || "[]");
+        pending.push({ ...payload, user_id: session.user.id, taken_at: new Date().toISOString() });
+        localStorage.setItem("sanctos_pending_readings", JSON.stringify(pending));
+      }
+
+      // Calculate the clinical result regardless of network status
       const smartResult = interpret({
         current: { sys, dia, readingsInSession: 2 },
         baseline: realBaseline,
