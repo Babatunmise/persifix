@@ -1,24 +1,49 @@
-
 "use client";
 
 import { useState } from "react";
 import Link from "next/link";
 import { Container } from "@/components/ui/Container";
+import { createClient } from "@/lib/supabase/client";
+import { ensureAnonymousSession } from "@/lib/supabase/auth";
 
 export default function CaregiverPage() {
   const [inviteInput, setInviteInput] = useState("");
+  const [selectedTier, setSelectedTier] = useState("Supporter");
   const [inviteSent, setInviteSent] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleInvite = (e: React.FormEvent) => {
+  const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inviteInput) return;
     
-    // Simulate sending the invite
-    setInviteSent(true);
-    setInviteInput("");
+    setIsSaving(true);
+    setError("");
     
-    // Reset success message after 3 seconds
-    setTimeout(() => setInviteSent(false), 3000);
+    try {
+      const session = await ensureAnonymousSession();
+      if (!session) throw new Error("No active session.");
+
+      const supabase = createClient();
+      const { error: dbError } = await supabase.from("caregiver_invites").insert({
+        user_id: session.user.id,
+        invitee_contact: inviteInput,
+        tier: selectedTier,
+      });
+
+      if (dbError) throw dbError;
+
+      setInviteSent(true);
+      setInviteInput("");
+      
+      // Reset success message after 3 seconds
+      setTimeout(() => setInviteSent(false), 3000);
+    } catch (err: any) {
+      console.error(err);
+      setError("Failed to send invite. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const tiers = [
@@ -47,23 +72,44 @@ export default function CaregiverPage() {
         {/* Invite Form */}
         <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 mb-8">
           <h2 className="text-lg font-semibold text-[#F9F8F6] mb-4">Invite Someone</h2>
-          <form onSubmit={handleInvite} className="flex gap-2">
-            <input 
-              type="text" 
-              value={inviteInput}
-              onChange={(e) => setInviteInput(e.target.value)}
-              placeholder="Email or phone number" 
-              className="flex-1 rounded-xl bg-neutral-800 px-4 py-3 text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-[#2E5B44]"
-            />
+          
+          <form onSubmit={handleInvite} className="space-y-4">
+            <div>
+              <input 
+                type="text" 
+                value={inviteInput}
+                onChange={(e) => setInviteInput(e.target.value)}
+                placeholder="Email or phone number" 
+                className="w-full rounded-xl bg-neutral-800 px-4 py-3 text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-[#2E5B44]"
+              />
+            </div>
+            
+            <div>
+              <select
+                value={selectedTier}
+                onChange={(e) => setSelectedTier(e.target.value)}
+                className="w-full rounded-xl bg-neutral-800 px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#2E5B44]"
+              >
+                {tiers.map(t => (
+                  <option key={t.name} value={t.name}>{t.name}</option>
+                ))}
+              </select>
+            </div>
+
             <button 
               type="submit"
-              className="rounded-xl bg-[#2E5B44] px-6 py-3 text-sm font-semibold text-white hover:opacity-90 transition-opacity"
+              disabled={isSaving || !inviteInput}
+              className="w-full rounded-xl bg-[#2E5B44] px-6 py-3 text-sm font-semibold text-white hover:opacity-90 transition-opacity disabled:opacity-50"
             >
-              Send
+              {isSaving ? "Sending..." : "Send Invite"}
             </button>
           </form>
+
           {inviteSent && (
-            <p className="text-[#2E5B44] text-xs mt-3 font-medium">Invite sent successfully!</p>
+            <p className="text-[#2E5B44] text-xs mt-3 font-medium text-center">Invite saved successfully!</p>
+          )}
+          {error && (
+            <p className="text-red-500 text-xs mt-3 font-medium text-center">{error}</p>
           )}
         </div>
 
@@ -82,18 +128,6 @@ export default function CaregiverPage() {
                 <p className="text-sm text-neutral-400">{tier.desc}</p>
               </div>
             ))}
-          </div>
-        </div>
-
-        {/* Current Members (Mock) */}
-        <div className="mt-8">
-          <h2 className="text-lg font-semibold text-[#F9F8F6] mb-4">Your Circle</h2>
-          <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800 flex justify-between items-center">
-            <div>
-              <p className="font-semibold text-[#F9F8F6]">Sarah (Daughter)</p>
-              <p className="text-xs text-neutral-500">Invited 2 days ago</p>
-            </div>
-            <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Supporter</span>
           </div>
         </div>
 
