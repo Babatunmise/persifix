@@ -1,5 +1,5 @@
 "use client";
-
+import { GenesisFlow } from "@/components/onboarding/GenesisFlow";
 import { useState, useEffect } from "react";
 import { getCategory } from "@/features/bp-interpreter/domain/evaluate";
 import { interpret } from "@/features/bp-interpreter/domain/interpret";
@@ -15,6 +15,7 @@ export function BPInputForm() {
   const [diastolic, setDiastolic] = useState("");
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState<boolean | null>(null);
   
   // CONTEXT STATE
   const [contextStep, setContextStep] = useState(0);
@@ -33,7 +34,23 @@ export function BPInputForm() {
         const session = await ensureAnonymousSession();
         if (!session) return;
 
-        const supabase = createClient();
+      const supabase = createClient();
+        
+        // 1. Check if they have completed Genesis Onboarding
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("motivation")
+          .eq("id", session.user.id)
+          .maybeSingle();
+
+        if (profile?.motivation) {
+          setHasCompletedOnboarding(true);
+        } else {
+          setHasCompletedOnboarding(false);
+          return; // Stop here, they need to onboard first
+        }
+
+        // 2. Fetch readings for baseline
         const { data } = await supabase
           .from("readings")
           .select("systolic, diastolic, taken_at")
@@ -119,6 +136,13 @@ export function BPInputForm() {
       setIsSaving(false);
     }
   };
+if (hasCompletedOnboarding === null) {
+    return <div className="text-center text-neutral-500 py-12">Loading...</div>;
+  }
+
+  if (hasCompletedOnboarding === false) {
+    return <GenesisFlow onComplete={() => setHasCompletedOnboarding(true)} />;
+  }
 
   if (step === "input") {
     return (
