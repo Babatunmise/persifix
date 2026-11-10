@@ -4,23 +4,19 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { ensureAnonymousSession } from "@/lib/supabase/auth";
 
+const COMMON_BP_MEDS = [
+  "Amlodipine", "Lisinopril", "Losartan", "Metoprolol", 
+  "Atenolol", "Hydrochlorothiazide", "Ramipril", "Valsartan"
+];
+
 export function GenesisFlow({ onComplete }: { onComplete: () => void }) {
-  // 5 Steps: 0=Name, 1=Why, 2=Meds Yes/No, 3=Med Details, 4=Anchors
   const [step, setStep] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
 
   // Form State
   const [firstName, setFirstName] = useState("");
-  const [title, setTitle] = useState("");
   const [motivation, setMotivation] = useState("");
-  
-  const [takesMeds, setTakesMeds] = useState<boolean>(false);
   const [medName, setMedName] = useState("");
-  const [supplyCount, setSupplyCount] = useState("");
-  const [dosesPerDay, setDosesPerDay] = useState("");
-
-  const [morningAnchor, setMorningAnchor] = useState("08:00");
-  const [eveningAnchor, setEveningAnchor] = useState("20:00");
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -29,21 +25,27 @@ export function GenesisFlow({ onComplete }: { onComplete: () => void }) {
       if (!session) throw new Error("No session");
 
       const supabase = createClient();
+      const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+      
+      // 1. Save Profile
       await supabase.from("profiles").upsert({
         id: session.user.id,
         first_name: firstName,
-        title: title,
         motivation,
-        medication_name: takesMeds ? medName : null,
-        supply_count: takesMeds && supplyCount ? parseInt(supplyCount) : null,
-        doses_per_day: takesMeds && dosesPerDay ? parseInt(dosesPerDay) : null,
-        morning_anchor: morningAnchor,
-        evening_anchor: eveningAnchor,
+        timezone: userTimezone,
         updated_at: new Date().toISOString(),
       });
 
+      // 2. Save Medication (if provided)
+      if (medName.trim()) {
+        await supabase.from("medications").insert({
+          user_id: session.user.id,
+          name: medName.trim(),
+        });
+      }
+
+      // 3. Save locally for fast hydration
       localStorage.setItem("sanctos_name", firstName);
-      localStorage.setItem("sanctos_title", title);
 
       onComplete();
     } catch (err) {
@@ -53,29 +55,35 @@ export function GenesisFlow({ onComplete }: { onComplete: () => void }) {
     }
   };
 
-  // --- STEP 0: IDENTITY ---
+  // --- STEP 0: THE WELCOME & NAME ---
   if (step === 0) {
     return (
       <div className="space-y-6 text-center animate-fade-in-up">
-        <h2 className="text-3xl font-semibold mb-8">First, what should we call you?</h2>
-        <div className="space-y-4 text-left">
-          <div>
-            <label className="block text-sm font-medium text-neutral-400 mb-2">Title (Optional)</label>
-            <select value={title} onChange={(e) => setTitle(e.target.value)} className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-4 text-xl text-white focus:border-[#2E5B44] focus:outline-none">
-              <option value="">Select...</option>
-              <option value="Mr.">Mr.</option>
-              <option value="Mrs.">Mrs.</option>
-              <option value="Ms.">Ms.</option>
-              <option value="Dr.">Dr.</option>
-              <option value="Chief">Chief</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-neutral-400 mb-2">First Name</label>
-            <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="e.g. Tunmise" className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-4 text-xl text-white focus:border-[#2E5B44] focus:outline-none" />
-          </div>
+        <div className="mb-8">
+          <h1 className="text-3xl font-semibold mb-4 text-[#F9F8F6]">Welcome to Sanctos.</h1>
+          <p className="text-neutral-400">Your companion for understanding your blood pressure.</p>
         </div>
-        <button onClick={() => setStep(1)} disabled={!firstName} className="w-full rounded-full bg-[#2E5B44] py-5 text-xl font-semibold text-white disabled:opacity-50 mt-4">
+        
+        <div className="text-left mt-8">
+          <label className="block text-sm font-medium text-neutral-400 mb-2">What should we call you?</label>
+          <input 
+            type="text" 
+            value={firstName} 
+            onChange={(e) => {
+              // Auto-capitalize first letter
+              const val = e.target.value;
+              setFirstName(val.charAt(0).toUpperCase() + val.slice(1));
+            }} 
+            placeholder="First Name" 
+            className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-4 text-xl text-white focus:border-[#2E5B44] focus:outline-none capitalize" 
+          />
+        </div>
+
+        <button 
+          onClick={() => setStep(1)} 
+          disabled={!firstName.trim()} 
+          className="w-full rounded-full bg-[#2E5B44] py-5 text-xl font-semibold text-white disabled:opacity-50 mt-8"
+        >
           Continue
         </button>
       </div>
@@ -86,15 +94,23 @@ export function GenesisFlow({ onComplete }: { onComplete: () => void }) {
   if (step === 1) {
     return (
       <div className="space-y-6 text-center animate-fade-in-up">
-        <h2 className="text-3xl font-semibold mb-8">Why are you tracking your blood pressure?</h2>
+        <h2 className="text-3xl font-semibold mb-2 text-[#F9F8F6]">What brings you here today?</h2>
+        <p className="text-neutral-400 text-sm mb-8">We&apos;ll tailor your experience based on your goal.</p>
+        
         <div className="space-y-3">
-          {["Doctor's orders", "Family history", "Peace of mind", "Managing medication"].map((reason) => (
+          {[
+            { label: "Understanding", desc: "I want to learn what my numbers mean." },
+            { label: "Prevention", desc: "I want to keep my heart healthy." },
+            { label: "Detection", desc: "I'm monitoring a potential issue." },
+            { label: "Management", desc: "I'm managing an existing condition." }
+          ].map((item) => (
             <button
-              key={reason}
-              onClick={() => { setMotivation(reason); setStep(2); }}
-              className="w-full rounded-2xl bg-neutral-900 border border-neutral-800 py-5 text-lg font-medium text-[#F9F8F6] transition-colors hover:bg-neutral-800"
+              key={item.label}
+              onClick={() => { setMotivation(item.label); setStep(2); }}
+              className="w-full text-left p-5 rounded-2xl bg-neutral-900 border border-neutral-800 transition-colors hover:bg-neutral-800 flex flex-col gap-1"
             >
-              {reason}
+              <span className="text-lg font-semibold text-[#F9F8F6]">{item.label}</span>
+              <span className="text-sm text-neutral-400">{item.desc}</span>
             </button>
           ))}
         </div>
@@ -102,77 +118,57 @@ export function GenesisFlow({ onComplete }: { onComplete: () => void }) {
     );
   }
 
-  // --- STEP 2: DO YOU TAKE MEDS? (Yes/No Only) ---
-  if (step === 2) {
-    return (
-      <div className="space-y-6 text-center animate-fade-in-up">
-        <h2 className="text-3xl font-semibold mb-8">Do you take BP medication?</h2>
-        <div className="space-y-4">
-          <button 
-            onClick={() => { setTakesMeds(true); setStep(3); }} 
-            className="w-full rounded-2xl bg-[#F9F8F6] py-5 text-lg font-semibold text-black"
-          >
-            Yes
-          </button>
-          <button 
-            onClick={() => { setTakesMeds(false); setStep(4); }} 
-            className="w-full rounded-2xl bg-neutral-900 border border-neutral-800 py-5 text-lg font-medium text-[#F9F8F6]"
-          >
-            No
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // --- STEP 3: MEDICATION DETAILS (Only shows if they clicked Yes) ---
-  if (step === 3) {
-    return (
-      <div className="space-y-6 text-center animate-fade-in-up">
-        <h2 className="text-3xl font-semibold mb-8">Tell us about your medication</h2>
-        <div className="space-y-4 text-left">
-          <div>
-            <label className="block text-sm font-medium text-neutral-400 mb-2">Medication Name</label>
-            <input type="text" value={medName} onChange={(e) => setMedName(e.target.value)} placeholder="e.g. Amlodipine" className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-3 text-white focus:border-[#2E5B44] focus:outline-none" />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-neutral-400 mb-2">Pills Left</label>
-              <input type="number" inputMode="numeric" value={supplyCount} onChange={(e) => setSupplyCount(e.target.value)} placeholder="e.g. 30" className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-3 text-white focus:border-[#2E5B44] focus:outline-none" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-neutral-400 mb-2">Doses / Day</label>
-              <input type="number" inputMode="numeric" value={dosesPerDay} onChange={(e) => setDosesPerDay(e.target.value)} placeholder="e.g. 1" className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-3 text-white focus:border-[#2E5B44] focus:outline-none" />
-            </div>
-          </div>
-          <button onClick={() => setStep(4)} className="w-full rounded-full bg-[#2E5B44] py-4 text-lg font-semibold text-white mt-4">Continue</button>
-        </div>
-      </div>
-    );
-  }
-
-  // --- STEP 4: DAILY ANCHORS ---
+  // --- STEP 2: ONE MEDICATION ---
   return (
     <div className="space-y-8 text-center animate-fade-in-up">
       <div>
-        <h2 className="text-3xl font-semibold mb-2">Let&apos;s build a routine.</h2>
-        <p className="text-neutral-400 text-sm">When do you usually have a quiet moment to check your BP?</p>
+        <h2 className="text-3xl font-semibold mb-2 text-[#F9F8F6]">Do you take BP medication?</h2>
+        <p className="text-neutral-400 text-sm">You can add more later in Settings.</p>
       </div>
 
-      <div className="space-y-6 text-left">
+      <div className="text-left space-y-4">
         <div>
-          <label className="block text-sm font-medium text-neutral-400 mb-2">Morning Check-in</label>
-          <input type="time" value={morningAnchor} onChange={(e) => setMorningAnchor(e.target.value)} className="w-full rounded-xl bg-neutral-900 border border-neutral-700 px-4 py-4 text-2xl text-[#F9F8F6] focus:border-[#2E5B44] focus:outline-none" />
+          <label className="block text-sm font-medium text-neutral-400 mb-2">Medication Name (Optional)</label>
+          <input 
+            type="text" 
+            list="med-list"
+            value={medName} 
+            onChange={(e) => setMedName(e.target.value)} 
+            placeholder="Start typing..." 
+            className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-4 text-lg text-white focus:border-[#2E5B44] focus:outline-none" 
+          />
+          <datalist id="med-list">
+            {COMMON_BP_MEDS.map(med => (
+              <option key={med} value={med} />
+            ))}
+          </datalist>
         </div>
-        <div>
-          <label className="block text-sm font-medium text-neutral-400 mb-2">Evening Check-in</label>
-          <input type="time" value={eveningAnchor} onChange={(e) => setEveningAnchor(e.target.value)} className="w-full rounded-xl bg-neutral-900 border border-neutral-700 px-4 py-4 text-2xl text-[#F9F8F6] focus:border-[#2E5B44] focus:outline-none" />
-        </div>
+
+        <button 
+          onClick={() => setMedName("I'm not sure")}
+          className="text-sm text-[#2E5B44] underline hover:text-white transition-colors"
+        >
+          I&apos;m not sure what it&apos;s called
+        </button>
       </div>
 
-      <button onClick={handleSave} disabled={isSaving} className="w-full rounded-full bg-[#2E5B44] py-5 text-xl font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50">
-        {isSaving ? "Saving..." : "Start My Journey"}
-      </button>
+      <div className="pt-8 space-y-3">
+        <button 
+          onClick={handleSave} 
+          disabled={isSaving} 
+          className="w-full rounded-full bg-[#2E5B44] py-5 text-xl font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+        >
+          {isSaving ? "Setting up..." : "Finish Setup"}
+        </button>
+        
+        <button 
+          onClick={handleSave} 
+          disabled={isSaving} 
+          className="w-full rounded-full bg-transparent py-3 text-sm font-medium text-neutral-400 hover:text-white"
+        >
+          Skip for now
+        </button>
+      </div>
     </div>
   );
 }
