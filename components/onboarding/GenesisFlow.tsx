@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { ensureAnonymousSession } from "@/lib/supabase/auth";
+import { useAppConfig } from "@/components/providers/AppConfigProvider";
 
 const COMMON_BP_MEDS = [
   "Amlodipine", "Lisinopril", "Losartan", "Metoprolol", 
@@ -10,6 +11,7 @@ const COMMON_BP_MEDS = [
 ];
 
 export function GenesisFlow({ onComplete }: { onComplete: () => void }) {
+  const { refreshConfig } = useAppConfig();
   const [step, setStep] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -46,6 +48,9 @@ export function GenesisFlow({ onComplete }: { onComplete: () => void }) {
 
       // 3. Save locally for fast hydration
       localStorage.setItem("sanctos_name", firstName);
+
+      // 4. Refresh the global context so the Home Hub updates instantly
+      await refreshConfig();
 
       onComplete();
     } catch (err) {

@@ -4,12 +4,32 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { ensureAnonymousSession } from "@/lib/supabase/auth";
+import { useAppConfig } from "@/components/providers/AppConfigProvider";
+
+const FRAMING = {
+  Understanding: {
+    focus: "Educational insights and understanding your numbers.",
+    cta: "Let's decode your reading together.",
+  },
+  Prevention: {
+    focus: "Healthy habits and maintaining your baseline.",
+    cta: "Let's check in on your heart health.",
+  },
+  Detection: {
+    focus: "Monitoring and spotting patterns early.",
+    cta: "Let's log today's reading and look for trends.",
+  },
+  Management: {
+    focus: "Consistency and clinical hand-off.",
+    cta: "Let's log your reading and track your progress.",
+  },
+};
 
 export default function HomePage() {
+  const { firstName, motivation } = useAppConfig();
   const [mounted, setMounted] = useState(false);
   const [timeOfDay, setTimeOfDay] = useState<"morning" | "afternoon" | "evening">("morning");
   const [greeting, setGreeting] = useState("Hello");
-  const [userName, setUserName] = useState("");
   const [lastReading, setLastReading] = useState<{ sys: number; dia: number; takenAt: string } | null>(null);
   const [readingCount, setReadingCount] = useState(0);
 
@@ -28,9 +48,6 @@ export default function HomePage() {
       setTimeOfDay("evening");
       setGreeting("Good evening");
     }
-
-    const storedName = localStorage.getItem("sanctos_name");
-    if (storedName) setUserName(storedName);
   }, []);
 
   // 2. Sync Offline Readings & Fetch Latest Data
@@ -68,7 +85,6 @@ export default function HomePage() {
               }
             }
 
-            // Clear synced readings from local storage
             if (successfulSync.length > 0) {
               const remaining = pending.filter((r: any) => !successfulSync.includes(r));
               localStorage.setItem("sanctos_pending_readings", JSON.stringify(remaining));
@@ -100,7 +116,6 @@ export default function HomePage() {
 
     syncAndFetch();
 
-    // Refresh data when returning to the tab
     window.addEventListener("focus", syncAndFetch);
     return () => window.removeEventListener("focus", syncAndFetch);
   }, [mounted]);
@@ -147,6 +162,9 @@ export default function HomePage() {
 
   if (!mounted) return <div className="min-h-screen bg-[#121212]" />;
 
+  // Dynamic Framing based on the Why
+  const currentFraming = FRAMING[motivation as keyof typeof FRAMING];
+
   return (
     <div className={`min-h-screen ${bgClass} text-[#F9F8F6] pb-24 font-sans transition-colors duration-1000`}>
       
@@ -154,10 +172,10 @@ export default function HomePage() {
         
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">
-            {greeting}{userName ? `, ${userName}` : ""}.
+            {greeting}{firstName ? `, ${firstName}` : ""}.
           </h1>
           <p className="mt-3 text-sm text-neutral-400">
-            It&apos;s hot in Lagos today. Drink water before checking your BP—dehydration can thicken the blood.
+            {currentFraming?.focus || "It's hot in Lagos today. Drink water before checking your BP—dehydration can thicken the blood."}
           </p>
         </div>
 
@@ -165,7 +183,7 @@ export default function HomePage() {
           href="/interpret"
           className="block w-full rounded-full bg-[#2E5B44] px-6 py-5 text-center text-lg font-semibold text-white transition-transform hover:scale-[1.02]"
         >
-          Tell me your blood pressure today and we’ll understand it together.
+          {currentFraming?.cta || "Tell me your blood pressure today and we’ll understand it together."}
         </Link>
 
         <div className="rounded-3xl border border-neutral-800 bg-neutral-900/50 p-6 backdrop-blur-sm">
@@ -176,7 +194,6 @@ export default function HomePage() {
             {focusText}
           </p>
           
-          {/* Visual Progress Tracker for Baseline */}
           {isBaselineForming && (
             <div className="flex gap-2">
               {[1, 2, 3].map((step) => (
