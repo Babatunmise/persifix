@@ -1,10 +1,11 @@
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   serverExternalPackages: ['@react-pdf/renderer', 'pdfkit'],
   outputFileTracingIncludes: {
     '/api/report': [
-      './node_modules/pdfkit/js/data/*.afm',
-      './node_modules/pdfkit/js/standard-fonts/*.cjs',
+      // Trace the entire pdfkit/js folder – this covers data, standard-fonts, and chunks
+      './node_modules/pdfkit/js/**/*',
     ],
   },
   webpack: (config) => {
