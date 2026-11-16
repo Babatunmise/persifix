@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
 
     // Generate the PDF stream using React.createElement (no JSX)
     const stream = await renderToStream(
-      React.createElement(ReportDocument, { data })
+      React.createElement(ReportDocument, { data }) as any
     );
 
     // Convert Node stream to Web stream for Next.js
