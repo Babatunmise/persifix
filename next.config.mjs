@@ -12,7 +12,6 @@ const nextConfig = {
     config.resolve.alias.encoding = false;
     return config;
   },
-  transpilePackages: ["@react-pdf/renderer"],
 };
 
 export default nextConfig;
