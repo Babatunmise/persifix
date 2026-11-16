@@ -1,9 +1,22 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Getsanctos",
   description: "Your calm companion for managing blood pressure.",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Getsanctos",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0F2537",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({
