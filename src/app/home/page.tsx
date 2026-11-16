@@ -292,7 +292,8 @@ async function generateReport() {
         a.click();
         a.remove();
       } else {
-        alert("Failed to generate report. Please try again.");
+       const errorData = await res.json();
+        alert(`Error: ${errorData.error}`);
       }
     } catch (err) {
       console.error("Report error:", err);
