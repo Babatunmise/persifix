@@ -1,0 +1,24 @@
+@import "tailwindcss";
+
+@theme {
+  --color-alive-bg: #F9F7F1;
+  --color-sanctos-navy: #0F2537;
+  --color-sanctos-green: #4F776B;
+  --color-sanctos-sand: #E8E2D2;
+
+  /* Tell Tailwind the actual font names */
+  --font-serif: "Newsreader", serif;
+  --font-sans: "Plus Jakarta Sans", sans-serif;
+}
+
+body {
+  background-color: var(--color-alive-bg);
+  color: var(--color-sanctos-navy);
+}
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+.material-symbols-outlined.fill {
+  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
