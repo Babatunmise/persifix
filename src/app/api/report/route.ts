@@ -1,19 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { renderToStream } from "@react-pdf/renderer";
+import { renderToBuffer } from "@react-pdf/renderer";
 import React from "react";
 import ReportDocument from "@/components/ReportDocument";
+
+// Force Node.js runtime (Edge doesn't support PDF generation)
+export const runtime = 'nodejs'; 
 
 export async function POST(req: NextRequest) {
   try {
     const data = await req.json();
 
-    // Generate the PDF stream using React.createElement (no JSX)
-    const stream = await renderToStream(
+    // Generate the PDF as a Buffer (much safer for Serverless)
+    const buffer = await renderToBuffer(
       React.createElement(ReportDocument, { data }) as any
     );
 
-    // Convert Node stream to Web stream for Next.js
-    return new NextResponse(stream as unknown as ReadableStream, {
+    return new NextResponse(buffer, {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": 'attachment; filename="Getsanctos_Clinical_Report.pdf"',
