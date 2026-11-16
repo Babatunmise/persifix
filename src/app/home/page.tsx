@@ -54,6 +54,11 @@ export default function Home() {
   // Meds state (UI only for now)
   const [medsTakenToday, setMedsTakenToday] = useState(false);
 
+  //for the report generation, we will need to fetch the data and send it to the API route that generates the PDF. This can be done by creating a function that gathers the necessary data and makes a POST request to the /api/report endpoint.
+  const [generatingReport, setGeneratingReport] = useState(false);
+//bp reading protocol state
+  const [bpStep, setBpStep] = useState<"protocol" | "input">("protocol");
+
   useEffect(() => {
     async function load() {
       const { data: userData } = await supabase.auth.getUser();
@@ -99,9 +104,47 @@ export default function Home() {
     load();
   }, [router]);
 
-  async function fetchNarrative(sysVal: number, diaVal: number, dob: string | null, userGoals: string[]) {
+ async function fetchNarrative(sysVal: number, diaVal: number, dob: string | null, userGoals: string[]) {
     setLoadingNarrative(true);
     try {
+      const { data: userData } = await supabase.auth.getUser();
+      let contextString = "";
+
+      if (userData.user) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // 1. Check for high sodium today
+        const { data: meals } = await supabase
+          .from("meal_logs")
+          .select("sodium_mg")
+          .gte("created_at", today.toISOString());
+        
+        const totalSodium = meals?.reduce((sum, m) => sum + m.sodium_mg, 0) || 0;
+        if (totalSodium > 1000) {
+          contextString += "The user has consumed high sodium today. ";
+        }
+
+        // 2. Check for pending meds
+        const { data: meds } = await supabase
+          .from("medications")
+          .select("id")
+          .eq("user_id", userData.user.id);
+        
+        if (meds && meds.length > 0) {
+          const { data: medLogs } = await supabase
+            .from("medication_logs")
+            .select("medication_id")
+            .eq("user_id", userData.user.id)
+            .eq("status", "taken")
+            .gte("taken_at", today.toISOString());
+          
+          if (medLogs && medLogs.length < meds.length) {
+            contextString += "The user has not yet taken all their medications today. ";
+          }
+        }
+      }
+
       const res = await fetch("/api/narrator", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -110,6 +153,7 @@ export default function Home() {
           diastolic: diaVal,
           age: calculateAge(dob),
           goals: userGoals,
+          context: contextString || "Normal daily routine."
         }),
       });
       const json = await res.json();
@@ -191,6 +235,142 @@ export default function Home() {
     setShowWeightForm(false);
     setSavingWeight(false);
   }
+
+async function generateReport() {
+
+    setGeneratingReport(true);
+
+    const { data: userData } = await supabase.auth.getUser();
+
+    if (!userData.user) return;
+
+
+
+    const thirtyDaysAgo = new Date();
+
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+
+
+    // Fetch all 30-day data in parallel
+
+    const [bpRes, weightRes, medRes, medLogRes, workRes, sanctRes] = await Promise.all([
+
+      supabase.from("bp_readings").select("systolic, diastolic").eq("user_id", userData.user.id).gte("measured_at", thirtyDaysAgo.toISOString()),
+
+      supabase.from("weight_logs").select("weight, weight_unit").eq("user_id", userData.user.id).order("logged_at", { ascending: false }).limit(1),
+
+      supabase.from("medications").select("name, dosage").eq("user_id", userData.user.id),
+
+      supabase.from("medication_logs").select("id").eq("user_id", userData.user.id).eq("status", "taken").gte("taken_at", thirtyDaysAgo.toISOString()),
+
+      supabase.from("workout_logs").select("duration_mins").eq("user_id", userData.user.id).gte("created_at", thirtyDaysAgo.toISOString()),
+
+      supabase.from("sanctuary_logs").select("activity_type, duration_mins").eq("user_id", userData.user.id).gte("created_at", thirtyDaysAgo.toISOString())
+
+    ]);
+
+
+
+    // Calculate Averages
+
+    const bpData = bpRes.data || [];
+
+    const avgSys = bpData.length ? Math.round(bpData.reduce((sum, r) => sum + r.systolic, 0) / bpData.length) : "N/A";
+
+    const avgDia = bpData.length ? Math.round(bpData.reduce((sum, r) => sum + r.diastolic, 0) / bpData.length) : "N/A";
+
+    
+
+    const totalWorkoutMins = (workRes.data || []).reduce((sum, w) => sum + w.duration_mins, 0);
+
+    const breatherCount = (sanctRes.data || []).filter(s => s.activity_type === 'breather').length;
+
+    
+
+    const latestW = weightRes.data && weightRes.data.length > 0 ? weightRes.data[0] : { weight: "N/A", weight_unit: "" };
+
+
+
+    const payload = {
+
+      name: name,
+
+      avgSys, avgDia,
+
+      totalReadings: bpData.length,
+
+      latestWeight: latestW.weight,
+
+      weightUnit: latestW.weight_unit,
+
+      meds: (medRes.data || []).map(m => `${m.name} ${m.dosage || ""}`),
+
+      medsTakenCount: (medLogRes.data || []).length,
+
+      totalWorkoutMins,
+
+      breatherCount,
+
+      journalNotes: ["Felt a bit dizzy after the morning walk.", "Blood pressure seems stable, feeling less stressed this week."] // Placeholder for now
+
+    };
+
+
+
+    try {
+
+      const res = await fetch("/api/report", {
+
+        method: "POST",
+
+        headers: { "Content-Type": "application/json" },
+
+        body: JSON.stringify(payload),
+
+      });
+
+
+
+      if (res.ok) {
+
+        const blob = await res.blob();
+
+        const url = window.URL.createObjectURL(blob);
+
+        const a = document.createElement("a");
+
+        a.href = url;
+
+        a.download = "Getsanctos_Clinical_Report.pdf";
+
+        document.body.appendChild(a);
+
+        a.click();
+
+        a.remove();
+
+      } else {
+
+        alert("Failed to generate report.");
+
+      }
+
+    } catch (err) {
+
+      console.error(err);
+
+      alert("Error generating report.");
+
+    } finally {
+
+      setGeneratingReport(false);
+
+    }
+
+  }
+
+
 
   if (loading) return <main className="min-h-screen bg-alive-bg" />;
 
@@ -279,7 +459,7 @@ export default function Home() {
 
         <section className="grid grid-cols-3 gap-3">
           <button 
-            onClick={() => setShowBPForm(true)}
+            onClick={() => { setShowBPForm(true); setBpStep("protocol"); }}
             className="flex flex-col items-center justify-between text-center p-3 aspect-square rounded-3xl bg-white shadow-sm hover:shadow-md transition-all active:scale-95"
           >
             <div className="w-10 h-10 rounded-full bg-sanctos-sand flex items-center justify-center text-sanctos-navy">
@@ -323,7 +503,31 @@ export default function Home() {
             </div>
           </button>
         </section>
-
+{/* Independent Clinical Assessment Card */}
+        <section className="mt-2">
+          <button 
+            onClick={generateReport}
+            disabled={generatingReport}
+            className="w-full bg-white rounded-3xl p-5 shadow-sm border border-sanctos-sand flex items-center justify-between active:scale-[0.98] transition-all disabled:opacity-50"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-sanctos-sand flex items-center justify-center text-sanctos-navy">
+                <span className="material-symbols-outlined text-[24px]">clinical_notes</span>
+              </div>
+              <div className="text-left">
+                <h3 className="font-serif text-lg text-sanctos-navy">Clinical Handoff</h3>
+                <p className="text-xs text-sanctos-navy/60 mt-0.5">Generate 30-day Doctor's Report</p>
+              </div>
+            </div>
+            {generatingReport ? (
+              <span className="text-xs font-semibold text-sanctos-green animate-pulse mr-2">Building...</span>
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-alive-bg flex items-center justify-center">
+                <span className="material-symbols-outlined text-sanctos-navy/50 text-[18px]">download</span>
+              </div>
+            )}
+          </button>
+        </section>
         <section className="bg-sanctos-navy text-white rounded-3xl p-6 shadow-md relative overflow-hidden">
           <div className="flex items-center justify-between mb-2">
             <span className="text-[10px] uppercase tracking-wider font-bold text-white/60">Today's Focus</span>
@@ -365,42 +569,84 @@ export default function Home() {
             Start Rhythm
             <span className="material-symbols-outlined text-[20px]">play_arrow</span>
           </button>
+         
         </section>
       </div>
 
-      {/* BP Modal */}
+     {/* BP Modal */}
       {showBPForm && (
         <div className="fixed inset-0 z-50 bg-sanctos-navy/40 backdrop-blur-sm flex items-end justify-center sm:items-center p-4 pb-24">
-          <form onSubmit={saveReading} className="bg-alive-bg w-full max-w-sm rounded-[2rem] p-6 shadow-2xl space-y-4 animate-in slide-in-from-bottom-10 fade-in">
+          <div className="bg-alive-bg w-full max-w-sm rounded-[2rem] p-6 shadow-2xl space-y-4 animate-in slide-in-from-bottom-10 fade-in">
+            
             <div className="flex justify-between items-center mb-2">
-              <h3 className="font-serif text-2xl text-sanctos-navy">Log Reading</h3>
+              <h3 className="font-serif text-2xl text-sanctos-navy">
+                {bpStep === "protocol" ? "Pre-Check" : "Log Reading"}
+              </h3>
               <button type="button" onClick={() => setShowBPForm(false)} className="text-sanctos-navy/50 hover:text-sanctos-navy">
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
-            
-            <div className="flex gap-3">
-              <div className="flex-1">
-                <label className="text-xs font-semibold text-sanctos-navy/60 ml-1">Systolic</label>
-                <input type="number" placeholder="120" value={sys} onChange={e => setSys(e.target.value)} className="w-full mt-1 bg-sanctos-sand/50 px-4 py-3 rounded-2xl outline-none focus:ring-2 focus:ring-sanctos-green text-sanctos-navy font-semibold text-lg" />
-              </div>
-              <div className="flex-1">
-                <label className="text-xs font-semibold text-sanctos-navy/60 ml-1">Diastolic</label>
-                <input type="number" placeholder="80" value={dia} onChange={e => setDia(e.target.value)} className="w-full mt-1 bg-sanctos-sand/50 px-4 py-3 rounded-2xl outline-none focus:ring-2 focus:ring-sanctos-green text-sanctos-navy font-semibold text-lg" />
-              </div>
-            </div>
-            
-            <div>
-              <label className="text-xs font-semibold text-sanctos-navy/60 ml-1">Pulse (optional)</label>
-              <input type="number" placeholder="72" value={pulse} onChange={e => setPulse(e.target.value)} className="w-full mt-1 bg-sanctos-sand/50 px-4 py-3 rounded-2xl outline-none focus:ring-2 focus:ring-sanctos-green text-sanctos-navy font-semibold text-lg" />
-            </div>
 
-            {errorBP && <p className="text-red-500 text-sm ml-1">{errorBP}</p>}
-            
-            <button type="submit" disabled={savingBP} className="w-full bg-sanctos-navy text-white rounded-full py-4 font-semibold mt-2 disabled:opacity-50">
-              {savingBP ? "Saving..." : "Save Reading"}
-            </button>
-          </form>
+            {/* STEP 1: The Protocol Checklist */}
+            {bpStep === "protocol" && (
+              <div className="space-y-6 py-2">
+                <p className="text-sm text-sanctos-navy/70 leading-relaxed">
+                  For an accurate reading, please ensure you are set up correctly.
+                </p>
+                
+                <div className="space-y-4">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input type="checkbox" className="mt-1 w-5 h-5 accent-sanctos-green rounded" required />
+                    <span className="text-sm text-sanctos-navy font-medium">I have been sitting quietly for 5 minutes.</span>
+                  </label>
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input type="checkbox" className="mt-1 w-5 h-5 accent-sanctos-green rounded" required />
+                    <span className="text-sm text-sanctos-navy font-medium">My feet are flat on the floor.</span>
+                  </label>
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input type="checkbox" className="mt-1 w-5 h-5 accent-sanctos-green rounded" required />
+                    <span className="text-sm text-sanctos-navy font-medium">My arm is supported at heart level.</span>
+                  </label>
+                </div>
+
+                <button 
+                  type="button" 
+                  onClick={() => setBpStep("input")}
+                  className="w-full bg-sanctos-navy text-white rounded-full py-4 font-semibold mt-4"
+                >
+                  I'm Ready
+                </button>
+              </div>
+            )}
+
+            {/* STEP 2: The Input Form */}
+            {bpStep === "input" && (
+              <form onSubmit={saveReading} className="space-y-4">
+                <div className="flex gap-3">
+                  <div className="flex-1">
+                    <label className="text-xs font-semibold text-sanctos-navy/60 ml-1">Systolic</label>
+                    <input type="number" placeholder="120" value={sys} onChange={e => setSys(e.target.value)} className="w-full mt-1 bg-sanctos-sand/50 px-4 py-3 rounded-2xl outline-none focus:ring-2 focus:ring-sanctos-green text-sanctos-navy font-semibold text-lg" />
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-xs font-semibold text-sanctos-navy/60 ml-1">Diastolic</label>
+                    <input type="number" placeholder="80" value={dia} onChange={e => setDia(e.target.value)} className="w-full mt-1 bg-sanctos-sand/50 px-4 py-3 rounded-2xl outline-none focus:ring-2 focus:ring-sanctos-green text-sanctos-navy font-semibold text-lg" />
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="text-xs font-semibold text-sanctos-navy/60 ml-1">Pulse (optional)</label>
+                  <input type="number" placeholder="72" value={pulse} onChange={e => setPulse(e.target.value)} className="w-full mt-1 bg-sanctos-sand/50 px-4 py-3 rounded-2xl outline-none focus:ring-2 focus:ring-sanctos-green text-sanctos-navy font-semibold text-lg" />
+                </div>
+
+                {errorBP && <p className="text-red-500 text-sm ml-1">{errorBP}</p>}
+                
+                <button type="submit" disabled={savingBP} className="w-full bg-sanctos-green text-white rounded-full py-4 font-semibold mt-2 disabled:opacity-50">
+                  {savingBP ? "Saving..." : "Save Reading"}
+                </button>
+              </form>
+            )}
+
+          </div>
         </div>
       )}
 
