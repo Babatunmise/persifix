@@ -56,7 +56,7 @@ All **28/28 checks passed**. Temporary fixtures were removed and cleanup was ver
 
 The latest GitHub Actions run is [44569188702](https://github.com/Babatunmise/persifix/actions/runs/44569188702), on commit `c783e8e3f190b72dccbe5a4bd1ca3a0014c35dbc`.
 
-<badge>PASS</badge> **Isolated PostgreSQL 17 migration and RPC tests**
+**PASS** **Isolated PostgreSQL 17 migration and RPC tests**
 - Applied the exact proposed migration to a disposable PostgreSQL service.
 - Verified both public wrappers are SECURITY INVOKER.
 - Verified the private helper is SECURITY DEFINER with an empty search path.
