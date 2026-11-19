@@ -140,7 +140,7 @@ export default function GymPage() {
             {/* Today's Routine Card */}
             <section className="bg-sanctos-navy text-white rounded-3xl p-6 shadow-md relative overflow-hidden">
               <div className="flex items-center justify-between mb-4">
-                <span className="text-[10px] uppercase tracking-wider font-bold text-white/60">Today's Routine</span>
+                <span className="text-[10px] uppercase tracking-wider font-bold text-white/60">{"Today's Routine"}</span>
                 <span className="px-2.5 py-0.5 rounded-full bg-white/10 text-[10px] font-bold">{TODAYS_ROUTINE.duration} mins</span>
               </div>
               
@@ -198,7 +198,7 @@ export default function GymPage() {
             <span className="material-symbols-outlined text-4xl text-sanctos-sand">self_improvement</span>
             <h2 className="font-serif text-xl text-sanctos-navy">Resting Today</h2>
             <p className="text-sm text-sanctos-navy/60">
-              You've chosen a diet-only focus. Movement is always optional, but we won't push a routine today. Rely on your Kitchen plan.
+              You&apos;ve chosen a diet-only focus. Movement is always optional, but we won&apos;t push a routine today. Rely on your Kitchen plan.
             </p>
           </section>
         )}
