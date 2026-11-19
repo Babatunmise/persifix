@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS private.api_rate_limits (
   request_count integer NOT NULL DEFAULT 0 CHECK (request_count >= 0),
   PRIMARY KEY (user_id, endpoint)
 );
-ALTER TABLE private.api_rate_limits ENABLE ROW LEVEL SECURITY;
+ALTER TABLE private.api_rate_limits DISABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE private.api_rate_limits FROM PUBLIC, anon, authenticated, service_role;
 
 CREATE OR REPLACE FUNCTION public.consume_api_rate_limit(
