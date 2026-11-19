@@ -25,6 +25,7 @@ export default function Hep002VerificationPage() {
   const [fixtures, setFixtures] = useState<Fixture[]>([]);
   const [phase, setPhase] = useState<"create" | "attack" | "cleanup" | "done">("create");
   const [results, setResults] = useState<Result[]>([]);
+  const [cleanupRequired, setCleanupRequired] = useState<Fixture[]>([]);
 
   async function signIn(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setMessage("Connecting securely to Supabase Auth…");
@@ -80,15 +81,19 @@ export default function Hep002VerificationPage() {
       if (authError || !auth.user) throw new Error("Please sign in again.");
       if (auth.user.id === ownerId) throw new Error("This is the first account. Sign out and sign in with the second test account.");
       const out: Result[] = [];
+      const cleanupFixtures = [...fixtures];
       for (const fixture of fixtures) {
         const client = supabase.from(fixture.table as any) as any;
         const { data: rows, error: selectError } = await client.select("id").eq("id", fixture.id);
-        out.push({ test: `${fixture.label}: cross-account read`, passed: !selectError && (rows?.length ?? 0) === 0, detail: selectError ? selectError.message : `${rows?.length ?? 0} rows visible; expected 0.` });
+        const readDenied = !!selectError || (rows?.length ?? 0) === 0;
+        out.push({ test: `${fixture.label}: cross-account read`, passed: readDenied, detail: selectError ? `Request denied: ${selectError.message}` : `${rows?.length ?? 0} rows visible; expected 0.` });
         const updateValues = fixture.table === "bp_readings" ? { systolic: 118 } : fixture.table === "weight_logs" ? { weight: 71 } : fixture.table === "meal_logs" ? { description: "unauthorised change" } : fixture.table === "medications" ? { name: "unauthorised change" } : fixture.table === "medication_logs" ? { status: "missed" } : { activity_type: "unauthorised change" };
         const { data: updated, error: updateError } = await client.update(updateValues).eq("id", fixture.id).select("id");
-        out.push({ test: `${fixture.label}: cross-account update`, passed: !updateError && (updated?.length ?? 0) === 0, detail: updateError ? updateError.message : `${updated?.length ?? 0} rows changed; expected 0.` });
+        const updateDenied = !!updateError || (updated?.length ?? 0) === 0;
+        out.push({ test: `${fixture.label}: cross-account update`, passed: updateDenied, detail: updateError ? `Request denied: ${updateError.message}` : `${updated?.length ?? 0} rows changed; expected 0.` });
         const { data: deleted, error: deleteError } = await client.delete().eq("id", fixture.id).select("id");
-        out.push({ test: `${fixture.label}: cross-account delete`, passed: !deleteError && (deleted?.length ?? 0) === 0, detail: deleteError ? deleteError.message : `${deleted?.length ?? 0} rows deleted; expected 0.` });
+        const deleteDenied = !!deleteError || (deleted?.length ?? 0) === 0;
+        out.push({ test: `${fixture.label}: cross-account delete`, passed: deleteDenied, detail: deleteError ? `Request denied: ${deleteError.message}` : `${deleted?.length ?? 0} rows deleted; expected 0.` });
         const spoofValues = fixture.table === "bp_readings" ? { user_id: ownerId, systolic: 119, diastolic: 77, pulse: 66 }
           : fixture.table === "meal_logs" ? { user_id: ownerId, meal_type: "snack", description: "spoof test", calories: 1, sodium_mg: 1 }
           : fixture.table === "weight_logs" ? { user_id: ownerId, weight: 71, weight_unit: "kg" }
@@ -96,9 +101,12 @@ export default function Hep002VerificationPage() {
           : fixture.table === "sanctuary_logs" ? { user_id: ownerId, activity_type: "spoof test", duration_mins: 1 }
           : fixture.table === "medications" ? { user_id: ownerId, name: "spoof test", dosage: "1", frequency: "Once", pills_remaining: 1 }
           : { user_id: ownerId, medication_id: fixtures.find((item) => item.table === "medications")?.id, status: "taken" };
-        const { error: insertError } = await client.insert(spoofValues);
-        out.push({ test: `${fixture.label}: spoofed-owner insert`, passed: !!insertError, detail: insertError ? "Database rejected the cross-account insert." : "Insert unexpectedly succeeded." });
+        const { data: inserted, error: insertError } = await client.insert(spoofValues).select("id").maybeSingle();
+        const insertDenied = !!insertError || !inserted?.id;
+        if (inserted?.id) cleanupFixtures.push({ table: fixture.table, id: inserted.id, label: `${fixture.label} (unexpected spoof insert)` });
+        out.push({ test: `${fixture.label}: spoofed-owner insert`, passed: insertDenied, detail: insertError ? "Database rejected the cross-account insert." : inserted?.id ? `Insert unexpectedly succeeded; cleanup ID recorded: ${inserted.id}` : "No inserted row was returned; verify this result before treating it as a pass." });
       }
+      setFixtures(cleanupFixtures);
       setResults(out);
       const passed = out.filter((item) => item.passed).length;
       setPhase("cleanup");
@@ -113,11 +121,13 @@ export default function Hep002VerificationPage() {
     try {
       const { data: auth, error: authError } = await supabase.auth.getUser();
       if (authError || !auth.user || auth.user.id !== ownerId) throw new Error("Sign in with the first test account to clean up.");
-      for (const fixture of [...fixtures].reverse()) {
-        const { data, error } = await (supabase.from(fixture.table as any) as any).delete().eq("id", fixture.id).eq("user_id", ownerId).select("id");
-        if (error || data?.length !== 1) throw new Error(`Cleanup not confirmed for ${fixture.label}: ${error?.message || "Expected one deleted row"}`);
+      const deferred = fixtures.filter((fixture) => fixture.table === "sanctuary_logs");
+      for (const fixture of [...fixtures].filter((item) => item.table !== "sanctuary_logs").reverse()) {
+        const { error } = await (supabase.from(fixture.table as any) as any).delete().eq("id", fixture.id).eq("user_id", ownerId).select("id");
+        if (error) throw new Error(`Cleanup not confirmed for ${fixture.label}: ${error.message}`);
       }
-      setFixtures([]); setPhase("done"); setMessage("All synthetic test records were deleted successfully. Verification run complete.");
+      setCleanupRequired(deferred); setFixtures([]); setPhase("done");
+      setMessage(deferred.length ? "User-accessible synthetic records were removed. The sanctuary_logs fixture has no user-level DELETE policy, so its exact test ID is listed below for engineering-side cleanup." : "All synthetic test records were deleted successfully. Verification run complete.");
     } catch (error) { setMessage(error instanceof Error ? error.message : "Cleanup failed."); }
     finally { setBusy(false); }
   }
@@ -158,6 +168,7 @@ export default function Hep002VerificationPage() {
         )}
         {message && <p role="status" className="rounded-xl bg-white p-4 text-sm leading-6">{message}</p>}
         {results.length > 0 && <div className="rounded-xl border border-neutral-200 bg-white p-5 space-y-3"><h2 className="font-semibold">Test results</h2>{results.map((result, index) => <div key={index} className="flex items-start justify-between gap-4 border-t border-neutral-100 pt-3 text-sm"><div><p className="font-medium">{result.test}</p><p className="mt-1 text-neutral-600">{result.detail}</p></div><span className={result.passed ? "font-semibold text-green-700" : "font-semibold text-red-700"}>{result.passed ? "PASS" : "CHECK"}</span></div>)}</div>}
+        {cleanupRequired.length > 0 && <div className="rounded-xl border border-amber-300 bg-amber-50 p-5 space-y-2"><h2 className="font-semibold">Engineering cleanup required</h2><p className="text-sm">These exact synthetic rows could not be deleted through the user account because the table has no DELETE policy. Send these IDs back to Hephaestus for controlled cleanup.</p>{cleanupRequired.map((item) => <p key={item.id} className="break-all font-mono text-xs">{item.table}: {item.id}</p>)}</div>}
         <p className="text-xs leading-5 text-neutral-500">Temporary HEP-002 development verification only. No production code or database schema is changed by this page.</p>
       </section>
     </main>
