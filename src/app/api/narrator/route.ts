@@ -1,65 +1,64 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { authenticateRequest, enforceRateLimit, isRecord, jsonError, readJsonBody } from "@/lib/api-security";
+
+const SYSTEM_PROMPT = `Role: You are the Sanctos Companion. Warm, calm, protective, and clinically cautious.
+Provide a brief, non-diagnostic observation about a blood-pressure reading.
+Do not diagnose, classify, infer treatment, or recommend medication changes.
+Do not provide threshold-based escalation instructions in this endpoint. Encourage the user to discuss concerning readings with their healthcare professional.
+Offer one gentle, non-medical supportive next step.`;
 
 export async function POST(req: NextRequest) {
+  const auth = await authenticateRequest(req);
+  if (auth instanceof Response) return auth;
+  const limited = await enforceRateLimit(auth.supabase, "narrator", 10);
+  if (limited) return limited;
+  const body = await readJsonBody(req, 2_048);
+  if (body instanceof Response) return body;
+  if (!isRecord(body) || typeof body.readingId !== "string" ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(body.readingId)) {
+    return jsonError("A valid reading reference is required", 400);
+  }
+
+  // Fetch the reading from the database using the verified user's JWT and an
+  // explicit owner predicate. Client-supplied BP values are never trusted.
+  const { data: reading, error } = await auth.supabase
+    .from("bp_readings")
+    .select("systolic, diastolic")
+    .eq("id", body.readingId)
+    .eq("user_id", auth.user.id)
+    .maybeSingle();
+  if (error || !reading) return jsonError("Reading not found", 404);
+
+  // Do not transmit dietary conversation or blood-pressure information to an
+  // external AI processor until contractual, regional, retention, and consent
+  // safeguards have been approved by the product owner.
+  if (process.env.SANCTOS_EXTERNAL_AI_APPROVED !== "true") {
+    return jsonError("This AI feature is temporarily unavailable while its data safeguards are reviewed.", 503);
+  }
+
+  const apiKey = process.env.DEEPSEEK_API_KEY;
+  if (!apiKey) return jsonError("Narrator is temporarily unavailable", 503);
   try {
-    const body = await req.json();
-    const { systolic, diastolic, age, goals, context } = body;
-
-    if (!systolic || !diastolic) {
-      return NextResponse.json({ error: "systolic and diastolic are required" }, { status: 400 });
-    }
-
-    const apiKey = process.env.DEEPSEEK_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ error: "Narrator is not configured" }, { status: 500 });
-    }
-
-    // The updated Context-Aware System Prompt
-    const systemPrompt = `Role: You are the Sanctos Companion. Warm, calm, protective, and clinically grounded.
-Your job is to read the user's latest Blood Pressure reading and their context (age, goals, recent meals, medication adherence) and write a 3-sentence narrative.
-Rules:
-- NEVER diagnose. Use phrases like 'This reading suggests...' or 'It's common for...'
-- NEVER shame the user. If it's high, do not scold. Acknowledge it and offer one gentle action.
-- Use the 'Ask-Provide-Ask' framework internally: Validate the reading -> Provide a gentle observation using the context -> Suggest a small next step.
-- If the context shows they ate a high-sodium meal today, gently connect the dots.
-- If the context shows they missed a medication, gently encourage them to get back on track without judgment.
-- Example for a high reading with high sodium context: 'Your reading is a bit elevated today. I noticed you had a higher-sodium lunch, which can sometimes cause a temporary bump. Let's drink plenty of water and take a 2-minute Breather to help your vessels relax.'`;
-
-    const userMessage = `Reading: ${systolic}/${diastolic} mmHg
-Age: ${age || "Unknown"}
-Goals: ${goals?.join(", ") || "General health"}
-Context: ${context || "No specific context for today."}`;
-
+    // Only the two numeric values needed for the narrative leave the application.
     const response = await fetch("https://api.deepseek.com/chat/completions", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
         model: "deepseek-chat",
         messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userMessage },
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: `Blood-pressure reading: ${reading.systolic}/${reading.diastolic} mmHg.` },
         ],
         stream: false,
       }),
+      signal: AbortSignal.timeout(12_000),
     });
-
-    if (!response.ok) {
-      return NextResponse.json({ error: "Narrator is unavailable right now" }, { status: 502 });
-    }
-
+    if (!response.ok) return jsonError("Narrator is unavailable", 502);
     const data = await response.json();
     const narrative = data.choices?.[0]?.message?.content;
-
-    if (!narrative) {
-      return NextResponse.json({ error: "Empty narrator response" }, { status: 502 });
-    }
-
-    return NextResponse.json({ narrative });
-  } catch (err) {
-    console.error("Narrator route error:", err);
-    return NextResponse.json({ error: "Something went wrong" }, { status: 500 });
+    if (typeof narrative !== "string" || !narrative.trim()) return jsonError("Narrator is unavailable", 502);
+    return Response.json({ narrative });
+  } catch {
+    return jsonError("Narrator is unavailable", 502);
   }
 }
