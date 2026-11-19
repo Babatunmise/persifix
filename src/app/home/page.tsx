@@ -200,67 +200,32 @@ export default function Home() {
 async function generateReport() {
     setGeneratingReport(true);
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) return;
-
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-      const [bpRes, weightRes, medRes, medLogRes, workRes, sanctRes] = await Promise.all([
-        supabase.from("bp_readings").select("systolic, diastolic").eq("user_id", userData.user.id).gte("measured_at", thirtyDaysAgo.toISOString()),
-        supabase.from("weight_logs").select("weight, weight_unit").eq("user_id", userData.user.id).order("logged_at", { ascending: false }).limit(1),
-        supabase.from("medications").select("name, dosage").eq("user_id", userData.user.id),
-        supabase.from("medication_logs").select("id").eq("user_id", userData.user.id).eq("status", "taken").gte("taken_at", thirtyDaysAgo.toISOString()),
-        supabase.from("workout_logs").select("duration_mins").eq("user_id", userData.user.id).gte("created_at", thirtyDaysAgo.toISOString()),
-        supabase.from("sanctuary_logs").select("activity_type, duration_mins").eq("user_id", userData.user.id).gte("created_at", thirtyDaysAgo.toISOString())
-      ]);
-
-      const bpData = bpRes.data || [];
-      const avgSys = bpData.length ? Math.round(bpData.reduce((sum, r) => sum + r.systolic, 0) / bpData.length) : "N/A";
-      const avgDia = bpData.length ? Math.round(bpData.reduce((sum, r) => sum + r.diastolic, 0) / bpData.length) : "N/A";
-      
-      const totalWorkoutMins = (workRes.data || []).reduce((sum, w) => sum + w.duration_mins, 0);
-      const breatherCount = (sanctRes.data || []).filter(s => s.activity_type === 'breather').length;
-      
-      const latestW = weightRes.data && weightRes.data.length > 0 ? weightRes.data[0] : { weight: "N/A", weight_unit: "" };
-
-      const payload = {
-        name: name,
-        avgSys, avgDia,
-        totalReadings: bpData.length,
-        latestWeight: latestW.weight,
-        weightUnit: latestW.weight_unit,
-        meds: (medRes.data || []).map(m => `${m.name} ${m.dosage || ""}`),
-        medsTakenCount: (medLogRes.data || []).length,
-        totalWorkoutMins,
-        breatherCount,
-        journalNotes: ["Felt a bit dizzy after the morning walk.", "Blood pressure seems stable, feeling less stressed this week."]
-      };
-
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        router.push("/");
+        return;
+      }
       const res = await fetch("/api/report", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        headers: { Authorization: `Bearer ${session.access_token}` },
       });
-
-      if (res.ok) {
-        const blob = await res.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "Getsanctos_Clinical_Report.pdf";
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-      } else {
-       const errorData = await res.json();
-        alert(`Error: ${errorData.error}`);
+      if (!res.ok) {
+        alert("Unable to generate the report. Please try again.");
+        return;
       }
-    } catch (err) {
-      console.error("Report error:", err);
-      alert("An error occurred while generating the report.");
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "Getsanctos_Clinical_Report.pdf";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch {
+      alert("Unable to generate the report. Please try again.");
     } finally {
-      setGeneratingReport(false); // This guarantees it always resets
+      setGeneratingReport(false);
     }
   }
 
