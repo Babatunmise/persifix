@@ -80,7 +80,7 @@ export default function SanctuaryPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ text: journalText }),
+        body: JSON.stringify({ entrySubmitted: true }),
       });
       const data = await res.json();
       
