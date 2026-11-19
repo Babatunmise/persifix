@@ -28,7 +28,6 @@ export default function SanctuaryPage() {
       interval = setInterval(() => setSessionSeconds(s => s + 1), 1000);
       
       const cycle = () => {
-        setBreathPhase("Inhale");
         timeout = setTimeout(() => {
           setBreathPhase("Exhale");
           timeout = setTimeout(() => {
@@ -37,8 +36,6 @@ export default function SanctuaryPage() {
         }, 4000); // 4s Inhale
       };
       cycle();
-    } else {
-      setBreathPhase("Inhale"); // Reset
     }
 
     return () => {
@@ -48,6 +45,7 @@ export default function SanctuaryPage() {
   }, [isBreathing]);
 
   async function stopBreathing() {
+    setBreathPhase("Inhale");
     setIsBreathing(false);
     if (sessionSeconds < 10) return; // Don't log tiny sessions
 
@@ -69,10 +67,18 @@ export default function SanctuaryPage() {
     setAiResponse(null);
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        setAiResponse("Please sign in again to use the journal companion.");
+        return;
+      }
       const res = await fetch("/api/journal", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: journalText }),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ entrySubmitted: true }),
       });
       const data = await res.json();
       
@@ -140,7 +146,11 @@ export default function SanctuaryPage() {
           </div>
 
           <button 
-            onClick={isBreathing ? stopBreathing : () => setIsBreathing(true)}
+            onClick={isBreathing ? stopBreathing : () => {
+              setSessionSeconds(0);
+              setBreathPhase("Inhale");
+              setIsBreathing(true);
+            }}
             className="w-full h-14 rounded-full bg-sanctos-navy text-white font-semibold active:scale-95 transition-all"
           >
             {isBreathing ? "Finish Session" : "Start 4s Inhale / 6s Exhale"}
@@ -168,7 +178,7 @@ export default function SanctuaryPage() {
           <span className="material-symbols-outlined text-sanctos-green mt-1">graphic_eq</span>
           <div>
             <p className="text-sm font-medium text-sanctos-navy leading-relaxed">
-              I noticed your BP was a bit higher today. Let's take 2 minutes to breathe together right now.
+              I noticed your BP was a bit higher today. Let&apos;s take 2 minutes to breathe together right now.
             </p>
           </div>
         </section>
@@ -217,7 +227,7 @@ export default function SanctuaryPage() {
                     <span className="text-xs font-bold uppercase tracking-wider text-sanctos-navy/60">Companion Response</span>
                   </div>
                   <p className="font-serif text-[19px] leading-relaxed text-sanctos-navy italic">
-                    "{aiResponse}"
+                    &quot;{aiResponse}&quot;
                   </p>
                 </div>
                 
