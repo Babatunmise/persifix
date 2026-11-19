@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 
 type AuthenticatedRequest = {
   user: User;
-  supabase: ReturnType<typeof createClient>;
+  supabase: any;
 };
 
 const WINDOW_MS = 60_000;
