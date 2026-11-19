@@ -49,6 +49,13 @@ export async function POST(req: NextRequest) {
   }
   if (messages[messages.length - 1].role !== "user") return jsonError("A user message is required", 400);
 
+  // Do not transmit dietary conversation or blood-pressure information to an
+  // external AI processor until contractual, regional, retention, and consent
+  // safeguards have been approved by the product owner.
+  if (process.env.SANCTOS_EXTERNAL_AI_APPROVED !== "true") {
+    return jsonError("This AI feature is temporarily unavailable while its data safeguards are reviewed.", 503);
+  }
+
   const apiKey = process.env.DEEPSEEK_API_KEY;
   if (!apiKey) return jsonError("Guardian is temporarily unavailable", 503);
   try {
