@@ -10,7 +10,7 @@
 
 The seven-table authenticated cross-account isolation test completed with **28/28 checks passing**. The production security remediation is deployed and its Vercel deployment remains READY. The current Supabase project is ACTIVE_HEALTHY and all eight HEP-002 database migrations are present.
 
-The final clearance review identified an additional issue in the shared rate-limiting control: the `public.consume_api_rate_limit` SECURITY DEFINER function is executable by the `authenticated` role. Although it requires `auth.uid()`, uses an empty search_path, restricts endpoint names, and writes only to a private rate-limit table, authenticated users can call it directly and choose the limit and window parameters. This may allow a user to reset or weaken their own API rate-limit window and bypass the limits enforced by the five API routes. This must be corrected and retested before clearance.
+The final clearance review identified an additional issue in the shared rate-limiting control: the existing `public.consume_api_rate_limit` SECURITY DEFINER function is executable by `authenticated` and accepts caller-supplied limit and window parameters. An authenticated caller could therefore weaken their own rate-limit enforcement. A proposed development-only remediation is in draft PR #5: fixed per-endpoint limits and a fixed 60-second window inside the database function, SECURITY INVOKER execution, and RLS-protected access to the private rate-limit table. This proposal has not been built, applied to the database, or runtime-tested. The finding remains OPEN.
 
 No production code or database changes were made during this review.
 
@@ -67,17 +67,15 @@ Database verification previously confirmed RLS on the eight reviewed application
 
 ## Findings from the final clearance review
 
-### 1. Rate-limit RPC is directly callable by authenticated users — OPEN
+### 1. Rate-limit RPC accepts caller-controlled policy — OPEN
 
-Supabase's current security advisor reports:
-- `public.consume_api_rate_limit(p_endpoint text, p_limit integer, p_window_seconds integer)` is a SECURITY DEFINER function executable by `authenticated`.
-- It is in the exposed `public` schema.
-- The function correctly checks `auth.uid()`, uses an empty search_path, restricts endpoint names to the five approved values, and bounds its arguments.
-- The backing `private.api_rate_limits` table has no direct grants to `anon` or `authenticated`, and the `private` schema is not accessible to those roles.
+Supabase's current advisor reports that the existing `public.consume_api_rate_limit(p_endpoint text, p_limit integer, p_window_seconds integer)` is a SECURITY DEFINER function executable by `authenticated`.
 
-However, because the RPC itself is callable by authenticated clients, a user can invoke it directly and supply their own `p_limit` and `p_window_seconds` values rather than the fixed values used by the server routes. In particular, a short window can reset the user's counter and weaken the server-enforced throttling. The current design therefore does not adequately protect the rate-limit policy from direct client invocation.
+The function requires `auth.uid()`, uses an empty search_path, restricts endpoint names, bounds its parameters and writes to a private rate-limit table. However, authenticated clients can call the exposed RPC directly and supply their own request limit and window, potentially weakening their own throttling policy.
 
-**Required action:** Change the design so only trusted server-side code can invoke the rate-limit operation with server-controlled limits and windows. Revoke direct client execution as part of that redesign. Then test direct RPC denial for authenticated clients and verify that all five API routes still enforce their intended limits. Do not simply remove the SECURITY DEFINER attribute without redesigning access to the private store.
+**Proposed development remediation:** Draft PR #5 changes the RPC to accept only an endpoint name, sets each endpoint's limit and a 60-second window inside the database function, switches the function to SECURITY INVOKER, and enables RLS on the private rate-limit table with an owner-only policy. The private schema remains unexposed through the Supabase API; authenticated access is granted only so the invoker function can operate under RLS.
+
+**Verification still required:** Vercel blocked additional deployments because the project's free daily deployment API quota was exceeded. The current PR has no successful build result. The migration has not been applied to production. Before merge or production rollout, the build must pass; migration SQL must be applied in the authorised sequence; the Supabase advisor must be rerun; and direct RPC validation, cross-account isolation and all five endpoint rate-limit behaviours must be tested. The current production function remains unchanged.
 
 ### 2. Leaked-password protection disabled — OPEN
 
