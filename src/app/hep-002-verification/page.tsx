@@ -29,16 +29,22 @@ export default function Hep002VerificationPage() {
   async function signIn(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
-    setMessage("");
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setBusy(false);
-    setPassword("");
-    if (error) {
-      setMessage("Sign-in failed. Check the email, password, and account verification.");
-      return;
+    setMessage("Connecting securely to Supabase Auth…");
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        setMessage(`Sign-in failed: ${error.message}`);
+        return;
+      }
+      setSignedIn(true);
+      setMessage("Signed in. You can now run the five authentication checks.");
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "Unknown connection error";
+      setMessage(`The test page could not reach Supabase Auth: ${detail}. This is a test-environment configuration or connectivity issue; your account has not been changed.`);
+    } finally {
+      setBusy(false);
+      setPassword("");
     }
-    setSignedIn(true);
-    setMessage("Signed in. You can now run the five authentication checks.");
   }
 
   async function runChecks() {
