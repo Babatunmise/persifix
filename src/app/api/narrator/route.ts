@@ -4,8 +4,8 @@ import { authenticateRequest, enforceRateLimit, isRecord, jsonError, readJsonBod
 const SYSTEM_PROMPT = `Role: You are the Sanctos Companion. Warm, calm, protective, and clinically cautious.
 Provide a brief, non-diagnostic observation about a blood-pressure reading.
 Do not diagnose, classify, infer treatment, or recommend medication changes.
-For a reading at or above 180 systolic or 120 diastolic, advise repeating after at least one minute and seeking immediate medical attention if it remains high; emergency symptoms require emergency services.
-Offer one gentle, practical next step.`;
+Do not provide threshold-based escalation instructions in this endpoint. Encourage the user to discuss concerning readings with their healthcare professional.
+Offer one gentle, non-medical supportive next step.`;
 
 export async function POST(req: NextRequest) {
   const auth = await authenticateRequest(req);
