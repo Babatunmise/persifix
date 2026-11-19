@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
   // medication, formulation, or prescribing instructions. Isolated pending
   // clinical review; no medication or health information is sent to DeepSeek.
   return Response.json({
-    narrative: "For medicine-specific missed-dose instructions, check the patient leaflet or contact your pharmacist or prescriber. Do not double a dose unless your medicine's instructions or clinician specifically tell you to.",
+    narrative: "For medicine-specific missed-dose instructions, check the patient leaflet or contact your pharmacist or prescriber. This companion cannot safely advise whether to take or skip a dose.",
     clinical_review_required: true,
   });
 }
