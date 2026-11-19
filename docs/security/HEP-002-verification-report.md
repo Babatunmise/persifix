@@ -1,23 +1,22 @@
 # HEP-002 Security Verification Report
 
-**Status:** OPEN — NOT CLEARED  
+**Status:** OPEN — REMEDIATION VALIDATED IN ISOLATION; PRODUCTION ROLLOUT PENDING  
 **Review date:** 2026-11-19  
-**Production:** No changes made by the follow-up review or PR #5  
-**Development branch:** `hep-002/rate-limit-hardening`
+**Production:** No changes made by PR #5 or this follow-up validation  
+**Development branch:** `hep-002/rate-limit-hardening`  
+**Current PR:** [#5 — HEP-002: harden server-controlled API rate limits](https://github.com/Babatunmise/persifix/pull/5)
 
 ## Executive summary
 
 The original HEP-002 remediation is deployed to production. The authenticated cross-account isolation exercise passed **28/28 checks** across seven user-owned tables, using two temporary accounts and synthetic records only. The temporary fixtures were removed and cleanup was verified.
 
-The final review identified an additional rate-limit weakness: the production `public.consume_api_rate_limit` SECURITY DEFINER RPC accepts caller-supplied limits and a caller-supplied window. An authenticated caller can therefore weaken their own throttling.
+The final clearance review identified an additional rate-limit weakness: the production `public.consume_api_rate_limit` SECURITY DEFINER RPC accepts caller-supplied limits and a caller-supplied window. An authenticated caller can therefore weaken their own throttling.
 
-PR #5 contains a proposed correction. The revised migration design keeps the rate-limit table inaccessible to API roles, uses a narrowly scoped SECURITY DEFINER helper in the private schema, and exposes only SECURITY INVOKER wrappers. It also retains the old three-argument RPC signature as a compatibility wrapper that ignores caller-supplied limits. This permits the database migration to be applied before the application deployment without breaking currently deployed API routes.
+PR #5 contains a correction. The proposed migration keeps the rate-limit table inaccessible to API roles, enables RLS, uses a narrowly scoped SECURITY DEFINER helper in the private schema, and exposes SECURITY INVOKER wrappers. It retains the old three-argument RPC signature as a compatibility wrapper that ignores caller-supplied limits. The application routes move to the one-argument RPC.
 
-**The revised migration has not been applied or runtime-tested. The PR has no successful build result. HEP-002 remains open.**
+**The migration and application changes have now passed isolated automated validation. The migration has not been applied to production, and the live Supabase advisor finding therefore remains.** Production rollout is deliberately held until the private-schema exposure setting and the remaining executive risk decisions are resolved.
 
-## Completed work
-
-### Production remediation
+## Completed production remediation
 
 PR #3 was merged and deployed:
 - Merge commit: `e82b2e448190a4b9d7f6c6d17984004077951ded`
@@ -34,9 +33,9 @@ Five protected API routes were remediated:
 
 The changes include verified Supabase authentication, bounded JSON request bodies, ownership-scoped queries, server-side report data retrieval, safer missed-medication guidance, removal of journal text from AI transmission, and fail-closed controls for external AI features.
 
-Five routes returned HTTP 401 for unauthenticated and invalid-bearer requests. Authenticated empty-body validation checks returned HTTP 400 at the validation stage.
+Five routes returned HTTP 401 for unauthenticated and invalid-bearer requests. Authenticated empty-body validation checks reached route validation and returned HTTP 400.
 
-### Cross-account isolation
+## Cross-account isolation
 
 Two temporary authenticated accounts and synthetic fixtures were used. No real patient or health records were submitted or inspected.
 
@@ -51,88 +50,95 @@ Two temporary authenticated accounts and synthetic fixtures were used. No real p
 | `medication_logs` | PASS | PASS | PASS | PASS |
 | **Total** | **7/7** | **7/7** | **7/7** | **7/7** |
 
-All **28/28 checks passed**. The synthetic `sanctuary_logs` fixture required engineering cleanup because the user role correctly had no DELETE policy; deletion by exact fixture ID was followed by a query confirming no matching row remained. Other temporary test data was also removed.
+All **28/28 checks passed**. Temporary fixtures were removed and cleanup was verified.
 
-### Database review
+## PR #5 — isolated validation results
 
-The eight HEP-002 migrations are present in the production project. Earlier catalog review confirmed RLS and restrictive grants on the eight reviewed application tables, medication ownership linkage, and review of 20 ownership policies.
+The latest GitHub Actions run is [44569188702](https://github.com/Babatunmise/persifix/actions/runs/44569188702), on commit `c783e8e3f190b72dccbe5a4bd1ca3a0014c35dbc`.
 
-The rate-limit store is in the `private` schema. Current production catalog inspection found that API roles have no direct table grants. The existing rate-limit RPC is owned by `postgres`, is SECURITY DEFINER, and is executable by `authenticated`.
+<badge>PASS</badge> **Isolated PostgreSQL 17 migration and RPC tests**
+- Applied the exact proposed migration to a disposable PostgreSQL service.
+- Verified both public wrappers are SECURITY INVOKER.
+- Verified the private helper is SECURITY DEFINER with an empty search path.
+- Verified RLS is enabled on the rate-limit table.
+- Verified anon cannot execute either public RPC signature.
+- Verified authenticated requests can use the new RPC.
+- Verified all five fixed endpoint limits: kitchen 12, narrator 10, journal 8, meds-followup 6, report 3 per 60-second window.
+- Verified the legacy three-argument RPC ignores caller-supplied limits and windows.
+- Verified invalid endpoints are rejected.
+- Verified API roles cannot directly SELECT, INSERT, UPDATE or DELETE the backing table.
+- Verified exhausted limits return a positive retry interval.
+- Verified expired windows reset and two synthetic users receive independent counters.
 
-## Open finding: rate-limit policy can be weakened
+<badge>PASS</badge> **Application validation**
+- `npm ci`
+- ESLint on all six HEP-002 API/security files
+- `npx tsc --noEmit`
+- `npm run build`
 
-The current production function signature is:
+All four steps passed on the latest commit.
 
-`public.consume_api_rate_limit(p_endpoint text, p_limit integer, p_window_seconds integer DEFAULT 60)`
+**Scope note:** A full-repository `npm run lint` initially found 10 JSX-escaping errors in the existing Gym and Home UI pages. Those are outside the six API/security files changed by PR #5, so the HEP-002 workflow now lints the remediation files directly rather than expanding this security patch into unrelated UI cleanup. TypeScript and the full production build pass.
 
-Although it checks `auth.uid()`, restricts endpoint names, validates parameter ranges, uses an empty search path and writes to the private table, authenticated callers can choose their own limit and window within those ranges.
+## Live production database findings
 
-### Proposed correction in PR #5
+The production database has not been changed by PR #5.
 
-The revised migration:
-1. Keeps the backing table inaccessible to `PUBLIC`, `anon`, `authenticated` and `service_role`.
-2. Enables RLS on the private rate-limit table as defense in depth.
-3. Adds a private helper that derives the user from `auth.uid()`, accepts only a known endpoint, and fixes the per-endpoint limits and 60-second window internally.
-4. Uses a tightly scoped SECURITY DEFINER helper in the private schema, with an empty search path and no dynamic SQL.
-5. Exposes SECURITY INVOKER wrappers in `public`.
-6. Preserves the existing three-argument function signature for compatibility, but ignores the supplied limit and window values. The new application code uses the one-argument signature.
+Catalog inspection confirms:
+- The live public three-argument `consume_api_rate_limit` function is still SECURITY DEFINER and executable by `authenticated`.
+- API roles currently have no direct table privileges on `private.api_rate_limits`.
+- The `private` schema currently grants no USAGE to anon, authenticated or service_role.
+- RLS is currently disabled on `private.api_rate_limits`; Supabase's advisor flags this. The proposed migration enables RLS while preserving the private helper's narrowly scoped write path.
+- Supabase's security advisor still reports the live public SECURITY DEFINER rate-limit function and leaked-password protection disabled. These findings cannot clear until the production configuration is remediated and rechecked.
 
-This is intended to avoid both direct counter tampering and a deployment-order outage. The private schema must be confirmed absent from Supabase's Exposed schemas setting before applying the migration.
+The local isolated PostgreSQL test validates the migration's SQL and privilege behaviour. It does not substitute for checking Supabase's API Exposed schemas setting or the production advisor after rollout.
 
-### Required verification before merge or production rollout
+## Remaining release gates
 
-- Confirm `private` is not in the Supabase API's Exposed schemas.
-- Apply and test the migration in an isolated database before production. No development branch was created because Supabase branch compute can incur additional charges and no cost was authorised.
-- Confirm the old three-argument RPC and new one-argument RPC both enforce the same fixed server-side limits.
-- Confirm unauthenticated/anonymous RPC calls are rejected.
-- Confirm invalid endpoint values are rejected.
-- Confirm API roles cannot SELECT, INSERT, UPDATE or DELETE rate-limit rows directly.
-- Confirm a user cannot inspect or alter another user's counter.
-- Verify all five endpoint limits, the fixed 60-second window, HTTP 429 and `Retry-After`.
-- Confirm the public wrappers are SECURITY INVOKER and the private helper is in an unexposed schema with narrowly scoped execution grants.
-- Rerun Supabase security advisors.
-- Complete a successful build and API runtime regression test before merge.
+### 1. Confirm the private schema is not API-exposed
 
-The migration has not been applied to production. The current production function remains unchanged.
+The Supabase connector does not expose the project's API Exposed schemas setting. Before migration, confirm in Supabase Dashboard → Project Settings → API → Exposed schemas that `private` is absent.
 
-## Other outstanding findings and executive decisions
+### 2. RLS decision for the private limiter table
 
-### 1. Leaked-password protection — OPEN
+Supabase currently reports RLS disabled on `private.api_rate_limits`. The proposed migration enables RLS and deliberately defines no client-facing table policy; direct API-role table privileges remain revoked. The SECURITY DEFINER helper is the sole intended write path.
 
-Supabase's security advisor reports that leaked-password protection is disabled. The feature is unavailable on the current Free plan.
+Do not apply the RLS change outside the reviewed migration. The Executive Office must approve this access model before the production migration is applied.
 
-**Decision required:** approve a plan upgrade or formally accept and document this residual risk. No upgrade or paid change has been made.
+### 3. Leaked-password protection — OPEN
 
-### 2. Supabase owner-level default ACLs — OPEN
+Supabase's security advisor reports leaked-password protection disabled. The Sanctos organization is on the Free plan.
 
-The reviewed database catalog indicates that `supabase_admin` has default privileges for newly created objects in exposed schemas that include grants to API roles. The current database role cannot change certain owner-level defaults.
+**Decision required:** approve a plan upgrade if this control is required now, or formally accept and record the residual risk. No upgrade or paid change has been made.
 
-**Decision required:** obtain owner-level intervention or formally accept and document the residual risk. Until resolved, every new database object must receive an explicit effective-privilege review before exposure.
+### 4. Supabase owner-level default ACLs — OPEN
 
-### 3. External AI safeguards — OPEN
+Catalog review confirms that `supabase_admin` has default privileges in the `public` schema that grant object access to `anon`, `authenticated` and `service_role`. The active database role is `postgres`, is not a member of `supabase_admin`, and cannot change that role's default privileges.
+
+**Decision required:** obtain Supabase owner-level intervention or formally accept and document the residual risk. Until resolved, every new database object must receive an explicit effective-privilege review before exposure.
+
+### 5. External AI safeguards — OPEN
 
 Contractual, privacy, regional, retention and consent safeguards for the external AI provider remain unresolved. `SANCTOS_EXTERNAL_AI_APPROVED` must remain unset. Kitchen and Narrator must continue to fail closed. Journal text and patient-specific facts must not be transmitted to the external provider.
 
-**Decision required:** approve the vendor safeguards and consent model before any patient-specific health information is sent externally.
+**Decision required:** approve vendor safeguards and the consent model before any patient-specific health information is sent externally.
 
-### 4. Verification scope
+### 6. Runtime verification and rollout
 
-The 28 checks cover seven named tables and the tested access paths only. They do not certify every table, view, function, storage bucket, future module or future product architecture. This work is not a full independent penetration test.
+The isolated database tests and full application build have passed. Live route-level checks for the new one-argument RPC, HTTP 429 and `Retry-After` behaviour still require the coordinated deployment/preview window.
 
-### 5. Product regression
+The branch-specific Vercel Git deployment rule remains disabled for `hep-002/rate-limit-hardening`. This avoids intermediate preview deployments and does not disable `main`. No new Vercel deployment was triggered by these GitHub Actions checks.
 
-The user confirmed that the authenticated home page appeared and that the visible experience was satisfactory. Detailed screen-by-screen regression is deferred until the planned UI rebuild. The rebuilt application must receive full functional, accessibility, security and regression testing before release.
+## Change-control position
 
-## Deployment and change-control position
-
-PR #5 is development-only and remains unmerged. No production source or database changes have been made by this follow-up work.
-
-Vercel's Git integration automatically creates preview builds for pushes to non-production branches. To avoid repeated builds while work is being batched, the HEP-002 branch now contains a branch-specific `git.deploymentEnabled: false` rule in `vercel.json`. This does not disable deployments from `main`. The rule must be deliberately re-enabled for the single final preview build after the batch has passed static review.
-
-The last automatic preview build for this branch was cancelled. No further Vercel build is intended until the complete batch is ready and the deployment quota is available.
+- PR #5 remains a draft and is not merged.
+- PR #4, the temporary authenticated verification utility, has been closed without merging.
+- No production database migration or production application deployment has been performed by this follow-up.
+- The rate-limit migration must be applied before the updated application is deployed, preserving the old three-argument wrapper during the transition.
+- The final preview/deployment should be one consolidated Vercel run after the quota is available and the remaining release gates are approved.
 
 ## Release position
 
 **HEP-002 remains OPEN — NOT CLEARED.**
 
-The rate-limit correction must pass build, migration and runtime verification. The leaked-password and owner-level ACL findings require resolution or formal risk acceptance. External AI safeguards must remain in place. The UI rebuild is a separate programme and requires its own complete regression cycle before release.
+The rate-limit correction has passed isolated SQL/RPC tests, targeted lint, type checking and the production build. Production clearance still depends on the private-schema exposure confirmation, approval of the RLS access model, the remaining executive risk decisions, and one coordinated runtime verification after rollout.
