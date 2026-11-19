@@ -32,7 +32,21 @@ const styles = StyleSheet.create({
 
 
 
-export default function ReportDocument({ data }: { data: any }) {
+export type ReportData = {
+  name: string;
+  avgSys: number | string;
+  avgDia: number | string;
+  totalReadings: number;
+  latestWeight: number | string;
+  weightUnit: string;
+  meds: string[];
+  medsTakenCount: number;
+  totalWorkoutMins: number;
+  breatherCount: number;
+  journalNotes: string[];
+};
+
+export default function ReportDocument({ data }: { data: ReportData }) {
 
   return (
 
@@ -170,7 +184,7 @@ export default function ReportDocument({ data }: { data: any }) {
 
           {data.journalNotes.length > 0 ? data.journalNotes.map((note: string, i: number) => (
 
-            <Text key={i} style={styles.text}>"{note}"</Text>
+            <Text key={i} style={styles.text}>&quot;{note}&quot;</Text>
 
           )) : <Text style={styles.text}>No recent journal entries.</Text>}
 

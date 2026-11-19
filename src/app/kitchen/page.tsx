@@ -16,7 +16,7 @@ function calculateAge(dob: string | null) {
 }
 
 type Message = { role: "user" | "assistant"; content: string };
-type PlanData = { pot_prep: string; plate_prep: string; closing_note: string; estimated_sodium: number; ingredients_list: any[]; };
+type PlanData = { pot_prep: string; plate_prep: string; closing_note: string; estimated_sodium: number; ingredients_list: unknown[]; };
 
 export default function KitchenPage() {
   const router = useRouter();
@@ -24,7 +24,7 @@ export default function KitchenPage() {
   
   // Daily targets
   const [baseCalorieTarget, setBaseCalorieTarget] = useState(2000);
-  const [sodiumTarget, setSodiumTarget] = useState(1500);
+  const [sodiumTarget] = useState(1500);
 
   // Daily consumed/burned
   const [caloriesConsumed, setCaloriesConsumed] = useState(0);
@@ -115,10 +115,15 @@ export default function KitchenPage() {
     setIsTyping(true);
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error("Authentication required");
       const res = await fetch("/api/kitchen", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: newMessages }),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ messages: newMessages.slice(-12) }),
       });
       const data = await res.json();
 
@@ -231,7 +236,7 @@ export default function KitchenPage() {
             <div>
               <h2 className="font-serif text-xl text-sanctos-navy mb-1">Cooking right now?</h2>
               <p className="text-xs text-sanctos-navy/70 leading-relaxed">
-                Let's run the Pot Math together to keep your sodium safe.
+                Let&apos;s run the Pot Math together to keep your sodium safe.
               </p>
             </div>
           </button>
@@ -255,7 +260,7 @@ export default function KitchenPage() {
             <div>
               <h2 className="font-serif text-xl text-sanctos-navy mb-1">Need a snack?</h2>
               <p className="text-xs text-sanctos-navy/70 leading-relaxed">
-                Cravings happen. Let's fit them into your jar.
+                Cravings happen. Let&apos;s fit them into your jar.
               </p>
             </div>
           </button>
@@ -331,7 +336,7 @@ export default function KitchenPage() {
                   </div>
 
                   <p className="text-sm italic text-sanctos-navy/60 mt-4 mb-6">
-                    "{plan.closing_note}"
+                    &quot;{plan.closing_note}&quot;
                   </p>
 
                   <button 

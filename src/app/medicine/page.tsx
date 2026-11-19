@@ -127,9 +127,14 @@ export default function MedicinePage() {
     setMissedReason(reason);
     setAiAdvice(null);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
       const res = await fetch("/api/meds-followup", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
         body: JSON.stringify({ reason }),
       });
       const data = await res.json();
@@ -159,7 +164,7 @@ export default function MedicinePage() {
         
         {/* Today's Doses */}
         <section className="bg-white rounded-3xl p-5 shadow-sm">
-          <h2 className="text-sm font-bold text-sanctos-navy mb-4">Today's Doses</h2>
+          <h2 className="text-sm font-bold text-sanctos-navy mb-4">Today&apos;s Doses</h2>
           {meds.length === 0 ? (
             <p className="text-sm text-sanctos-navy/50">No medications added yet. Click the + button above.</p>
           ) : (
@@ -221,7 +226,7 @@ export default function MedicinePage() {
         <section className="bg-sanctos-navy text-white rounded-3xl p-6 shadow-md">
           <h2 className="font-serif text-xl mb-2">Missed a dose?</h2>
           <p className="text-sm text-white/70 mb-4">
-            It happens. Let's figure it out together so you don't feel alone.
+            It happens. Let&apos;s figure it out together so you don&apos;t feel alone.
           </p>
           {!aiAdvice ? (
             <div className="grid grid-cols-3 gap-2">
@@ -237,7 +242,7 @@ export default function MedicinePage() {
             </div>
           ) : (
             <div className="bg-white/10 p-4 rounded-xl">
-              <p className="text-sm leading-relaxed italic">"{aiAdvice}"</p>
+              <p className="text-sm leading-relaxed italic">&quot;{aiAdvice}&quot;</p>
               <button onClick={() => setAiAdvice(null)} className="text-xs font-semibold mt-3 underline text-white/60">Dismiss</button>
             </div>
           )}

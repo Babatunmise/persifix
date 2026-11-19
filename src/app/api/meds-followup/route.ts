@@ -1,38 +1,24 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { authenticateRequest, enforceRateLimit, isRecord, jsonError, readJsonBody } from "@/lib/api-security";
 
-const SYSTEM_PROMPT = `Role: You are the Sanctos Companion. Warm, calm, and empathetic.
-The user missed a dose of their blood pressure medication. You are NOT a doctor and cannot give medical advice.
-Rules:
-- If they forgot or ran out: Be supportive, tell them to take it as soon as they remember (unless it's almost time for the next dose), and gently suggest setting a reminder or refilling.
-- If they felt dizzy: Tell them to sit down, drink water, and DO NOT take the missed dose. Tell them to contact their doctor if the dizziness continues.
-- Maximum 2 sentences. Keep it brief, warm, and actionable.`;
+const ALLOWED_REASONS = new Set(["Forgot", "Ran out", "Felt dizzy"]);
 
 export async function POST(req: NextRequest) {
-  try {
-    const { reason } = await req.json();
-
-    const apiKey = process.env.DEEPSEEK_API_KEY;
-    if (!apiKey) return NextResponse.json({ error: "No API key" }, { status: 500 });
-
-    const response = await fetch("https://api.deepseek.com/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "deepseek-chat",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: `I missed my medication because I ${reason}.` },
-        ],
-        stream: false,
-      }),
-    });
-
-    const data = await response.json();
-    return NextResponse.json({ narrative: data.choices?.[0]?.message?.content });
-  } catch (err) {
-    return NextResponse.json({ error: "Something went wrong" }, { status: 500 });
+  const auth = await authenticateRequest(req);
+  if (auth instanceof Response) return auth;
+  const limited = await enforceRateLimit(auth.supabase, "meds-followup", 6);
+  if (limited) return limited;
+  const body = await readJsonBody(req, 1_024);
+  if (body instanceof Response) return body;
+  if (!isRecord(body) || typeof body.reason !== "string" || !ALLOWED_REASONS.has(body.reason)) {
+    return jsonError("Select a valid missed-dose reason", 400);
   }
+
+  // The previous AI prompt gave dose-specific directions without knowing the
+  // medication, formulation, or prescribing instructions. Isolated pending
+  // clinical review; no medication or health information is sent to DeepSeek.
+  return Response.json({
+    narrative: "For medicine-specific missed-dose instructions, check the patient leaflet or contact your pharmacist or prescriber. This companion cannot safely advise whether to take or skip a dose.",
+    clinical_review_required: true,
+  });
 }
