@@ -1,14 +1,27 @@
--- HEP-002: make rate-limit policy server-controlled.
--- Authenticated clients may call this RPC only for their own auth.uid() bucket.
--- They cannot supply limits or window lengths and therefore cannot reset or
--- weaken the API route's configured throttling policy.
+-- HEP-002: make rate-limit policy server-controlled without SECURITY DEFINER.
+-- The RPC can be called by an authenticated user, but endpoint limits and the
+-- 60-second window are fixed here. The backing store remains in an unexposed
+-- private schema and RLS restricts every row to its owning auth.uid().
 
 DROP FUNCTION IF EXISTS public.consume_api_rate_limit(text, integer, integer);
+
+ALTER TABLE private.api_rate_limits ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users manage their own API rate limits" ON private.api_rate_limits;
+CREATE POLICY "Users manage their own API rate limits"
+  ON private.api_rate_limits
+  FOR ALL
+  TO authenticated
+  USING (user_id = (SELECT auth.uid()))
+  WITH CHECK (user_id = (SELECT auth.uid()));
+
+GRANT USAGE ON SCHEMA private TO authenticated;
+GRANT SELECT, INSERT, UPDATE ON TABLE private.api_rate_limits TO authenticated;
 
 CREATE FUNCTION public.consume_api_rate_limit(p_endpoint text)
 RETURNS TABLE(allowed boolean, retry_after_seconds integer)
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY INVOKER
 SET search_path = ''
 AS $function$
 DECLARE
