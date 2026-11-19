@@ -123,7 +123,7 @@ export default function KitchenPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ messages: newMessages }),
+        body: JSON.stringify({ messages: newMessages.slice(-12) }),
       });
       const data = await res.json();
 
