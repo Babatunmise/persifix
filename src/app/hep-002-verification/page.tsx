@@ -44,6 +44,7 @@ export default function Hep002VerificationPage() {
       const { data: auth, error: authError } = await supabase.auth.getUser();
       if (authError || !auth.user) throw new Error("Please sign in again.");
       if (ownerId && auth.user.id !== ownerId) throw new Error("Sign in with the first test account.");
+      setOwnerId(auth.user.id);
       for (const spec of specs) {
         const { data, error } = await (supabase.from(spec.table as any) as any).insert(spec.values(auth.user.id)).select("id").single();
         if (error || !data) throw new Error(`Could not create synthetic ${spec.label} fixture: ${error?.message || "No record returned"}`);
