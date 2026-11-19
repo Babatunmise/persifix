@@ -3,7 +3,17 @@
 import { useState } from "react";
 import { supabase } from "@/supabase";
 
+type Fixture = { table: string; id: string; label: string };
 type Result = { test: string; passed: boolean; detail: string };
+
+const specs = [
+  { table: "bp_readings", label: "Blood-pressure readings", values: (userId: string) => ({ user_id: userId, systolic: 117, diastolic: 76, pulse: 65 }) },
+  { table: "meal_logs", label: "Meal logs", values: (userId: string) => ({ user_id: userId, meal_type: "breakfast", description: "HEP-002 synthetic test meal", calories: 100, sodium_mg: 10 }) },
+  { table: "weight_logs", label: "Weight logs", values: (userId: string) => ({ user_id: userId, weight: 70, weight_unit: "kg" }) },
+  { table: "workout_logs", label: "Workout logs", values: (userId: string) => ({ user_id: userId, activity_type: "HEP-002 synthetic test", duration_mins: 5, calories_burned: 10 }) },
+  { table: "sanctuary_logs", label: "Sanctuary logs", values: (userId: string) => ({ user_id: userId, activity_type: "HEP-002 synthetic test", duration_mins: 1 }) },
+  { table: "medications", label: "Medications", values: (userId: string) => ({ user_id: userId, name: "HEP-002 synthetic test", dosage: "1 test unit", frequency: "Once", pills_remaining: 1 }) },
+] as const;
 
 export default function Hep002VerificationPage() {
   const [email, setEmail] = useState("");
@@ -12,143 +22,108 @@ export default function Hep002VerificationPage() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [ownerId, setOwnerId] = useState<string | null>(null);
-  const [fixtureId, setFixtureId] = useState<string | null>(null);
+  const [fixtures, setFixtures] = useState<Fixture[]>([]);
   const [phase, setPhase] = useState<"create" | "attack" | "cleanup" | "done">("create");
   const [results, setResults] = useState<Result[]>([]);
 
   async function signIn(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setBusy(true);
-    setMessage("Connecting securely to Supabase Auth…");
+    event.preventDefault(); setBusy(true); setMessage("Connecting securely to Supabase Auth…");
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) {
-        setMessage(`Sign-in failed: ${error.message}`);
-        return;
-      }
-      setSignedIn(true);
-      setMessage("Signed in. Continue with the step shown below.");
+      if (error) { setMessage(`Sign-in failed: ${error.message}`); return; }
+      setSignedIn(true); setMessage("Signed in. Continue with the step shown below.");
     } catch (error) {
-      const detail = error instanceof Error ? error.message : "Unknown connection error";
-      setMessage(`Could not reach Supabase Auth: ${detail}`);
-    } finally {
-      setBusy(false);
-      setPassword("");
-    }
+      setMessage(`Could not reach Supabase Auth: ${error instanceof Error ? error.message : "Unknown connection error"}`);
+    } finally { setBusy(false); setPassword(""); }
   }
 
-  async function createOwnerFixture() {
-    setBusy(true);
-    setResults([]);
+  async function createFixtures() {
+    setBusy(true); setResults([]);
+    const created: Fixture[] = [];
     try {
       const { data: auth, error: authError } = await supabase.auth.getUser();
       if (authError || !auth.user) throw new Error("Please sign in again.");
-      if (ownerId && auth.user.id !== ownerId) throw new Error("Sign in with the first test account for this step.");
-      const { data, error } = await supabase
-        .from("bp_readings")
-        .insert({ user_id: auth.user.id, systolic: 117, diastolic: 76, pulse: 65 })
-        .select("id")
-        .single();
-      if (error || !data) throw new Error(error?.message || "Could not create the synthetic test record.");
-      const { data: ownRows, error: readError } = await supabase
-        .from("bp_readings").select("id").eq("id", data.id);
-      if (readError || !ownRows || ownRows.length !== 1) throw new Error("The owner could not read the newly created test record.");
-      setOwnerId(auth.user.id);
-      setFixtureId(data.id);
-      setPhase("attack");
-      setMessage("Synthetic test record created and its owner can read it. Sign out, then sign in with your second test account.");
-      setResults([{ test: "Owner positive control", passed: true, detail: "First account created and read its own synthetic blood-pressure record." }]);
+      if (ownerId && auth.user.id !== ownerId) throw new Error("Sign in with the first test account.");
+      for (const spec of specs) {
+        const { data, error } = await (supabase.from(spec.table as any) as any).insert(spec.values(auth.user.id)).select("id").single();
+        if (error || !data) throw new Error(`Could not create synthetic ${spec.label} fixture: ${error?.message || "No record returned"}`);
+        created.push({ table: spec.table, id: data.id, label: spec.label });
+      }
+      const medication = created.find((item) => item.table === "medications");
+      if (!medication) throw new Error("Medication fixture missing.");
+      const { data: medLog, error: medLogError } = await supabase.from("medication_logs").insert({
+        user_id: auth.user.id, medication_id: medication.id, status: "taken",
+      }).select("id").single();
+      if (medLogError || !medLog) throw new Error(`Could not create synthetic medication-log fixture: ${medLogError?.message || "No record returned"}`);
+      created.push({ table: "medication_logs", id: medLog.id, label: "Medication logs" });
+      for (const fixture of created) {
+        const { data, error } = await (supabase.from(fixture.table as any) as any).select("id").eq("id", fixture.id);
+        if (error || data?.length !== 1) throw new Error(`Owner positive control failed for ${fixture.label}.`);
+      }
+      setOwnerId(auth.user.id); setFixtures(created); setPhase("attack");
+      setResults([{ test: "Owner positive controls", passed: true, detail: `First account created and read all ${created.length} synthetic records.` }]);
+      setMessage("Synthetic records created. Sign out, then sign in with the second test account.");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Test setup failed.");
-    } finally {
-      setBusy(false);
-    }
+      setMessage(error instanceof Error ? error.message : "Fixture setup failed.");
+      if (created.length) setMessage((error instanceof Error ? error.message : "Fixture setup failed.") + " Some fixtures may have been created; sign back in with the first account and use cleanup if the page recorded them.");
+      setFixtures(created);
+    } finally { setBusy(false); }
   }
 
-  async function runSecondAccountTests() {
-    if (!ownerId || !fixtureId) return;
-    setBusy(true);
-    setResults([]);
+  async function runIsolation() {
+    if (!ownerId || fixtures.length === 0) return;
+    setBusy(true); setResults([]);
     try {
       const { data: auth, error: authError } = await supabase.auth.getUser();
       if (authError || !auth.user) throw new Error("Please sign in again.");
       if (auth.user.id === ownerId) throw new Error("This is the first account. Sign out and sign in with the second test account.");
       const out: Result[] = [];
-
-      const { data: rows, error: selectError } = await supabase
-        .from("bp_readings").select("id").eq("id", fixtureId);
-      out.push({
-        test: "Read first account's record",
-        passed: !selectError && (rows?.length ?? 0) === 0,
-        detail: selectError ? `Request error: ${selectError.message}` : `${rows?.length ?? 0} matching records visible; expected 0.`,
-      });
-
-      const { data: updated, error: updateError } = await supabase
-        .from("bp_readings").update({ systolic: 118 }).eq("id", fixtureId).select("id");
-      out.push({
-        test: "Change first account's record",
-        passed: !updateError && (updated?.length ?? 0) === 0,
-        detail: updateError ? `Request error: ${updateError.message}` : `${updated?.length ?? 0} records changed; expected 0.`,
-      });
-
-      const { data: deleted, error: deleteError } = await supabase
-        .from("bp_readings").delete().eq("id", fixtureId).select("id");
-      out.push({
-        test: "Delete first account's record",
-        passed: !deleteError && (deleted?.length ?? 0) === 0,
-        detail: deleteError ? `Request error: ${deleteError.message}` : `${deleted?.length ?? 0} records deleted; expected 0.`,
-      });
-
-      const { error: insertError } = await supabase.from("bp_readings").insert({
-        user_id: ownerId, systolic: 119, diastolic: 77, pulse: 66,
-      });
-      out.push({
-        test: "Create a record under first account's identity",
-        passed: !!insertError,
-        detail: insertError ? "Database rejected the cross-account insert." : "Insert unexpectedly succeeded; investigate immediately.",
-      });
-
+      for (const fixture of fixtures) {
+        const client = supabase.from(fixture.table as any) as any;
+        const { data: rows, error: selectError } = await client.select("id").eq("id", fixture.id);
+        out.push({ test: `${fixture.label}: cross-account read`, passed: !selectError && (rows?.length ?? 0) === 0, detail: selectError ? selectError.message : `${rows?.length ?? 0} rows visible; expected 0.` });
+        const updateValues = fixture.table === "bp_readings" ? { systolic: 118 } : fixture.table === "weight_logs" ? { weight: 71 } : fixture.table === "meal_logs" ? { description: "unauthorised change" } : fixture.table === "medications" ? { name: "unauthorised change" } : fixture.table === "medication_logs" ? { status: "missed" } : { activity_type: "unauthorised change" };
+        const { data: updated, error: updateError } = await client.update(updateValues).eq("id", fixture.id).select("id");
+        out.push({ test: `${fixture.label}: cross-account update`, passed: !updateError && (updated?.length ?? 0) === 0, detail: updateError ? updateError.message : `${updated?.length ?? 0} rows changed; expected 0.` });
+        const { data: deleted, error: deleteError } = await client.delete().eq("id", fixture.id).select("id");
+        out.push({ test: `${fixture.label}: cross-account delete`, passed: !deleteError && (deleted?.length ?? 0) === 0, detail: deleteError ? deleteError.message : `${deleted?.length ?? 0} rows deleted; expected 0.` });
+        const spoofValues = fixture.table === "bp_readings" ? { user_id: ownerId, systolic: 119, diastolic: 77, pulse: 66 }
+          : fixture.table === "meal_logs" ? { user_id: ownerId, meal_type: "snack", description: "spoof test", calories: 1, sodium_mg: 1 }
+          : fixture.table === "weight_logs" ? { user_id: ownerId, weight: 71, weight_unit: "kg" }
+          : fixture.table === "workout_logs" ? { user_id: ownerId, activity_type: "spoof test", duration_mins: 1, calories_burned: 1 }
+          : fixture.table === "sanctuary_logs" ? { user_id: ownerId, activity_type: "spoof test", duration_mins: 1 }
+          : fixture.table === "medications" ? { user_id: ownerId, name: "spoof test", dosage: "1", frequency: "Once", pills_remaining: 1 }
+          : { user_id: ownerId, medication_id: fixtures.find((item) => item.table === "medications")?.id, status: "taken" };
+        const { error: insertError } = await client.insert(spoofValues);
+        out.push({ test: `${fixture.label}: spoofed-owner insert`, passed: !!insertError, detail: insertError ? "Database rejected the cross-account insert." : "Insert unexpectedly succeeded." });
+      }
       setResults(out);
       const passed = out.filter((item) => item.passed).length;
       setPhase("cleanup");
-      setMessage(`${passed} of 4 cross-account checks passed. Sign out, sign back in with the first account, then remove the synthetic test record.`);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Cross-account test failed.");
-    } finally {
-      setBusy(false);
-    }
+      setMessage(`${passed} of ${out.length} cross-account checks passed. Sign out, sign back in with the first account, then clean up the synthetic records.`);
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Cross-account test failed."); }
+    finally { setBusy(false); }
   }
 
-  async function cleanupFixture() {
-    if (!ownerId || !fixtureId) return;
+  async function cleanup() {
+    if (!ownerId || fixtures.length === 0) return;
     setBusy(true);
     try {
       const { data: auth, error: authError } = await supabase.auth.getUser();
-      if (authError || !auth.user || auth.user.id !== ownerId) {
-        throw new Error("Sign in with the first test account to clean up its synthetic record.");
+      if (authError || !auth.user || auth.user.id !== ownerId) throw new Error("Sign in with the first test account to clean up.");
+      for (const fixture of [...fixtures].reverse()) {
+        const { data, error } = await (supabase.from(fixture.table as any) as any).delete().eq("id", fixture.id).eq("user_id", ownerId).select("id");
+        if (error || data?.length !== 1) throw new Error(`Cleanup not confirmed for ${fixture.label}: ${error?.message || "Expected one deleted row"}`);
       }
-      const { data, error } = await supabase.from("bp_readings")
-        .delete().eq("id", fixtureId).eq("user_id", ownerId).select("id");
-      if (error || data?.length !== 1) throw new Error(error?.message || "Cleanup could not be confirmed.");
-      setFixtureId(null);
-      setPhase("done");
-      setMessage("Synthetic test record successfully deleted. Cross-account test is complete.");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Cleanup failed.");
-    } finally {
-      setBusy(false);
-    }
+      setFixtures([]); setPhase("done"); setMessage("All synthetic test records were deleted successfully. Verification run complete.");
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Cleanup failed."); }
+    finally { setBusy(false); }
   }
 
   async function signOut() {
     setBusy(true);
-    try {
-      await supabase.auth.signOut();
-      setSignedIn(false);
-      setMessage("Signed out. Sign in with the account requested in the next step.");
-    } finally {
-      setBusy(false);
-    }
+    try { await supabase.auth.signOut(); setSignedIn(false); setMessage("Signed out. Sign in with the account requested in the next step."); }
+    finally { setBusy(false); }
   }
 
   return (
@@ -156,15 +131,13 @@ export default function Hep002VerificationPage() {
       <section className="mx-auto max-w-2xl space-y-6">
         <header className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-neutral-500">Hephaestus · HEP-002</p>
-          <h1 className="text-3xl font-semibold tracking-tight">Two-account isolation verification</h1>
-          <p className="text-sm leading-6 text-neutral-600">A temporary test using two real Sanctos test accounts and one synthetic blood-pressure record.</p>
+          <h1 className="text-3xl font-semibold tracking-tight">Sensitive-data isolation verification</h1>
+          <p className="text-sm leading-6 text-neutral-600">A temporary test of two real Sanctos test accounts across seven sensitive data tables.</p>
         </header>
-
         <div className="rounded-xl border border-neutral-200 bg-white p-5 space-y-2">
           <h2 className="font-semibold">Safety</h2>
-          <p className="text-sm leading-6 text-neutral-600">Only a clearly synthetic record (117/76, pulse 65) is created. No real health information is used. The second account attempts to read, change, delete, and create a record under the first account's identity. The page never displays your password or sends it to Sanctos API routes. The synthetic record is removed at the end.</p>
+          <p className="text-sm leading-6 text-neutral-600">This creates only artificial test entries in your two test accounts: a sample BP reading, meal, weight, workout, sanctuary activity, medication and medication log. Do not enter real health information. The second account attempts read, update, delete and spoofed-owner insert operations. All synthetic entries are removed at the end. Keep this page open throughout.</p>
         </div>
-
         {!signedIn ? (
           <form onSubmit={signIn} className="rounded-xl border border-neutral-200 bg-white p-5 space-y-4">
             <h2 className="font-semibold">{phase === "create" ? "Step 1 — Sign in with the first test account" : phase === "attack" ? "Step 2 — Sign in with the second test account" : phase === "cleanup" ? "Step 3 — Sign back in with the first test account" : "Verification complete"}</h2>
@@ -175,16 +148,15 @@ export default function Hep002VerificationPage() {
         ) : (
           <div className="rounded-xl border border-neutral-200 bg-white p-5 space-y-4">
             <p className="text-sm font-semibold">Account signed in</p>
-            {phase === "create" && <button onClick={createOwnerFixture} disabled={busy} className="rounded-lg bg-[#171717] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">{busy ? "Creating test record…" : "Create first-account test record"}</button>}
-            {phase === "attack" && <button onClick={runSecondAccountTests} disabled={busy} className="rounded-lg bg-[#171717] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">{busy ? "Testing isolation…" : "Run second-account isolation tests"}</button>}
-            {phase === "cleanup" && <button onClick={cleanupFixture} disabled={busy} className="rounded-lg bg-[#171717] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">{busy ? "Cleaning up…" : "Delete synthetic test record"}</button>}
-            <button onClick={signOut} disabled={busy || phase === "done"} className="ml-2 rounded-lg border border-neutral-300 px-4 py-2.5 text-sm font-semibold disabled:opacity-50">Sign out</button>
+            {phase === "create" && <button onClick={createFixtures} disabled={busy} className="rounded-lg bg-[#171717] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">{busy ? "Creating synthetic entries…" : "Create first-account test entries"}</button>}
+            {phase === "attack" && <button onClick={runIsolation} disabled={busy} className="rounded-lg bg-[#171717] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">{busy ? "Testing isolation…" : "Run second-account isolation tests"}</button>}
+            {phase === "cleanup" && <button onClick={cleanup} disabled={busy} className="rounded-lg bg-[#171717] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">{busy ? "Removing synthetic entries…" : "Delete all synthetic test entries"}</button>}
+            {phase !== "done" && <button onClick={signOut} disabled={busy} className="rounded-lg border border-neutral-300 px-4 py-2.5 text-sm font-semibold disabled:opacity-50">Sign out</button>}
           </div>
         )}
-
-        {message && <p role="status" className="rounded-lg bg-neutral-100 p-3 text-sm">{message}</p>}
-        {results.length > 0 && <section className="rounded-xl border border-neutral-200 bg-white p-5 space-y-3"><h2 className="font-semibold">Results</h2><ul className="space-y-3">{results.map((r) => <li key={r.test} className="flex justify-between gap-4 text-sm"><span><strong>{r.test}</strong><br /><span className="text-xs text-neutral-600">{r.detail}</span></span><span className={r.passed ? "text-green-700 font-semibold" : "text-red-700 font-semibold"}>{r.passed ? "PASS" : "CHECK"}</span></li>)}</ul></section>}
-        <p className="text-xs leading-5 text-neutral-500">Temporary development-branch test only. Do not enter real patient information. Keep this page open throughout the three steps so the synthetic record reference is retained. HEP-002 remains open until all verification and regression work is complete.</p>
+        {message && <p role="status" className="rounded-xl bg-white p-4 text-sm leading-6">{message}</p>}
+        {results.length > 0 && <div className="rounded-xl border border-neutral-200 bg-white p-5 space-y-3"><h2 className="font-semibold">Test results</h2>{results.map((result, index) => <div key={index} className="flex items-start justify-between gap-4 border-t border-neutral-100 pt-3 text-sm"><div><p className="font-medium">{result.test}</p><p className="mt-1 text-neutral-600">{result.detail}</p></div><span className={result.passed ? "font-semibold text-green-700" : "font-semibold text-red-700"}>{result.passed ? "PASS" : "CHECK"}</span></div>)}</div>}
+        <p className="text-xs leading-5 text-neutral-500">Temporary HEP-002 development verification only. No production code or database schema is changed by this page.</p>
       </section>
     </main>
   );
