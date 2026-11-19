@@ -10,7 +10,7 @@ Offer one gentle, non-medical supportive next step.`;
 export async function POST(req: NextRequest) {
   const auth = await authenticateRequest(req);
   if (auth instanceof Response) return auth;
-  const limited = await enforceRateLimit(auth.supabase, "narrator", 10);
+  const limited = await enforceRateLimit(auth.supabase, "narrator");
   if (limited) return limited;
   const body = await readJsonBody(req, 2_048);
   if (body instanceof Response) return body;

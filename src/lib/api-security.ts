@@ -6,8 +6,6 @@ type AuthenticatedRequest = {
   supabase: SupabaseClient;
 };
 
-const WINDOW_MS = 60_000;
-
 export function jsonError(message: string, status: number, headers?: HeadersInit) {
   return Response.json({ error: message }, { status, headers });
 }
@@ -71,30 +69,24 @@ export async function readJsonBody(req: NextRequest, maxBytes: number): Promise<
 
 /**
  * Shared, atomic throttling stored in Supabase so limits apply across
- * serverless instances and regions.
+ * serverless instances and regions. Limits and window are fixed inside the
+ * database function; the client cannot choose or weaken them.
  */
 export async function enforceRateLimit(
   supabase: SupabaseClient,
   endpoint: string,
-  limit: number,
-  windowMs = WINDOW_MS,
 ): Promise<Response | null> {
-  const windowSeconds = Math.max(1, Math.ceil(windowMs / 1000));
   const { data, error } = await supabase.rpc("consume_api_rate_limit", {
     p_endpoint: endpoint,
-    p_limit: limit,
-    p_window_seconds: windowSeconds,
   }).maybeSingle();
   const rateLimitResult = data as { allowed: boolean; retry_after_seconds: number } | null;
 
   if (error || !rateLimitResult) {
-    // Fail closed: do not process sensitive API work if the abuse-control
-    // store is unavailable.
     return jsonError("Service temporarily unavailable", 503);
   }
   if (!rateLimitResult.allowed) {
     return jsonError("Too many requests. Please try again shortly.", 429, {
-      "Retry-After": String(Math.max(1, rateLimitResult.retry_after_seconds ?? windowSeconds)),
+      "Retry-After": String(Math.max(1, rateLimitResult.retry_after_seconds ?? 60)),
     });
   }
   return null;
