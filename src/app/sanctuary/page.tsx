@@ -227,7 +227,7 @@ export default function SanctuaryPage() {
                     <span className="text-xs font-bold uppercase tracking-wider text-sanctos-navy/60">Companion Response</span>
                   </div>
                   <p className="font-serif text-[19px] leading-relaxed text-sanctos-navy italic">
-                    "{aiResponse}"
+                    &quot;{aiResponse}&quot;
                   </p>
                 </div>
                 

@@ -242,7 +242,7 @@ export default function MedicinePage() {
             </div>
           ) : (
             <div className="bg-white/10 p-4 rounded-xl">
-              <p className="text-sm leading-relaxed italic">"{aiAdvice}"</p>
+              <p className="text-sm leading-relaxed italic">&quot;{aiAdvice}&quot;</p>
               <button onClick={() => setAiAdvice(null)} className="text-xs font-semibold mt-3 underline text-white/60">Dismiss</button>
             </div>
           )}

@@ -336,7 +336,7 @@ export default function KitchenPage() {
                   </div>
 
                   <p className="text-sm italic text-sanctos-navy/60 mt-4 mb-6">
-                    "{plan.closing_note}"
+                    &quot;{plan.closing_note}&quot;
                   </p>
 
                   <button 

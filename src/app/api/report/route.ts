@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
       journalNotes: [],
     };
 
-    const buffer = await renderToBuffer(React.createElement(ReportDocument, { data: reportData }));
+    const buffer = await renderToBuffer(React.createElement(ReportDocument, { data: reportData }) as Parameters<typeof renderToBuffer>[0]);
     return new Response(new Uint8Array(buffer), {
       headers: {
         "Content-Type": "application/pdf",

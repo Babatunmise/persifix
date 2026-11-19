@@ -184,7 +184,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
 
           {data.journalNotes.length > 0 ? data.journalNotes.map((note: string, i: number) => (
 
-            <Text key={i} style={styles.text}>"{note}"</Text>
+            <Text key={i} style={styles.text}>&quot;{note}&quot;</Text>
 
           )) : <Text style={styles.text}>No recent journal entries.</Text>}
 
