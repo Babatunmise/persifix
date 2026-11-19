@@ -68,6 +68,7 @@ export default function Hep002VerificationPage() {
       setMessage(error instanceof Error ? error.message : "Fixture setup failed.");
       if (created.length) setMessage((error instanceof Error ? error.message : "Fixture setup failed.") + " Some fixtures may have been created; sign back in with the first account and use cleanup if the page recorded them.");
       setFixtures(created);
+      if (created.length) setPhase("cleanup");
     } finally { setBusy(false); }
   }
 
