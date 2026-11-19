@@ -35,10 +35,10 @@ export async function POST(req: NextRequest) {
     if (results.some(result => result.error)) return jsonError("Unable to generate the report", 500);
     if (!profileRes.data) return jsonError("Patient profile not found", 404);
 
-    const bpRows = bpRes.data ?? [];
+    const bpRows = (bpRes.data ?? []) as Array<{ systolic: number; diastolic: number }>;
     const avgSys = bpRows.length ? Math.round(bpRows.reduce((sum, row) => sum + row.systolic, 0) / bpRows.length) : "N/A";
     const avgDia = bpRows.length ? Math.round(bpRows.reduce((sum, row) => sum + row.diastolic, 0) / bpRows.length) : "N/A";
-    const latestWeight = weightRes.data?.[0] ?? { weight: "N/A", weight_unit: "" };
+    const latestWeight = (weightRes.data?.[0] ?? { weight: "N/A", weight_unit: "" }) as { weight: number | string; weight_unit: string };
     const reportData = {
       name: profileRes.data.name ?? "Patient",
       avgSys,
@@ -46,10 +46,10 @@ export async function POST(req: NextRequest) {
       totalReadings: bpRows.length,
       latestWeight: latestWeight.weight,
       weightUnit: latestWeight.weight_unit,
-      meds: (medsRes.data ?? []).map(med => `${med.name} ${med.dosage ?? ""}`.trim()),
+      meds: ((medsRes.data ?? []) as Array<{ name: string; dosage: string | null }>).map(med => `${med.name} ${med.dosage ?? ""}`.trim()),
       medsTakenCount: (medLogsRes.data ?? []).length,
-      totalWorkoutMins: (workoutsRes.data ?? []).reduce((sum, row) => sum + (row.duration_mins ?? 0), 0),
-      breatherCount: (sanctuaryRes.data ?? []).filter(row => row.activity_type === "breather").length,
+      totalWorkoutMins: ((workoutsRes.data ?? []) as Array<{ duration_mins: number | null }>).reduce((sum, row) => sum + (row.duration_mins ?? 0), 0),
+      breatherCount: ((sanctuaryRes.data ?? []) as Array<{ activity_type: string }>).filter(row => row.activity_type === "breather").length,
       // Journal content is excluded from the PDF until its storage and consent model is verified.
       journalNotes: [],
     };
