@@ -291,11 +291,11 @@ async function generateReport() {
             </p>
           ) : narrative ? (
             <p className="font-serif text-[19px] leading-relaxed text-sanctos-navy italic my-2">
-              "{narrative}"
+              &quot;{narrative}&quot;
             </p>
           ) : (
             <p className="font-serif text-[19px] leading-relaxed text-sanctos-navy italic my-2">
-              "Log your first reading today to hear from your companion."
+              &quot;Log your first reading today to hear from your companion.&quot;
             </p>
           )}
           
@@ -375,7 +375,7 @@ async function generateReport() {
               </div>
               <div className="text-left">
                 <h3 className="font-serif text-lg text-sanctos-navy">Clinical Handoff</h3>
-                <p className="text-xs text-sanctos-navy/60 mt-0.5">Generate 30-day Doctor's Report</p>
+                <p className="text-xs text-sanctos-navy/60 mt-0.5">Generate 30-day Doctor&apos;s Report</p>
               </div>
             </div>
             {generatingReport ? (
@@ -389,7 +389,7 @@ async function generateReport() {
         </section>
         <section className="bg-sanctos-navy text-white rounded-3xl p-6 shadow-md relative overflow-hidden">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] uppercase tracking-wider font-bold text-white/60">Today's Focus</span>
+            <span className="text-[10px] uppercase tracking-wider font-bold text-white/60">{"Today's Focus"}</span>
             <span className="px-2.5 py-0.5 rounded-full bg-white/10 text-[10px] font-bold">17 mins</span>
           </div>
           <h2 className="font-serif text-[22px] leading-snug mb-5">
@@ -473,7 +473,7 @@ async function generateReport() {
                   onClick={() => setBpStep("input")}
                   className="w-full bg-sanctos-navy text-white rounded-full py-4 font-semibold mt-4"
                 >
-                  I'm Ready
+                  I&apos;m Ready
                 </button>
               </div>
             )}
