@@ -7,9 +7,6 @@
 -- Both signatures delegate to one private helper that derives auth.uid(),
 -- fixes endpoint limits and the 60-second window, and performs an atomic upsert.
 
-DROP FUNCTION IF EXISTS public.consume_api_rate_limit(text);
-DROP FUNCTION IF EXISTS private.consume_api_rate_limit(text);
-
 ALTER TABLE private.api_rate_limits ENABLE ROW LEVEL SECURITY;
 
 -- API roles must not be able to inspect or alter counters directly.
@@ -20,7 +17,7 @@ REVOKE ALL ON TABLE private.api_rate_limits FROM PUBLIC, anon, authenticated, se
 -- project's separate Exposed schemas setting.
 GRANT USAGE ON SCHEMA private TO authenticated;
 
-CREATE FUNCTION private.consume_api_rate_limit(p_endpoint text)
+CREATE OR REPLACE FUNCTION private.consume_api_rate_limit(p_endpoint text)
 RETURNS TABLE(allowed boolean, retry_after_seconds integer)
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -73,7 +70,7 @@ BEGIN
 END;
 $function$;
 
-REVOKE ALL ON FUNCTION private.consume_api_rate_limit(text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION private.consume_api_rate_limit(text) FROM PUBLIC, anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION private.consume_api_rate_limit(text) TO authenticated;
 
 -- Compatibility wrapper: old production API code supplies three arguments.
@@ -93,11 +90,11 @@ AS $function$
   FROM private.consume_api_rate_limit(p_endpoint) AS result;
 $function$;
 
-REVOKE ALL ON FUNCTION public.consume_api_rate_limit(text, integer, integer) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.consume_api_rate_limit(text, integer, integer) FROM PUBLIC, anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.consume_api_rate_limit(text, integer, integer) TO authenticated;
 
 -- New wrapper used by the updated API code.
-CREATE FUNCTION public.consume_api_rate_limit(p_endpoint text)
+CREATE OR REPLACE FUNCTION public.consume_api_rate_limit(p_endpoint text)
 RETURNS TABLE(allowed boolean, retry_after_seconds integer)
 LANGUAGE sql
 SECURITY INVOKER
@@ -107,5 +104,5 @@ AS $function$
   FROM private.consume_api_rate_limit(p_endpoint) AS result;
 $function$;
 
-REVOKE ALL ON FUNCTION public.consume_api_rate_limit(text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.consume_api_rate_limit(text) FROM PUBLIC, anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.consume_api_rate_limit(text) TO authenticated;
