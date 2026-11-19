@@ -1,23 +1,21 @@
--- HEP-002: keep rate-limit policy server-controlled without exposing the
--- backing store to authenticated users.
+-- HEP-002: make rate-limit policy server-controlled without exposing the
+-- backing store to authenticated users or breaking currently deployed routes.
 --
--- The public RPC is SECURITY INVOKER and accepts only an endpoint name.
--- It delegates to a narrowly scoped SECURITY DEFINER helper in the private
--- schema. That helper derives the caller from auth.uid(), fixes every limit
--- and the window internally, and performs one atomic upsert. Authenticated
--- users receive no direct privileges on the backing table.
+-- The public RPCs are SECURITY INVOKER wrappers. The legacy three-argument
+-- signature is retained for compatibility with the currently deployed API
+-- routes, but its caller-supplied limit/window values are deliberately ignored.
+-- Both signatures delegate to one private helper that derives auth.uid(),
+-- fixes endpoint limits and the 60-second window, and performs an atomic upsert.
 
-DROP FUNCTION IF EXISTS public.consume_api_rate_limit(text, integer, integer);
 DROP FUNCTION IF EXISTS public.consume_api_rate_limit(text);
 DROP FUNCTION IF EXISTS private.consume_api_rate_limit(text);
 
 ALTER TABLE private.api_rate_limits ENABLE ROW LEVEL SECURITY;
 
--- The table remains inaccessible to API roles. Only the private helper's
--- owner can read or mutate the counters.
-REVOKE ALL ON TABLE private.api_rate_limits FROM PUBLIC, anon, authenticated;
+-- API roles must not be able to inspect or alter counters directly.
+REVOKE ALL ON TABLE private.api_rate_limits FROM PUBLIC, anon, authenticated, service_role;
 
--- The invoker wrapper must be able to resolve and execute the private helper.
+-- The invoker wrappers need permission to resolve and execute the private helper.
 -- This does not expose the schema through PostgREST; that is controlled by the
 -- project's separate Exposed schemas setting.
 GRANT USAGE ON SCHEMA private TO authenticated;
@@ -78,8 +76,27 @@ $function$;
 REVOKE ALL ON FUNCTION private.consume_api_rate_limit(text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION private.consume_api_rate_limit(text) TO authenticated;
 
--- PostgREST exposes this public, invoker-rights wrapper to the app. The
--- wrapper has no access to the counter table and cannot choose limits.
+-- Compatibility wrapper: old production API code supplies three arguments.
+-- Keep the signature, but ignore p_limit and p_window_seconds so callers cannot
+-- weaken policy while the application deployment is being rolled forward.
+CREATE OR REPLACE FUNCTION public.consume_api_rate_limit(
+  p_endpoint text,
+  p_limit integer,
+  p_window_seconds integer DEFAULT 60
+)
+RETURNS TABLE(allowed boolean, retry_after_seconds integer)
+LANGUAGE sql
+SECURITY INVOKER
+SET search_path = ''
+AS $function$
+  SELECT result.allowed, result.retry_after_seconds
+  FROM private.consume_api_rate_limit(p_endpoint) AS result;
+$function$;
+
+REVOKE ALL ON FUNCTION public.consume_api_rate_limit(text, integer, integer) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.consume_api_rate_limit(text, integer, integer) TO authenticated;
+
+-- New wrapper used by the updated API code.
 CREATE FUNCTION public.consume_api_rate_limit(p_endpoint text)
 RETURNS TABLE(allowed boolean, retry_after_seconds integer)
 LANGUAGE sql
