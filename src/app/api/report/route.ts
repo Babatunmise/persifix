@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import React from "react";
 import { renderToBuffer } from "@react-pdf/renderer";
 import ReportDocument from "@/components/ReportDocument";
 import { authenticateRequest, enforceRateLimit, jsonError } from "@/lib/api-security";
@@ -53,7 +54,7 @@ export async function POST(req: NextRequest) {
       journalNotes: [],
     };
 
-    const buffer = await renderToBuffer(<ReportDocument data={reportData} />);
+    const buffer = await renderToBuffer(React.createElement(ReportDocument, { data: reportData }));
     return new Response(new Uint8Array(buffer), {
       headers: {
         "Content-Type": "application/pdf",
