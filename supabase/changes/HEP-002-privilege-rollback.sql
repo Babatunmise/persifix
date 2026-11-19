@@ -11,8 +11,9 @@ GRANT MAINTAIN, REFERENCES, TRIGGER, TRUNCATE ON TABLE
 TO anon, authenticated, service_role;
 
 -- Baseline authenticated grants also included ordinary row operations.
+GRANT SELECT, INSERT, UPDATE ON TABLE public.profiles TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
-  public.profiles, public.bp_readings, public.meal_logs, public.medications,
+  public.bp_readings, public.meal_logs, public.medications,
   public.medication_logs, public.weight_logs, public.workout_logs, public.sanctuary_logs
 TO authenticated;
 
