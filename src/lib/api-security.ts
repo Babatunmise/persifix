@@ -7,7 +7,6 @@ type AuthenticatedRequest = {
 };
 
 const WINDOW_MS = 60_000;
-const buckets = new Map<string, { count: number; resetAt: number }>();
 
 export function jsonError(message: string, status: number, headers?: HeadersInit) {
   return Response.json({ error: message }, { status, headers });
@@ -71,27 +70,32 @@ export async function readJsonBody(req: NextRequest, maxBytes: number): Promise<
 }
 
 /**
- * Best-effort per-instance throttling. A shared store is required for
- * globally distributed enforcement across serverless instances.
+ * Shared, atomic throttling stored in Supabase so limits apply across
+ * serverless instances and regions.
  */
-export function enforceRateLimit(key: string, limit: number, windowMs = WINDOW_MS): Response | null {
-  const now = Date.now();
-  if (buckets.size > 10_000) {
-    for (const [bucketKey, bucket] of buckets) {
-      if (bucket.resetAt <= now) buckets.delete(bucketKey);
-    }
+export async function enforceRateLimit(
+  supabase: SupabaseClient,
+  endpoint: string,
+  limit: number,
+  windowMs = WINDOW_MS,
+): Promise<Response | null> {
+  const windowSeconds = Math.max(1, Math.ceil(windowMs / 1000));
+  const { data, error } = await supabase.rpc("consume_api_rate_limit", {
+    p_endpoint: endpoint,
+    p_limit: limit,
+    p_window_seconds: windowSeconds,
+  }).maybeSingle();
+
+  if (error || !data) {
+    // Fail closed: do not process sensitive API work if the abuse-control
+    // store is unavailable.
+    return jsonError("Service temporarily unavailable", 503);
   }
-  const current = buckets.get(key);
-  if (!current || current.resetAt <= now) {
-    buckets.set(key, { count: 1, resetAt: now + windowMs });
-    return null;
-  }
-  if (current.count >= limit) {
+  if (!data.allowed) {
     return jsonError("Too many requests. Please try again shortly.", 429, {
-      "Retry-After": String(Math.max(1, Math.ceil((current.resetAt - now) / 1000))),
+      "Retry-After": String(Math.max(1, data.retry_after_seconds ?? windowSeconds)),
     });
   }
-  current.count += 1;
   return null;
 }
 
