@@ -39,3 +39,8 @@ Default sequence ACLs under supabase_admin included SELECT, UPDATE, USAGE for an
 The draft remediation revokes all table privileges from anon; preserves SELECT/INSERT/UPDATE/DELETE for authenticated subject to existing RLS; removes MAINTAIN/REFERENCES/TRIGGER/TRUNCATE from authenticated and service_role; removes unsafe default table grants for anon/authenticated under both owners; and tightens future sequence defaults.
 
 The rollback script restores the catalog privileges observed in this baseline. Both scripts are drafts and have not been applied.
+
+
+## Medication ownership constraint
+
+A read-only join of medication_logs to medications found zero existing rows where the log user_id differs from the referenced medication owner. However, the existing foreign key validates medication_id only and does not enforce same-owner linkage. The remediation draft now adds a composite unique key on medications (id, user_id) and a composite foreign key from medication_logs (medication_id, user_id), preserving ON DELETE CASCADE. This has not been applied.
