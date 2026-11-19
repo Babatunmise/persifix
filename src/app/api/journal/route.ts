@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { authenticateRequest, enforceRateLimit, jsonError, readJsonBody, safeString } from "@/lib/api-security";
+import { authenticateRequest, enforceRateLimit, isRecord, jsonError, readJsonBody } from "@/lib/api-security";
 
 const SYSTEM_PROMPT = `Role: You are the Sanctos Companion. Warm, calm, and deeply empathetic.
 Provide a short, compassionate, non-diagnostic supportive check-in.
@@ -15,8 +15,11 @@ export async function POST(req: NextRequest) {
   const body = await readJsonBody(req, 8_192);
   if (body instanceof Response) return body;
   if (!body || typeof body !== "object" || Array.isArray(body)) return jsonError("Invalid request", 400);
-  const text = (body as Record<string, unknown>).text;
-  if (!safeString(text, 4_000)) return jsonError("Journal text must be between 1 and 4000 characters", 400);
+  if (!isRecord(body) || body.entrySubmitted !== true) return jsonError("A journal entry is required", 400);
+
+  // The journal content remains in the browser. The server receives only a
+  // boolean indicating that the user submitted an entry; no journal text is
+  // stored, logged, or forwarded to the AI provider.
 
   const apiKey = process.env.DEEPSEEK_API_KEY;
   if (!apiKey) return jsonError("Companion is temporarily unavailable", 503);
