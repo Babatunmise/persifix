@@ -115,9 +115,14 @@ export default function KitchenPage() {
     setIsTyping(true);
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error("Authentication required");
       const res = await fetch("/api/kitchen", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
         body: JSON.stringify({ messages: newMessages }),
       });
       const data = await res.json();
