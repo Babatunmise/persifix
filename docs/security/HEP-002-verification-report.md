@@ -55,7 +55,7 @@ The production Vercel deployment was rechecked during this review:
 
 The Supabase project `sanctoss` was rechecked and reported `ACTIVE_HEALTHY`. All eight HEP-002 migrations are present.
 
-The isolated Vercel preview for commit `1dcae676700977765e580f99417b33d4f7fe73003` (see deployment record for exact build commit) previously reached READY. The build completed Next.js production compilation, TypeScript validation and static page generation. This confirms the preview build, not full runtime regression coverage.
+The isolated Vercel preview for commit `1dcae676700977765b983c0a1e2fde010061001d` (see deployment record for exact build commit) previously reached READY. The build completed Next.js production compilation, TypeScript validation and static page generation. This confirms the preview build, not full runtime regression coverage.
 
 The user confirmed that the authenticated home page appeared and that the visible experience was working as expected. Detailed screen-by-screen regression is deferred because the product UI is scheduled for a substantial rebuild. The rebuilt UI must undergo complete functional, accessibility, security and regression testing before release.
 
