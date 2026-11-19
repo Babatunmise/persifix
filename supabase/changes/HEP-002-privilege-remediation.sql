@@ -30,7 +30,20 @@ BEGIN
   IF rls_disabled IS NOT NULL THEN
     RAISE EXCEPTION 'HEP-002 aborted; RLS is disabled on: %', rls_disabled;
   END IF;
-END $$;
+END $;
+
+-- Enforce that a medication log can reference only a medication owned by
+-- the same user. The baseline contains zero cross-owner rows. The original
+-- single-column FK is replaced while preserving ON DELETE CASCADE.
+ALTER TABLE public.medications
+  ADD CONSTRAINT medications_id_user_id_key UNIQUE (id, user_id);
+ALTER TABLE public.medication_logs
+  DROP CONSTRAINT medication_logs_medication_id_fkey;
+ALTER TABLE public.medication_logs
+  ADD CONSTRAINT medication_logs_medication_owner_fkey
+  FOREIGN KEY (medication_id, user_id)
+  REFERENCES public.medications (id, user_id)
+  ON DELETE CASCADE;
 
 -- No direct table privileges for unauthenticated clients.
 REVOKE ALL PRIVILEGES ON TABLE
