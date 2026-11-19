@@ -1,9 +1,9 @@
-import { createClient, type User } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient, type User } from "@supabase/supabase-js";
 import type { NextRequest } from "next/server";
 
 type AuthenticatedRequest = {
   user: User;
-  supabase: any;
+  supabase: SupabaseClient;
 };
 
 const WINDOW_MS = 60_000;
