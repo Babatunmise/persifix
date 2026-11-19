@@ -1,27 +1,68 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
 import React from "react";
 import ReportDocument from "@/components/ReportDocument";
+import { authenticateRequest, enforceRateLimit, jsonError } from "@/lib/api-security";
 
-export const runtime = 'nodejs'; 
+export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
+  const auth = await authenticateRequest(req);
+  if (auth instanceof Response) return auth;
+  const limited = enforceRateLimit(`report:${auth.user.id}`, 3);
+  if (limited) return limited;
+
   try {
-    const data = await req.json();
+    // All report data is fetched server-side under the verified user's JWT.
+    // Never accept patient identity or report contents from the browser.
+    const since = new Date();
+    since.setDate(since.getDate() - 30);
+    const sinceIso = since.toISOString();
+    const userId = auth.user.id;
 
-    const buffer = await renderToBuffer(
-      React.createElement(ReportDocument, { data }) as any
-    );
+    const [profileRes, bpRes, weightRes, medsRes, medLogsRes, workoutsRes, sanctuaryRes] = await Promise.all([
+      auth.supabase.from("profiles").select("id, name").eq("id", userId).maybeSingle(),
+      auth.supabase.from("bp_readings").select("systolic, diastolic").eq("user_id", userId).gte("measured_at", sinceIso),
+      auth.supabase.from("weight_logs").select("weight, weight_unit").eq("user_id", userId).order("logged_at", { ascending: false }).limit(1),
+      auth.supabase.from("medications").select("name, dosage").eq("user_id", userId),
+      auth.supabase.from("medication_logs").select("id").eq("user_id", userId).eq("status", "taken").gte("taken_at", sinceIso),
+      auth.supabase.from("workout_logs").select("duration_mins").eq("user_id", userId).gte("created_at", sinceIso),
+      auth.supabase.from("sanctuary_logs").select("activity_type, duration_mins").eq("user_id", userId).gte("created_at", sinceIso),
+    ]);
 
-    return new NextResponse(new Uint8Array(buffer), {
+    const results = [profileRes, bpRes, weightRes, medsRes, medLogsRes, workoutsRes, sanctuaryRes];
+    if (results.some(result => result.error)) return jsonError("Unable to generate the report", 500);
+    if (!profileRes.data) return jsonError("Patient profile not found", 404);
+
+    const bpRows = bpRes.data ?? [];
+    const avgSys = bpRows.length ? Math.round(bpRows.reduce((sum, row) => sum + row.systolic, 0) / bpRows.length) : "N/A";
+    const avgDia = bpRows.length ? Math.round(bpRows.reduce((sum, row) => sum + row.diastolic, 0) / bpRows.length) : "N/A";
+    const latestWeight = weightRes.data?.[0] ?? { weight: "N/A", weight_unit: "" };
+    const reportData = {
+      name: profileRes.data.name ?? "Patient",
+      avgSys,
+      avgDia,
+      totalReadings: bpRows.length,
+      latestWeight: latestWeight.weight,
+      weightUnit: latestWeight.weight_unit,
+      meds: (medsRes.data ?? []).map(med => `${med.name} ${med.dosage ?? ""}`.trim()),
+      medsTakenCount: (medLogsRes.data ?? []).length,
+      totalWorkoutMins: (workoutsRes.data ?? []).reduce((sum, row) => sum + (row.duration_mins ?? 0), 0),
+      breatherCount: (sanctuaryRes.data ?? []).filter(row => row.activity_type === "breather").length,
+      // Journal content is excluded from the PDF until its storage and consent model is verified.
+      journalNotes: [],
+    };
+
+    const buffer = await renderToBuffer(React.createElement(ReportDocument, { data: reportData }) as any);
+    return new Response(new Uint8Array(buffer), {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": 'attachment; filename="Getsanctos_Clinical_Report.pdf"',
+        "Cache-Control": "private, no-store",
+        "X-Content-Type-Options": "nosniff",
       },
     });
-  } catch (error: any) {
-    console.error("PDF Generation Error Details:", error);
-    // Send the exact error message back to the frontend
-    return NextResponse.json({ error: error.message || error.toString() }, { status: 500 });
+  } catch {
+    return jsonError("Unable to generate the report", 500);
   }
 }
