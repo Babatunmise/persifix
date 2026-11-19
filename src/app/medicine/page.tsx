@@ -164,7 +164,7 @@ export default function MedicinePage() {
         
         {/* Today's Doses */}
         <section className="bg-white rounded-3xl p-5 shadow-sm">
-          <h2 className="text-sm font-bold text-sanctos-navy mb-4">Today's Doses</h2>
+          <h2 className="text-sm font-bold text-sanctos-navy mb-4">Today&apos;s Doses</h2>
           {meds.length === 0 ? (
             <p className="text-sm text-sanctos-navy/50">No medications added yet. Click the + button above.</p>
           ) : (
@@ -226,7 +226,7 @@ export default function MedicinePage() {
         <section className="bg-sanctos-navy text-white rounded-3xl p-6 shadow-md">
           <h2 className="font-serif text-xl mb-2">Missed a dose?</h2>
           <p className="text-sm text-white/70 mb-4">
-            It happens. Let's figure it out together so you don't feel alone.
+            It happens. Let&apos;s figure it out together so you don&apos;t feel alone.
           </p>
           {!aiAdvice ? (
             <div className="grid grid-cols-3 gap-2">
