@@ -46,8 +46,10 @@ FROM authenticated;
 
 GRANT SELECT, INSERT, UPDATE ON TABLE public.profiles TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
-  public.bp_readings, public.meal_logs, public.medications,
-  public.medication_logs, public.weight_logs, public.workout_logs
+  public.bp_readings, public.medications, public.medication_logs
+TO authenticated;
+GRANT SELECT, INSERT, DELETE ON TABLE
+  public.meal_logs, public.weight_logs, public.workout_logs
 TO authenticated;
 GRANT SELECT, INSERT ON TABLE public.sanctuary_logs TO authenticated;
 
