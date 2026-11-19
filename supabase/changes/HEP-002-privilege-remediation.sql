@@ -44,10 +44,12 @@ REVOKE MAINTAIN, REFERENCES, TRIGGER, TRUNCATE ON TABLE
   public.medication_logs, public.weight_logs, public.workout_logs, public.sanctuary_logs
 FROM authenticated;
 
+GRANT SELECT, INSERT, UPDATE ON TABLE public.profiles TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
-  public.profiles, public.bp_readings, public.meal_logs, public.medications,
-  public.medication_logs, public.weight_logs, public.workout_logs, public.sanctuary_logs
+  public.bp_readings, public.meal_logs, public.medications,
+  public.medication_logs, public.weight_logs, public.workout_logs
 TO authenticated;
+GRANT SELECT, INSERT ON TABLE public.sanctuary_logs TO authenticated;
 
 -- Remove non-row-operation privileges from the application service role while
 -- preserving any existing ordinary DML permissions it may require.
