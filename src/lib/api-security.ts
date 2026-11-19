@@ -85,15 +85,16 @@ export async function enforceRateLimit(
     p_limit: limit,
     p_window_seconds: windowSeconds,
   }).maybeSingle();
+  const rateLimitResult = data as { allowed: boolean; retry_after_seconds: number } | null;
 
-  if (error || !data) {
+  if (error || !rateLimitResult) {
     // Fail closed: do not process sensitive API work if the abuse-control
     // store is unavailable.
     return jsonError("Service temporarily unavailable", 503);
   }
-  if (!data.allowed) {
+  if (!rateLimitResult.allowed) {
     return jsonError("Too many requests. Please try again shortly.", 429, {
-      "Retry-After": String(Math.max(1, data.retry_after_seconds ?? windowSeconds)),
+      "Retry-After": String(Math.max(1, rateLimitResult.retry_after_seconds ?? windowSeconds)),
     });
   }
   return null;
