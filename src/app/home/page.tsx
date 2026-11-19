@@ -86,7 +86,7 @@ export default function Home() {
 
       if (rows && rows.length > 0) {
         setLatestReading(rows[0]);
-        fetchNarrative(rows[0].systolic, rows[0].diastolic, profile.date_of_birth, profile.goals);
+        fetchNarrative(rows[0].id);
       }
 // Check if any meds were taken today
       const { data: medsLogs } = await supabase
@@ -104,7 +104,7 @@ export default function Home() {
     load();
   }, [router]);
 
- async function fetchNarrative(sysVal: number, diaVal: number, _dob: string | null, _userGoals: string[]) {
+ async function fetchNarrative(readingId: string) {
     setLoadingNarrative(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -115,7 +115,7 @@ export default function Home() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ systolic: sysVal, diastolic: diaVal }),
+        body: JSON.stringify({ readingId }),
       });
       const json = await res.json();
       if (res.ok && json.narrative) setNarrative(json.narrative);
@@ -159,7 +159,7 @@ export default function Home() {
     setLatestReading(data as Reading);
     setSys(""); setDia(""); setPulse(""); setShowBPForm(false);
     
-    await fetchNarrative(sysNum, diaNum, null, goals);
+    await fetchNarrative(data.id);
     setSavingBP(false);
   }
 
