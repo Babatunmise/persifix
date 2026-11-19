@@ -14,21 +14,25 @@ export async function POST(req: NextRequest) {
   if (limited) return limited;
   const body = await readJsonBody(req, 2_048);
   if (body instanceof Response) return body;
-  if (!isRecord(body)) return jsonError("Invalid request", 400);
-
-  const systolic = body.systolic;
-  const diastolic = body.diastolic;
-  if (!Number.isInteger(systolic) || !Number.isInteger(diastolic) ||
-      (systolic as number) < 40 || (systolic as number) > 300 ||
-      (diastolic as number) < 20 || (diastolic as number) > 200) {
-    return jsonError("Enter a valid blood-pressure reading", 400);
+  if (!isRecord(body) || typeof body.readingId !== "string" ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(body.readingId)) {
+    return jsonError("A valid reading reference is required", 400);
   }
+
+  // Fetch the reading from the database using the verified user's JWT and an
+  // explicit owner predicate. Client-supplied BP values are never trusted.
+  const { data: reading, error } = await auth.supabase
+    .from("bp_readings")
+    .select("systolic, diastolic")
+    .eq("id", body.readingId)
+    .eq("user_id", auth.user.id)
+    .maybeSingle();
+  if (error || !reading) return jsonError("Reading not found", 404);
 
   const apiKey = process.env.DEEPSEEK_API_KEY;
   if (!apiKey) return jsonError("Narrator is temporarily unavailable", 503);
   try {
     // Only the two numeric values needed for the narrative leave the application.
-    // Age, goals, profile context, medication adherence, and identity are excluded.
     const response = await fetch("https://api.deepseek.com/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
@@ -36,7 +40,7 @@ export async function POST(req: NextRequest) {
         model: "deepseek-chat",
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: `Blood-pressure reading: ${systolic}/${diastolic} mmHg.` },
+          { role: "user", content: `Blood-pressure reading: ${reading.systolic}/${reading.diastolic} mmHg.` },
         ],
         stream: false,
       }),
