@@ -5,6 +5,15 @@
 
 BEGIN;
 
+-- Restore the original medication foreign-key shape.
+ALTER TABLE public.medication_logs
+  DROP CONSTRAINT IF EXISTS medication_logs_medication_owner_fkey;
+ALTER TABLE public.medications
+  DROP CONSTRAINT IF EXISTS medications_id_user_id_key;
+ALTER TABLE public.medication_logs
+  ADD CONSTRAINT medication_logs_medication_id_fkey
+  FOREIGN KEY (medication_id) REFERENCES public.medications(id) ON DELETE CASCADE;
+
 GRANT MAINTAIN, REFERENCES, TRIGGER, TRUNCATE ON TABLE
   public.profiles, public.bp_readings, public.meal_logs, public.medications,
   public.medication_logs, public.weight_logs, public.workout_logs, public.sanctuary_logs
