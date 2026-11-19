@@ -11,6 +11,7 @@ export async function POST(req: NextRequest) {
   if (auth instanceof Response) return auth;
   const limited = enforceRateLimit(`report:${auth.user.id}`, 3);
   if (limited) return limited;
+  if (req.body) return jsonError("This endpoint does not accept a request body", 400);
 
   try {
     // All report data is fetched server-side under the verified user's JWT.
