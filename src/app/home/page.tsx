@@ -86,7 +86,7 @@ export default function Home() {
 
       if (rows && rows.length > 0) {
         setLatestReading(rows[0]);
-        fetchNarrative(rows[0].systolic, rows[0].diastolic, profile.date_of_birth, profile.goals);
+        fetchNarrative(rows[0].id);
       }
 // Check if any meds were taken today
       const { data: medsLogs } = await supabase
@@ -104,62 +104,23 @@ export default function Home() {
     load();
   }, [router]);
 
- async function fetchNarrative(sysVal: number, diaVal: number, dob: string | null, userGoals: string[]) {
+ async function fetchNarrative(readingId: string) {
     setLoadingNarrative(true);
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      let contextString = "";
-
-      if (userData.user) {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        // 1. Check for high sodium today
-        const { data: meals } = await supabase
-          .from("meal_logs")
-          .select("sodium_mg")
-          .gte("created_at", today.toISOString());
-        
-        const totalSodium = meals?.reduce((sum, m) => sum + m.sodium_mg, 0) || 0;
-        if (totalSodium > 1000) {
-          contextString += "The user has consumed high sodium today. ";
-        }
-
-        // 2. Check for pending meds
-        const { data: meds } = await supabase
-          .from("medications")
-          .select("id")
-          .eq("user_id", userData.user.id);
-        
-        if (meds && meds.length > 0) {
-          const { data: medLogs } = await supabase
-            .from("medication_logs")
-            .select("medication_id")
-            .eq("user_id", userData.user.id)
-            .eq("status", "taken")
-            .gte("taken_at", today.toISOString());
-          
-          if (medLogs && medLogs.length < meds.length) {
-            contextString += "The user has not yet taken all their medications today. ";
-          }
-        }
-      }
-
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
       const res = await fetch("/api/narrator", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          systolic: sysVal,
-          diastolic: diaVal,
-          age: calculateAge(dob),
-          goals: userGoals,
-          context: contextString || "Normal daily routine."
-        }),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ readingId }),
       });
       const json = await res.json();
       if (res.ok && json.narrative) setNarrative(json.narrative);
-    } catch (err) {
-      console.error("Narrative fetch failed");
+    } catch {
+      // Do not log patient readings or request payloads.
     } finally {
       setLoadingNarrative(false);
     }
@@ -198,7 +159,7 @@ export default function Home() {
     setLatestReading(data as Reading);
     setSys(""); setDia(""); setPulse(""); setShowBPForm(false);
     
-    await fetchNarrative(sysNum, diaNum, null, goals);
+    await fetchNarrative(data.id);
     setSavingBP(false);
   }
 
@@ -239,70 +200,34 @@ export default function Home() {
 async function generateReport() {
     setGeneratingReport(true);
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) return;
-
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-      const [bpRes, weightRes, medRes, medLogRes, workRes, sanctRes] = await Promise.all([
-        supabase.from("bp_readings").select("systolic, diastolic").eq("user_id", userData.user.id).gte("measured_at", thirtyDaysAgo.toISOString()),
-        supabase.from("weight_logs").select("weight, weight_unit").eq("user_id", userData.user.id).order("logged_at", { ascending: false }).limit(1),
-        supabase.from("medications").select("name, dosage").eq("user_id", userData.user.id),
-        supabase.from("medication_logs").select("id").eq("user_id", userData.user.id).eq("status", "taken").gte("taken_at", thirtyDaysAgo.toISOString()),
-        supabase.from("workout_logs").select("duration_mins").eq("user_id", userData.user.id).gte("created_at", thirtyDaysAgo.toISOString()),
-        supabase.from("sanctuary_logs").select("activity_type, duration_mins").eq("user_id", userData.user.id).gte("created_at", thirtyDaysAgo.toISOString())
-      ]);
-
-      const bpData = bpRes.data || [];
-      const avgSys = bpData.length ? Math.round(bpData.reduce((sum, r) => sum + r.systolic, 0) / bpData.length) : "N/A";
-      const avgDia = bpData.length ? Math.round(bpData.reduce((sum, r) => sum + r.diastolic, 0) / bpData.length) : "N/A";
-      
-      const totalWorkoutMins = (workRes.data || []).reduce((sum, w) => sum + w.duration_mins, 0);
-      const breatherCount = (sanctRes.data || []).filter(s => s.activity_type === 'breather').length;
-      
-      const latestW = weightRes.data && weightRes.data.length > 0 ? weightRes.data[0] : { weight: "N/A", weight_unit: "" };
-
-      const payload = {
-        name: name,
-        avgSys, avgDia,
-        totalReadings: bpData.length,
-        latestWeight: latestW.weight,
-        weightUnit: latestW.weight_unit,
-        meds: (medRes.data || []).map(m => `${m.name} ${m.dosage || ""}`),
-        medsTakenCount: (medLogRes.data || []).length,
-        totalWorkoutMins,
-        breatherCount,
-        journalNotes: ["Felt a bit dizzy after the morning walk.", "Blood pressure seems stable, feeling less stressed this week."]
-      };
-
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        router.push("/");
+        return;
+      }
       const res = await fetch("/api/report", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        headers: { Authorization: `Bearer ${session.access_token}` },
       });
-
-      if (res.ok) {
-        const blob = await res.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "Getsanctos_Clinical_Report.pdf";
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-      } else {
-       const errorData = await res.json();
-        alert(`Error: ${errorData.error}`);
+      if (!res.ok) {
+        alert("Unable to generate the report. Please try again.");
+        return;
       }
-    } catch (err) {
-      console.error("Report error:", err);
-      alert("An error occurred while generating the report.");
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "Getsanctos_Clinical_Report.pdf";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch {
+      alert("Unable to generate the report. Please try again.");
     } finally {
-      setGeneratingReport(false); // This guarantees it always resets
+      setGeneratingReport(false);
     }
   }
-
 
 
   if (loading) return <main className="min-h-screen bg-alive-bg" />;
