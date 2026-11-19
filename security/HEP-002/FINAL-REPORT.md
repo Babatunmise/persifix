@@ -38,8 +38,9 @@ Verified:
 - The medication-log foreign key binds `(medication_id, user_id)` to `medications(id, user_id)`, is validated, and preserves `ON DELETE CASCADE`.
 - Pre-migration check found zero cross-owner medication-log rows.
 - Existing patient rows and RLS policies were preserved.
-- Rate-limit table is in the private schema and has no direct grants to PUBLIC, anon, authenticated, or service_role.
+- Rate-limit table is in the non-exposed private schema, has RLS disabled because no API role has schema/table access, and has no direct grants to PUBLIC, anon, authenticated, or service_role.
 - Rate-limit RPC execution is granted to authenticated and denied to anon.
+- Post-change privilege verification confirms anon and authenticated cannot use the private schema or access the backing table; authenticated can execute only the public RPC.
 - Runtime smoke test executed inside a transaction under the authenticated database role using an existing Auth subject; the RPC returned `{ allowed: true, retry_after_seconds: 0 }` and the transaction was rolled back, leaving no test counter persisted.
 
 ## Remaining external configuration blockers
@@ -51,7 +52,7 @@ Verified:
 
 ## Final disposition
 
-The identified live-table privilege and medication ownership findings are remediated. Shared rate limiting and fail-closed AI data handling are implemented on the development branch. The latest development build must pass after the final SQL documentation commit before the branch is considered technically ready.
+The identified live-table privilege and medication ownership findings are remediated. Shared rate limiting and fail-closed AI data handling are implemented on the development branch. The final application source build and lint passed on commit `d18f8e7a13a4c68162332e5f142db3da4e8f7e33`; the subsequent commits only updated SQL/report documentation. Vercel's matching preview completed compilation, TypeScript, and all 18 static pages; final deployment state is still being polled.
 
 HEP-002 remains **OPEN / NOT CLEARED** until:
 - the Supabase-managed `supabase_admin` default ACL is corrected by a role with owner-level authority;
