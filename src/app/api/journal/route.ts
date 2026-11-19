@@ -9,7 +9,7 @@ Never diagnose or give medical advice. Offer one gentle, actionable step.`;
 export async function POST(req: NextRequest) {
   const auth = await authenticateRequest(req);
   if (auth instanceof Response) return auth;
-  const limited = enforceRateLimit(`journal:${auth.user.id}`, 8);
+  const limited = await enforceRateLimit(auth.supabase, "journal", 8);
   if (limited) return limited;
 
   const body = await readJsonBody(req, 8_192);
