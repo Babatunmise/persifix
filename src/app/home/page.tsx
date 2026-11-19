@@ -104,62 +104,23 @@ export default function Home() {
     load();
   }, [router]);
 
- async function fetchNarrative(sysVal: number, diaVal: number, dob: string | null, userGoals: string[]) {
+ async function fetchNarrative(sysVal: number, diaVal: number, _dob: string | null, _userGoals: string[]) {
     setLoadingNarrative(true);
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      let contextString = "";
-
-      if (userData.user) {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        // 1. Check for high sodium today
-        const { data: meals } = await supabase
-          .from("meal_logs")
-          .select("sodium_mg")
-          .gte("created_at", today.toISOString());
-        
-        const totalSodium = meals?.reduce((sum, m) => sum + m.sodium_mg, 0) || 0;
-        if (totalSodium > 1000) {
-          contextString += "The user has consumed high sodium today. ";
-        }
-
-        // 2. Check for pending meds
-        const { data: meds } = await supabase
-          .from("medications")
-          .select("id")
-          .eq("user_id", userData.user.id);
-        
-        if (meds && meds.length > 0) {
-          const { data: medLogs } = await supabase
-            .from("medication_logs")
-            .select("medication_id")
-            .eq("user_id", userData.user.id)
-            .eq("status", "taken")
-            .gte("taken_at", today.toISOString());
-          
-          if (medLogs && medLogs.length < meds.length) {
-            contextString += "The user has not yet taken all their medications today. ";
-          }
-        }
-      }
-
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
       const res = await fetch("/api/narrator", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          systolic: sysVal,
-          diastolic: diaVal,
-          age: calculateAge(dob),
-          goals: userGoals,
-          context: contextString || "Normal daily routine."
-        }),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ systolic: sysVal, diastolic: diaVal }),
       });
       const json = await res.json();
       if (res.ok && json.narrative) setNarrative(json.narrative);
-    } catch (err) {
-      console.error("Narrative fetch failed");
+    } catch {
+      // Do not log patient readings or request payloads.
     } finally {
       setLoadingNarrative(false);
     }
