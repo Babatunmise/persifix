@@ -40,6 +40,7 @@ Verified:
 - Existing patient rows and RLS policies were preserved.
 - Rate-limit table is in the private schema and has no direct grants to PUBLIC, anon, authenticated, or service_role.
 - Rate-limit RPC execution is granted to authenticated and denied to anon.
+- Runtime smoke test executed inside a transaction under the authenticated database role using an existing Auth subject; the RPC returned `{ allowed: true, retry_after_seconds: 0 }` and the transaction was rolled back, leaving no test counter persisted.
 
 ## Remaining external configuration blockers
 
@@ -50,7 +51,7 @@ Verified:
 
 ## Final disposition
 
-The identified live-table privilege and medication ownership findings are remediated. Shared rate limiting and fail-closed AI data handling are implemented on the development branch. The development build must pass after the latest changes before the branch is considered technically ready.
+The identified live-table privilege and medication ownership findings are remediated. Shared rate limiting and fail-closed AI data handling are implemented on the development branch. The latest development build must pass after the final SQL documentation commit before the branch is considered technically ready.
 
 HEP-002 remains **OPEN / NOT CLEARED** until:
 - the Supabase-managed `supabase_admin` default ACL is corrected by a role with owner-level authority;
