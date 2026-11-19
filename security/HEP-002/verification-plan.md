@@ -32,3 +32,10 @@ The repository has existing lint and build scripts. This branch has not yet prod
 ## Known coverage gap
 
 The API rate limiter is process-local and does not coordinate across serverless instances. A shared, durable rate-limit backend is required for production-grade abuse protection. Synthetic cross-account database tests also require the isolated Supabase development branch.
+
+
+## Additional database integrity verification
+
+- Before adding the composite medication ownership foreign key, count any medication_logs rows whose user_id differs from the referenced medications.user_id. The production read-only baseline returned 0.
+- After applying to the isolated database, verify the composite foreign key exists and confirm a synthetic User A cannot create a medication log pointing to User B's medication.
+- Confirm deleting a synthetic medication still cascades to its own medication logs.
