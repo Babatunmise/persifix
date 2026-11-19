@@ -5,6 +5,7 @@ import { supabase } from "@/supabase";
 
 type Fixture = { table: string; id: string; label: string };
 type Result = { test: string; passed: boolean; detail: string };
+const isAccessDenied = (error: { code?: string; status?: number } | null | undefined) => !!error && (error.code === "42501" || error.status === 401 || error.status === 403);
 
 const specs = [
   { table: "bp_readings", label: "Blood-pressure readings", values: (userId: string) => ({ user_id: userId, systolic: 117, diastolic: 76, pulse: 65 }) },
@@ -85,14 +86,14 @@ export default function Hep002VerificationPage() {
       for (const fixture of fixtures) {
         const client = supabase.from(fixture.table as any) as any;
         const { data: rows, error: selectError } = await client.select("id").eq("id", fixture.id);
-        const readDenied = !!selectError || (rows?.length ?? 0) === 0;
+        const readDenied = selectError ? isAccessDenied(selectError) : (rows?.length ?? 0) === 0;
         out.push({ test: `${fixture.label}: cross-account read`, passed: readDenied, detail: selectError ? `Request denied: ${selectError.message}` : `${rows?.length ?? 0} rows visible; expected 0.` });
         const updateValues = fixture.table === "bp_readings" ? { systolic: 118 } : fixture.table === "weight_logs" ? { weight: 71 } : fixture.table === "meal_logs" ? { description: "unauthorised change" } : fixture.table === "medications" ? { name: "unauthorised change" } : fixture.table === "medication_logs" ? { status: "missed" } : { activity_type: "unauthorised change" };
         const { data: updated, error: updateError } = await client.update(updateValues).eq("id", fixture.id).select("id");
-        const updateDenied = !!updateError || (updated?.length ?? 0) === 0;
+        const updateDenied = updateError ? isAccessDenied(updateError) : (updated?.length ?? 0) === 0;
         out.push({ test: `${fixture.label}: cross-account update`, passed: updateDenied, detail: updateError ? `Request denied: ${updateError.message}` : `${updated?.length ?? 0} rows changed; expected 0.` });
         const { data: deleted, error: deleteError } = await client.delete().eq("id", fixture.id).select("id");
-        const deleteDenied = !!deleteError || (deleted?.length ?? 0) === 0;
+        const deleteDenied = deleteError ? isAccessDenied(deleteError) : (deleted?.length ?? 0) === 0;
         out.push({ test: `${fixture.label}: cross-account delete`, passed: deleteDenied, detail: deleteError ? `Request denied: ${deleteError.message}` : `${deleted?.length ?? 0} rows deleted; expected 0.` });
         const spoofValues = fixture.table === "bp_readings" ? { user_id: ownerId, systolic: 119, diastolic: 77, pulse: 66 }
           : fixture.table === "meal_logs" ? { user_id: ownerId, meal_type: "snack", description: "spoof test", calories: 1, sodium_mg: 1 }
@@ -102,9 +103,9 @@ export default function Hep002VerificationPage() {
           : fixture.table === "medications" ? { user_id: ownerId, name: "spoof test", dosage: "1", frequency: "Once", pills_remaining: 1 }
           : { user_id: ownerId, medication_id: fixtures.find((item) => item.table === "medications")?.id, status: "taken" };
         const { data: inserted, error: insertError } = await client.insert(spoofValues).select("id").maybeSingle();
-        const insertDenied = !!insertError || !inserted?.id;
+        const insertDenied = insertError ? isAccessDenied(insertError) : false;
         if (inserted?.id) cleanupFixtures.push({ table: fixture.table, id: inserted.id, label: `${fixture.label} (unexpected spoof insert)` });
-        out.push({ test: `${fixture.label}: spoofed-owner insert`, passed: insertDenied, detail: insertError ? "Database rejected the cross-account insert." : inserted?.id ? `Insert unexpectedly succeeded; cleanup ID recorded: ${inserted.id}` : "No inserted row was returned; verify this result before treating it as a pass." });
+        out.push({ test: `${fixture.label}: spoofed-owner insert`, passed: insertDenied, detail: insertError ? (isAccessDenied(insertError) ? "Database rejected the cross-account insert." : `Unexpected database error: ${insertError.message}`) : inserted?.id ? `Insert unexpectedly succeeded; cleanup ID recorded: ${inserted.id}` : "No inserted row was returned; this is not a verified denial." });
       }
       setFixtures(cleanupFixtures);
       setResults(out);
