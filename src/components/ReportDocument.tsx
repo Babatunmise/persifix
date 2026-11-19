@@ -32,7 +32,21 @@ const styles = StyleSheet.create({
 
 
 
-export default function ReportDocument({ data }: { data: any }) {
+export type ReportData = {
+  name: string;
+  avgSys: number | string;
+  avgDia: number | string;
+  totalReadings: number;
+  latestWeight: number | string;
+  weightUnit: string;
+  meds: string[];
+  medsTakenCount: number;
+  totalWorkoutMins: number;
+  breatherCount: number;
+  journalNotes: string[];
+};
+
+export default function ReportDocument({ data }: { data: ReportData }) {
 
   return (
 
