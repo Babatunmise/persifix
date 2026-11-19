@@ -26,7 +26,6 @@ export async function authenticateRequest(req: NextRequest): Promise<Authenticat
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
     global: { headers: { Authorization: `Bearer ${match[1]}` } },
   });
-
   const { data, error } = await supabase.auth.getUser(match[1]);
   if (error || !data.user) return jsonError("Authentication required", 401);
   return { user: data.user, supabase };
@@ -36,28 +35,52 @@ export async function readJsonBody(req: NextRequest, maxBytes: number): Promise<
   if (!req.headers.get("content-type")?.toLowerCase().includes("application/json")) {
     return jsonError("A JSON request body is required", 415);
   }
-
   const declaredLength = Number(req.headers.get("content-length") || 0);
   if (declaredLength > maxBytes) return jsonError("Request body too large", 413);
 
-  const raw = await req.text();
-  if (new TextEncoder().encode(raw).byteLength > maxBytes) {
-    return jsonError("Request body too large", 413);
+  const reader = req.body?.getReader();
+  if (!reader) return jsonError("Request body is required", 400);
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel();
+        return jsonError("Request body too large", 413);
+      }
+      chunks.push(value);
+    }
+  } catch {
+    return jsonError("Invalid request body", 400);
   }
 
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
   try {
-    return JSON.parse(raw);
+    return JSON.parse(new TextDecoder().decode(bytes));
   } catch {
     return jsonError("Invalid JSON body", 400);
   }
 }
 
 /**
- * Best-effort per-instance throttling. This is deliberately not represented as
- * globally distributed protection; a shared store is required for that.
+ * Best-effort per-instance throttling. A shared store is required for
+ * globally distributed enforcement across serverless instances.
  */
 export function enforceRateLimit(key: string, limit: number, windowMs = WINDOW_MS): Response | null {
   const now = Date.now();
+  if (buckets.size > 10_000) {
+    for (const [bucketKey, bucket] of buckets) {
+      if (bucket.resetAt <= now) buckets.delete(bucketKey);
+    }
+  }
   const current = buckets.get(key);
   if (!current || current.resetAt <= now) {
     buckets.set(key, { count: 1, resetAt: now + windowMs });
