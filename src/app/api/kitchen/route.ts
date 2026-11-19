@@ -31,7 +31,7 @@ When ready, provide a brief closing sentence and a strict JSON object between --
 export async function POST(req: NextRequest) {
   const auth = await authenticateRequest(req);
   if (auth instanceof Response) return auth;
-  const limited = enforceRateLimit(`kitchen:${auth.user.id}`, 12);
+  const limited = await enforceRateLimit(auth.supabase, "kitchen", 12);
   if (limited) return limited;
 
   const body = await readJsonBody(req, 16_384);
