@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { authenticateRequest, enforceRateLimit, isRecord, jsonError, readJsonBody, safeString, redactDirectIdentifiers } from "@/lib/api-security";
 
 const SODIUM_DICTIONARY: Record<string, number> = {
   "salt": 2300, "table salt": 2300, "soy sauce": 900, "canned tomatoes": 400,
@@ -9,126 +10,102 @@ const SODIUM_DICTIONARY: Record<string, number> = {
   "butter": 50,
 };
 
-function calculateTotalSodium(ingredients: any[]): number {
+// Existing sodium estimates are retained unchanged pending clinical/nutrition validation.
+function calculateTotalSodium(ingredients: Array<{ name: string; amount: number }>): number {
   let total = 0;
   for (const ing of ingredients) {
     const name = ing.name.toLowerCase().trim();
     const amount = Number(ing.amount) || 1;
     const dictKey = Object.keys(SODIUM_DICTIONARY).find(k => name.includes(k));
     if (dictKey) total += SODIUM_DICTIONARY[dictKey] * amount;
-    else total += 100 * amount; // Safe fallback
+    else total += 100 * amount;
   }
   return Math.round(total);
 }
 
+const SYSTEM_PROMPT = `Role: You are the Sanctos DASH Guardian, a warm, non-judgmental kitchen companion.
+Ask one or two focused questions at a time about ingredients, fresh versus processed foods, and servings.
+Never assume ingredients the user does not have. Do not make medical claims or present estimates as laboratory-accurate.
+When ready, provide a brief closing sentence and a strict JSON object between ---PLAN_START--- and ---PLAN_END--- with ingredients [{name,amount,unit}], servings, pot_prep, plate_prep, closing_note.`;
+
 export async function POST(req: NextRequest) {
-  try {
-    const { messages } = await req.json();
+  const auth = await authenticateRequest(req);
+  if (auth instanceof Response) return auth;
+  const limited = enforceRateLimit(`kitchen:${auth.user.id}`, 12);
+  if (limited) return limited;
 
-    if (!messages || messages.length === 0) {
-      return NextResponse.json({ error: "No chat history provided" }, { status: 400 });
+  const body = await readJsonBody(req, 16_384);
+  if (body instanceof Response) return body;
+  if (!isRecord(body) || !Array.isArray(body.messages) || body.messages.length < 1 || body.messages.length > 12) {
+    return jsonError("Provide between 1 and 12 chat messages", 400);
+  }
+
+  const messages: Array<{ role: "user" | "assistant"; content: string }> = [];
+  for (const item of body.messages) {
+    if (!isRecord(item) || (item.role !== "user" && item.role !== "assistant") || !safeString(item.content, 1_200)) {
+      return jsonError("Invalid chat message", 400);
     }
+    messages.push({ role: item.role, content: redactDirectIdentifiers(item.content.trim()) });
+  }
+  if (messages[messages.length - 1].role !== "user") return jsonError("A user message is required", 400);
 
-    const apiKey = process.env.DEEPSEEK_API_KEY;
-    if (!apiKey) return NextResponse.json({ error: "API key missing" }, { status: 500 });
-
-    const systemPrompt = `Role: You are the Sanctos DASH Guardian. A warm, smart, non-judgmental nutritionist and chef sitting in the user's kitchen.
-Rules:
-- NEVER recommend an ingredient the user does not have. (Zero Assumptions).
-- The user will type naturally, messily, or give incomplete answers. Your job is to extract what you can and gently guide them. 
-- If they say "I'm not sure" or give a vague answer, reassure them and probe further (e.g., "No problem at all! Canned beans have more sodium, but if they're dried, we can control it perfectly. How many servings are we making?").
-- CULINARY CONTEXT: When the user names a dish (like "Chili", "Rice and Beans", "Spaghetti"), use your culinary knowledge to think about how it is typically made. Gently ask if they are adding typical components (proteins like meat/sausage, fats, or toppings like cheese/creams), without assuming they have them. 
-  Example: "Rice and beans is such a great comfort meal! Are you adding any protein to it, like chicken or sausage? And are you topping it with anything like cheese or sour cream?"
-- Ask ONE or TWO focused questions at a time. Do not interrogate them like a form.
-- You must gather: the ingredients, their sodium context (fresh vs processed/canned), and how many servings this pot will last.
-
-CRITICAL INSTRUCTION FOR FINAL OUTPUT:
-DO NOT output JSON until you have all the information. Just chat normally like a human.
-Once you have everything, write a brief, warm closing sentence, and then output the final plan as a strict JSON object. You MUST wrap the JSON in the exact tags ---PLAN_START--- and ---PLAN_END---.
-
-Example of the final output:
-"That sounds delicious! Here is your Guardian Plan.
----PLAN_START---
-{
-  "ingredients": [{"name": "ground beef", "amount": 1.5, "unit": "lb"}, {"name": "cheese", "amount": 0.5, "unit": "cup"}],
-  "servings": 4,
-  "pot_prep": "Use the whole seasoning packet, but do not add extra salt.",
-  "plate_prep": "Fill 1 cupped hand with chili. Top with raw onions.",
-  "closing_note": "Enjoy your dinner tonight!"
-}
----PLAN_END---"`;
+  const apiKey = process.env.DEEPSEEK_API_KEY;
+  if (!apiKey) return jsonError("Guardian is temporarily unavailable", 503);
+  try {
+    // Send only the bounded conversation needed for the current kitchen turn.
+    // No account ID, profile, BP, medication, or stored patient records are included.
     const response = await fetch("https://api.deepseek.com/chat/completions", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
         model: "deepseek-chat",
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...messages.map((m: any) => ({ role: m.role, content: m.content }))
-        ],
-        stream: false, // We removed response_format: { type: "json_object" }
+        messages: [{ role: "system", content: SYSTEM_PROMPT }, ...messages],
+        stream: false,
       }),
+      signal: AbortSignal.timeout(15_000),
     });
-
-    if (!response.ok) {
-      console.error("DeepSeek API Error:", await response.text());
-      return NextResponse.json({ error: "Guardian is offline" }, { status: 502 });
-    }
-
+    if (!response.ok) return jsonError("Guardian is unavailable", 502);
     const data = await response.json();
-    const rawContent = data.choices[0].message.content;
-    
-    // Check if the AI has finished gathering info and generated the plan
+    const rawContent = data.choices?.[0]?.message?.content;
+    if (typeof rawContent !== "string" || rawContent.length > 8_000) return jsonError("Guardian is unavailable", 502);
+
     const planStart = rawContent.indexOf("---PLAN_START---");
     const planEnd = rawContent.indexOf("---PLAN_END---");
-
-    if (planStart !== -1 && planEnd !== -1) {
-      // Extract the JSON text between the tags
-      const jsonString = rawContent.substring(planStart + 16, planEnd).trim();
-      
+    if (planStart !== -1 && planEnd > planStart) {
       try {
-        const aiResponse = JSON.parse(jsonString);
-        
-        // RUN THE DETERMINISTIC MATH ENGINE
-        const totalPotSodium = calculateTotalSodium(aiResponse.ingredients || []);
-        const servings = aiResponse.servings || 1;
-        const sodiumPerServing = Math.round(totalPotSodium / servings);
-
-        // Extract any conversational text before the tags to show in chat
-        const textBeforePlan = rawContent.substring(0, planStart).trim();
-
-        return NextResponse.json({
+        const parsed: unknown = JSON.parse(rawContent.substring(planStart + 16, planEnd).trim());
+        if (!isRecord(parsed) || !Array.isArray(parsed.ingredients) ||
+            !Number.isFinite(parsed.servings) || (parsed.servings as number) <= 0 ||
+            parsed.servings as number > 100 ||
+            !safeString(parsed.pot_prep, 1_500) ||
+            !safeString(parsed.plate_prep, 1_500) ||
+            !safeString(parsed.closing_note, 500)) {
+          return jsonError("Guardian could not validate the meal plan", 502);
+        }
+        const ingredients: Array<{ name: string; amount: number }> = [];
+        if (parsed.ingredients.length > 40) return jsonError("Guardian could not validate the meal plan", 502);
+        for (const ingredient of parsed.ingredients) {
+          if (!isRecord(ingredient) || !safeString(ingredient.name, 100) ||
+              !Number.isFinite(ingredient.amount) || (ingredient.amount as number) <= 0 ||
+              (ingredient.amount as number) > 100) {
+            return jsonError("Guardian could not validate the meal plan", 502);
+          }
+          ingredients.push({ name: ingredient.name.trim(), amount: ingredient.amount as number });
+        }
+        const sodiumPerServing = Math.round(calculateTotalSodium(ingredients) / (parsed.servings as number));
+        return Response.json({
           status: "ready",
-          message: textBeforePlan || "Here is your plan!",
-          plan: {
-            pot_prep: aiResponse.pot_prep,
-            plate_prep: aiResponse.plate_prep,
-            closing_note: aiResponse.closing_note,
-          },
+          message: rawContent.substring(0, planStart).trim() || "Here is your plan!",
+          plan: { pot_prep: parsed.pot_prep, plate_prep: parsed.plate_prep, closing_note: parsed.closing_note },
           estimated_sodium: sodiumPerServing,
-          ingredients_list: aiResponse.ingredients, 
+          ingredients_list: parsed.ingredients,
         });
-
-      } catch (parseError) {
-        console.error("Failed to parse final plan JSON:", jsonString);
-        return NextResponse.json({
-          status: "asking",
-          message: "I have the plan in my head but I couldn't write it down properly. Can you tell me one more time what ingredients you used?"
-        });
+      } catch {
+        return Response.json({ status: "asking", message: "I couldn't validate that plan. Please check the ingredients and servings and try again." });
       }
     }
-
-    // If the AI is still just chatting, return its natural text
-    return NextResponse.json({
-      status: "asking",
-      message: rawContent,
-    });
-
-  } catch (err) {
-    console.error("Kitchen Guardian Error:", err);
-    return NextResponse.json({ error: "Something went wrong" }, { status: 500 });
+    return Response.json({ status: "asking", message: rawContent });
+  } catch {
+    return jsonError("Guardian is unavailable", 502);
   }
 }
