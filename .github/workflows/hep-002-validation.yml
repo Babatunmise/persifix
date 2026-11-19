@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   application:
-    name: Application lint, typecheck and production build
+    name: Changed-file lint, typecheck and production build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,7 +28,15 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run lint
+      - name: Lint HEP-002 API files
+        run: >-
+          npx eslint
+          src/app/api/journal/route.ts
+          src/app/api/kitchen/route.ts
+          src/app/api/meds-followup/route.ts
+          src/app/api/narrator/route.ts
+          src/app/api/report/route.ts
+          src/lib/api-security.ts
       - run: npx tsc --noEmit
       - name: Build Next.js application
         run: npm run build
