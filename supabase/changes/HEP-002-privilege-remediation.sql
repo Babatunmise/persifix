@@ -30,7 +30,7 @@ BEGIN
   IF rls_disabled IS NOT NULL THEN
     RAISE EXCEPTION 'HEP-002 aborted; RLS is disabled on: %', rls_disabled;
   END IF;
-END $;
+END $$;
 
 -- Enforce that a medication log can reference only a medication owned by
 -- the same user. The baseline contains zero cross-owner rows. The original
