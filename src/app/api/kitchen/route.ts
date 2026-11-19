@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
         const parsed: unknown = JSON.parse(rawContent.substring(planStart + 16, planEnd).trim());
         if (!isRecord(parsed) || !Array.isArray(parsed.ingredients) ||
             !Number.isFinite(parsed.servings) || (parsed.servings as number) <= 0 ||
-            parsed.servings as number > 100 ||
+            (parsed.servings as number) > 100 ||
             !safeString(parsed.pot_prep, 1_500) ||
             !safeString(parsed.plate_prep, 1_500) ||
             !safeString(parsed.closing_note, 500)) {
