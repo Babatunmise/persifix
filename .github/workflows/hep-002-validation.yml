@@ -104,3 +104,32 @@ jobs:
           echo "Concurrent requests blocked: $BLOCKED"
           test "$ALLOWED" -eq 12
           test "$BLOCKED" -eq 12
+
+  production-route-smoke:
+    name: Production API authentication smoke test
+    if: github.ref == 'refs/heads/hep-002/rate-limit-hardening'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify all five production routes reject invalid bearer tokens
+        env:
+          BASE_URL: https://getsanctos.com
+        run: |
+          set -euo pipefail
+          for route in journal kitchen meds-followup narrator report; do
+            body_file="$(mktemp)"
+            status="$(curl --silent --show-error --fail-with-body=false \
+              --connect-timeout 10 --max-time 30 --retry 3 --retry-delay 2 \
+              --output "$body_file" --write-out '%{http_code}' \
+              --request POST "$BASE_URL/api/$route" \
+              --header 'Authorization: Bearer hep002-invalid-token' \
+              --header 'Content-Type: application/json' \
+              --data '{}')"
+            if [ "$status" != "401" ]; then
+              echo "$route returned HTTP $status; expected 401"
+              cat "$body_file"
+              rm -f "$body_file"
+              exit 1
+            fi
+            echo "$route: HTTP 401 as expected"
+            rm -f "$body_file"
+          done
