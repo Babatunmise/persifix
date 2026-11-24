@@ -283,7 +283,7 @@ export default function AhuvaKitchen() {
               <div className="mt-7 grid gap-7 md:grid-cols-[0.8fr_1.2fr]">
                 <div>
                   <h3 className="font-serif text-xl">Ingredients</h3>
-                  <ul className="mt-3 space-y-3">{ingredients.map((item, index) => <li key={index}><label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={session.checkedIngredients.includes(index)} onChange={e => update({ checkedIngredients: e.target.checked ? [...session.checkedIngredients, index] : session.checkedIngredients.filter(x => x !== index) })} className="mt-0.5 accent-sanctos-green" /><span className={session.checkedIngredients.includes(index) ? "text-sanctos-navy/40 line-through" : ""}>{parseIngredient(item, factor)}</span></label></li>)}</ul>
+                  <ul className="mt-3 space-y-3">{ingredients.map((item, index) => { const calculated = calculateIngredient(item, factor, measurementSystem); return <li key={index}><label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={session.checkedIngredients.includes(index)} onChange={e => update({ checkedIngredients: e.target.checked ? [...session.checkedIngredients, index] : session.checkedIngredients.filter(x => x !== index) })} className="mt-0.5 accent-sanctos-green" /><span className={session.checkedIngredients.includes(index) ? "text-sanctos-navy/40 line-through" : ""}>{calculated.result}{calculated.note && <span className="mt-1 block text-xs text-amber-800">{calculated.note}</span>}</span></label></li>; })}</ul>
                 </div>
                 <div>
                   <h3 className="font-serif text-xl">Cooking steps</h3>
