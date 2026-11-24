@@ -107,6 +107,20 @@ A successful demonstration must show:
 5. User B cannot retrieve that session.
 6. Completion writes a completed-meal record separately; active sessions remain distinct from `meal_logs`.
 
+## 6.1 Completed-meal log compatibility gate
+
+The live `public.meal_logs` table currently requires non-null `meal_type`, `description`, `calories` and `sodium_mg`. The current AHUVA proposal does not yet define a completion-time meal-type capture or an explicit relationship between a completed cooking session and its meal log.
+
+This creates a safety/data-integrity blocker: unknown calories or sodium values cannot be written as zero or an arbitrary estimate. Before implementing completion writes, approve a compatibility design that preserves existing consumers and supports genuinely unknown nutrition values. Options for review include a carefully staged nullable/provenance change to the existing nutrition columns, or an explicit completion record linked to `meal_logs` with a migration-safe ownership relationship.
+
+Acceptance requirements:
+- Active sessions remain in AHUVA session tables and never appear in `meal_logs` before completion.
+- Completion captures a valid meal type rather than inferring it from time of day.
+- Unknown calories and sodium remain unknown; no zero or fallback substitution.
+- The completed record links back to its source session without permitting cross-user references.
+- Existing meal-log readers and writers remain compatible.
+- Migration and rollback plans are reviewed before any schema execution.
+
 ## 6. Evidence package
 
 For each test, record:
