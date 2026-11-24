@@ -17,41 +17,40 @@ export default function Home() {
     setLoading(true);
     setError(null);
 
-    const authResult =
-      mode === "signup"
-        ? await supabase.auth.signUp({ email, password })
-        : await supabase.auth.signInWithPassword({ email, password });
+    try {
+      const authResult =
+        mode === "signup"
+          ? await supabase.auth.signUp({ email, password })
+          : await supabase.auth.signInWithPassword({ email, password });
 
-    if (authResult.error) {
+      if (authResult.error) {
+        setError(authResult.error.message);
+        return;
+      }
+
+      if (mode === "signup" && !authResult.data.session) {
+        setError("Your account was created. Check your email for the confirmation link, then return here to sign in.");
+        return;
+      }
+
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError || !userData.user) {
+        setError(userError?.message || "We could not establish your session. Please sign in again.");
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("id", userData.user.id)
+        .maybeSingle();
+
+      router.push(profile ? "/home" : "/onboarding");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+    } finally {
       setLoading(false);
-      setError(authResult.error.message);
-      return;
     }
-
-    // Supabase may require email confirmation before creating an authenticated
-    // session. In that case signUp succeeds but getUser() correctly returns no
-    // authenticated user; explain the next step instead of silently doing nothing.
-    if (mode === "signup" && !authResult.data.session) {
-      setLoading(false);
-      setError("Your account was created. Check your email for the confirmation link, then return here to sign in.");
-      return;
-    }
-
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-    if (userError || !userData.user) {
-      setLoading(false);
-      setError(userError?.message || "We could not establish your session. Please sign in again.");
-      return;
-    }
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("id", userData.user.id)
-      .maybeSingle();
-
-    setLoading(false);
-    router.push(profile ? "/home" : "/onboarding");
   }
 
   return (
@@ -82,7 +81,7 @@ export default function Home() {
           className="w-full px-4 py-3 rounded-lg border border-navy/20 bg-white text-navy"
         />
 
-        {error && <p className="text-red-600 text-sm">{error}</p>}
+        {error && <p role="alert" className="text-red-600 text-sm">{error}</p>}
 
         <button
           type="submit"
