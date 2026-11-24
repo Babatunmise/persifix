@@ -105,7 +105,10 @@ export default function AhuvaKitchen() {
   function update(patch: Partial<Session>) {
     setSession(current => ({ ...current, ...patch }));
   }
-  function goHome() {\n    update({ screen: "home", resumeScreen: session.screen === "home" ? session.resumeScreen : session.screen });\n  }\n  function startTask(intent: string) {
+  function goHome() {
+    update({ screen: "home", resumeScreen: session.screen === "home" ? session.resumeScreen : session.screen });
+  }
+  function startTask(intent: string) {
     const labels: Record<string, string> = {
       cook: "I know what I want to cook",
       pantry: "Help me use what I have",
