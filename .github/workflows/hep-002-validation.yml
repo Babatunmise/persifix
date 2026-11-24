@@ -28,6 +28,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Audit dependencies for high and critical vulnerabilities
+        run: npm audit --audit-level=high
       - name: Lint HEP-002 API files
         run: >-
           npx eslint
