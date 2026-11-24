@@ -7,12 +7,19 @@ on:
       - "src/**"
       - "supabase/migrations/**"
       - "supabase/tests/**"
-      - "docs/security/**"
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/hep-002-validation.yml"
   push:
     branches: ["hep-002/rate-limit-hardening"]
+    paths:
+      - "src/**"
+      - "supabase/migrations/**"
+      - "supabase/tests/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/hep-002-validation.yml"
+      - "vercel.json"
 
 permissions:
   contents: read
