@@ -281,6 +281,7 @@ Rollback:
 - Existing `/kitchen` URL.
 - Existing Supabase authentication check and unauthenticated redirect.
 - Existing Sanctos typography, colour tokens and bottom navigation component.
+- Existing daily calories, sodium, calorie-target and activity summary, now presented as a compact read-only panel. Historical values are explicitly labelled as existing log data, not verified nutrition analysis.
 - Existing `/api/kitchen` route and HEP-002 protections (not modified).
 
 ### Deliberately not activated
