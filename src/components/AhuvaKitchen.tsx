@@ -20,6 +20,7 @@ type Session = {
   completedSteps: number[];
   activeStep: number;
   screen: Screen;
+  resumeScreen: Screen;
   timerStatus: TimerStatus;
   timerEndAt: number | null;
   timerRemainingMs: number;
@@ -29,7 +30,7 @@ const STORAGE_KEY = "sanctos.ahuva.cooking-session.v1";
 const emptySession: Session = {
   task: "", intent: "", mealName: "", servings: 2, baseServings: 2,
   ingredients: "", steps: "", restrictions: "", checkedIngredients: [],
-  completedSteps: [], activeStep: 0, screen: "home", timerStatus: "idle",
+  completedSteps: [], activeStep: 0, screen: "home", resumeScreen: "conversation", timerStatus: "idle",
   timerEndAt: null, timerRemainingMs: 0, feedback: "",
 };
 const shortcuts = [
@@ -104,7 +105,7 @@ export default function AhuvaKitchen() {
   function update(patch: Partial<Session>) {
     setSession(current => ({ ...current, ...patch }));
   }
-  function startTask(intent: string) {
+  function goHome() {\n    update({ screen: "home", resumeScreen: session.screen === "home" ? session.resumeScreen : session.screen });\n  }\n  function startTask(intent: string) {
     const labels: Record<string, string> = {
       cook: "I know what I want to cook",
       pantry: "Help me use what I have",
@@ -187,7 +188,7 @@ export default function AhuvaKitchen() {
               <div className="mt-4 rounded-2xl bg-sanctos-sand/60 p-4">
                 <p className="text-sm font-semibold">Pick up where you left off</p>
                 <p className="mt-1 text-xs leading-5 text-sanctos-navy/60">{hydrated && session.mealName ? `Your ${session.mealName} session is saved on this device.` : "Your active cooking session will appear here when you start one."}</p>
-                {hydrated && (session.task || session.mealName) && <button onClick={() => update({ screen: session.screen === "home" ? "conversation" : session.screen })} className="mt-3 text-xs font-bold text-sanctos-green">Resume session →</button>}
+                {hydrated && (session.task || session.mealName) && <button onClick={() => update({ screen: session.resumeScreen || (session.mealName ? "plan" : "conversation") })} className="mt-3 text-xs font-bold text-sanctos-green">Resume session →</button>}
               </div>
             </section>
           </div>
@@ -195,7 +196,7 @@ export default function AhuvaKitchen() {
 
         {session.screen === "conversation" && (
           <section className="mx-auto max-w-2xl rounded-[2rem] border border-sanctos-sand bg-white p-6 sm:p-8">
-            <button onClick={() => update({ screen: "home" })} className="mb-6 text-sm font-semibold text-sanctos-green">← Kitchen home</button>
+            <button onClick={goHome} className="mb-6 text-sm font-semibold text-sanctos-green">← Kitchen home</button>
             <p className="text-xs font-bold uppercase tracking-wider text-sanctos-green">Let’s understand the task</p>
             <h2 className="mt-2 font-serif text-3xl">What would you like help with?</h2>
             <p className="mt-3 text-sm leading-6 text-sanctos-navy/60">{session.task}</p>
