@@ -54,7 +54,7 @@ All **28/28 checks passed**. Temporary fixtures were removed and cleanup was ver
 
 ## PR #5 — isolated validation results
 
-The latest GitHub Actions run is [44569188702](https://github.com/Babatunmise/persifix/actions/runs/44569188702), on commit `c783e8e3f190b72dccbe5a4bd1ca3a0014c35dbc`.
+The latest GitHub Actions run is [45458152027](https://github.com/Babatunmise/persifix/actions/runs/45458152027), on commit `6899d272d6e7e51674462daaaf905f35f8b8bf80`.
 
 **PASS** **Isolated PostgreSQL 17 migration and RPC tests**
 - Applied the exact proposed migration to a disposable PostgreSQL service.
@@ -69,6 +69,7 @@ The latest GitHub Actions run is [44569188702](https://github.com/Babatunmise/pe
 - Verified API roles cannot directly SELECT, INSERT, UPDATE or DELETE the backing table.
 - Verified exhausted limits return a positive retry interval.
 - Verified expired windows reset and two synthetic users receive independent counters.
+- Verified atomic counter updates under 24 concurrent PostgreSQL sessions: exactly 12 requests were allowed and 12 were rejected for the fixed kitchen limit.
 
 <badge>PASS</badge> **Application validation**
 - `npm ci`
