@@ -9,7 +9,7 @@ Never diagnose or give medical advice. Offer one gentle, actionable step.`;
 export async function POST(req: NextRequest) {
   const auth = await authenticateRequest(req);
   if (auth instanceof Response) return auth;
-  const limited = await enforceRateLimit(auth.supabase, "journal", 8);
+  const limited = await enforceRateLimit(auth.supabase, "journal");
   if (limited) return limited;
 
   const body = await readJsonBody(req, 8_192);
@@ -20,6 +20,12 @@ export async function POST(req: NextRequest) {
   // The journal content remains in the browser. The server receives only a
   // boolean indicating that the user submitted an entry; no journal text is
   // stored, logged, or forwarded to the AI provider.
+  //
+  // External AI use remains disabled until the product owner approves the
+  // vendor's contractual, privacy, regional, retention, and consent safeguards.
+  if (process.env.SANCTOS_EXTERNAL_AI_APPROVED !== "true") {
+    return jsonError("This AI feature is temporarily unavailable while its data safeguards are reviewed.", 503);
+  }
 
   const apiKey = process.env.DEEPSEEK_API_KEY;
   if (!apiKey) return jsonError("Companion is temporarily unavailable", 503);

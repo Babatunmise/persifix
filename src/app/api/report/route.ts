@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 export async function POST(req: NextRequest) {
   const auth = await authenticateRequest(req);
   if (auth instanceof Response) return auth;
-  const limited = await enforceRateLimit(auth.supabase, "report", 3);
+  const limited = await enforceRateLimit(auth.supabase, "report");
   if (limited) return limited;
   if (req.body) return jsonError("This endpoint does not accept a request body", 400);
 

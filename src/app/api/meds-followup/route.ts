@@ -6,7 +6,7 @@ const ALLOWED_REASONS = new Set(["Forgot", "Ran out", "Felt dizzy"]);
 export async function POST(req: NextRequest) {
   const auth = await authenticateRequest(req);
   if (auth instanceof Response) return auth;
-  const limited = await enforceRateLimit(auth.supabase, "meds-followup", 6);
+  const limited = await enforceRateLimit(auth.supabase, "meds-followup");
   if (limited) return limited;
   const body = await readJsonBody(req, 1_024);
   if (body instanceof Response) return body;

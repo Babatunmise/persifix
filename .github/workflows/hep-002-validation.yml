@@ -1,0 +1,106 @@
+name: HEP-002 validation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "supabase/migrations/**"
+      - "supabase/tests/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/hep-002-validation.yml"
+  push:
+    branches: ["hep-002/rate-limit-hardening"]
+    paths:
+      - "src/**"
+      - "supabase/migrations/**"
+      - "supabase/tests/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/hep-002-validation.yml"
+      - "vercel.json"
+
+permissions:
+  contents: read
+
+jobs:
+  application:
+    name: Changed-file lint, typecheck and production build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Audit dependencies for high and critical vulnerabilities
+        run: npm audit --audit-level=high
+      - name: Lint HEP-002 API files
+        run: >-
+          npx eslint
+          src/app/api/journal/route.ts
+          src/app/api/kitchen/route.ts
+          src/app/api/meds-followup/route.ts
+          src/app/api/narrator/route.ts
+          src/app/api/report/route.ts
+          src/lib/api-security.ts
+      - run: npx tsc --noEmit
+      - name: Build Next.js application
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: test-anon-key-not-a-secret
+
+  database:
+    name: Isolated PostgreSQL migration and RPC tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: hep002_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d hep002_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply migration and verify security invariants
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d hep002_test -v ON_ERROR_STOP=1 -f supabase/tests/hep_002_rate_limit_hardening.sql
+      - name: Verify atomic rate-limit enforcement under concurrent requests
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euo pipefail
+          OUT_DIR="$(mktemp -d)"
+          export OUT_DIR
+          trap 'rm -rf "$OUT_DIR"' EXIT
+
+          # Use a fresh synthetic identity and 24 independent PostgreSQL sessions.
+          # The fixed kitchen policy permits exactly 12 requests in this window.
+          seq 1 24 | xargs -P 24 -I{} sh -c '
+            psql -h localhost -U postgres -d hep002_test -qAt -v ON_ERROR_STOP=1 \
+              -c "SET ROLE authenticated;
+                  SELECT set_config('\''request.jwt.claim.sub'\'', '\''30000000-0000-4000-8000-000000000003'\'', false);
+                  SELECT allowed FROM public.consume_api_rate_limit('\''kitchen'\'');" \
+              | grep -E "^(t|f)$" > "$OUT_DIR/result-{}.txt"
+          '
+
+          read -r ALLOWED BLOCKED < <(
+            awk '/^t$/ { allowed++ } /^f$/ { blocked++ }
+              END { print allowed+0, blocked+0 }' "$OUT_DIR"/*.txt
+          )
+
+          echo "Concurrent requests allowed: $ALLOWED"
+          echo "Concurrent requests blocked: $BLOCKED"
+          test "$ALLOWED" -eq 12
+          test "$BLOCKED" -eq 12
