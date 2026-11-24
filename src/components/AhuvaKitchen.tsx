@@ -64,12 +64,14 @@ const UNIT_DEFINITIONS: Record<string, { dimension: "mass" | "volume"; baseFacto
   tbsp: { dimension: "volume", baseFactor: 14.78676478125, metricUnit: "ml", imperialUnit: "tbsp" },
   tablespoon: { dimension: "volume", baseFactor: 14.78676478125, metricUnit: "ml", imperialUnit: "tbsp" },
   tablespoons: { dimension: "volume", baseFactor: 14.78676478125, metricUnit: "ml", imperialUnit: "tbsp" },
-  cup: { dimension: "volume", baseFactor: 236.5882365, metricUnit: "ml", imperialUnit: "cup" },
-  cups: { dimension: "volume", baseFactor: 236.5882365, metricUnit: "ml", imperialUnit: "cup" },
-  "fl oz": { dimension: "volume", baseFactor: 29.5735295625, metricUnit: "ml", imperialUnit: "fl oz" },
+  "us cup": { dimension: "volume", baseFactor: 236.5882365, metricUnit: "ml", imperialUnit: "cup" },
+  "us cups": { dimension: "volume", baseFactor: 236.5882365, metricUnit: "ml", imperialUnit: "cup" },
+  "metric cup": { dimension: "volume", baseFactor: 250, metricUnit: "ml", imperialUnit: "cup" },
+  "metric cups": { dimension: "volume", baseFactor: 250, metricUnit: "ml", imperialUnit: "cup" },
+  "us fl oz": { dimension: "volume", baseFactor: 29.5735295625, metricUnit: "ml", imperialUnit: "fl oz" },
 };
 
-const NON_LINEAR_INGREDIENTS = /\b(salt|seasoning|spice|chilli powder|chili powder|baking powder|baking soda|yeast|gelatin|gelatine|thickener|cornstarch|corn flour|oil|water|stock|broth|sugar|vinegar|lemon juice)\b/i;
+const NON_LINEAR_INGREDIENTS = /\b(salt|seasoning|spice|chilli powder|chili powder|baking powder|baking soda|yeast|gelatin|gelatine|thickener|cornstarch|corn flour)\b/i;
 
 function parseAmount(value: string): number | null {
   if (value.includes("/")) {
@@ -88,7 +90,7 @@ function formatQuantity(value: number): string {
 }
 
 function calculateIngredient(line: string, factor: number, system: MeasurementSystem): IngredientMath {
-  const match = line.match(/^\s*(\d+(?:\.\d+)?|\d+\/\d+)\s+(?:(fl\s+oz|[^\s]+)\s+)?(.+?)\s*$/i);
+  const match = line.match(/^\s*(\d+(?:\.\d+)?|\d+\/\d+)\s+(?:(us\s+cup|metric\s+cup|us\s+fl\s+oz|[^\s]+)\s+)?(.+?)\s*$/i);
   if (!match) return { result: line, note: "Quantity or unit not recognised; left unchanged." };
   const amount = parseAmount(match[1]);
   if (amount === null) return { result: line, note: "Invalid quantity; left unchanged." };
