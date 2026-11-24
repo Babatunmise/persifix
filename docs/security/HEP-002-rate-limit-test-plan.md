@@ -2,7 +2,7 @@
 
 **Target:** PR #5, branch `hep-002/rate-limit-hardening`  
 **Latest automated run:** [GitHub Actions 44569188702](https://github.com/Babatunmise/persifix/actions/runs/44569188702)  
-**Production changes:** none; production rollout remains blocked pending the release gates below
+**Production changes:** rate-limit database migration applied and verified; application rollout and runtime verification remain pending
 
 ## A. Pre-migration checks
 
@@ -31,7 +31,7 @@ All checked items below passed in the latest GitHub Actions run. Synthetic users
 - [x] Expired windows reset.
 - [x] Public wrappers are SECURITY INVOKER.
 - [x] Private helper is SECURITY DEFINER with an empty search path.
-- [ ] Confirm `private` is not in Supabase API Exposed schemas.
+- [x] Confirm `private` is not in Supabase API Exposed schemas (confirmed by Executive Office; catalog confirms anon lacks schema USAGE).
 - [x] Rerun Supabase security advisors after the production migration; only the expected private-table RLS-without-policy INFO and deferred leaked-password WARN remain.
 
 ## C. Application validation
@@ -55,8 +55,8 @@ All checked items below passed in the latest GitHub Actions run. Synthetic users
 
 1. Confirm `private` is not an exposed API schema.
 2. Obtain Executive Office approval for the private limiter RLS/access model and the outstanding residual-risk decisions.
-3. Apply the reviewed database migration first. It retains the legacy three-argument RPC and makes caller-supplied policy values ineffective.
-4. Verify both RPC signatures and rerun Supabase security advisors.
+3. Confirm production migration version `20261119174222` is already applied and matches the committed migration file. Do not reapply it.
+4. Verify both RPC signatures and rerun Supabase security advisors (completed; retain the documented deferred warning).
 5. Deploy the updated application once, after the Vercel quota is available and the complete batch is approved.
 6. Verify all five routes, rate-limit responses and `Retry-After`.
 7. Keep the legacy three-argument wrapper until old application instances no longer call it.
