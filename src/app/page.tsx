@@ -17,31 +17,40 @@ export default function Home() {
     setLoading(true);
     setError(null);
 
-    const { error } =
-      mode === "signup"
-        ? await supabase.auth.signUp({ email, password })
-        : await supabase.auth.signInWithPassword({ email, password });
+    try {
+      const authResult =
+        mode === "signup"
+          ? await supabase.auth.signUp({ email, password })
+          : await supabase.auth.signInWithPassword({ email, password });
 
-    if (error) {
+      if (authResult.error) {
+        setError(authResult.error.message);
+        return;
+      }
+
+      if (mode === "signup" && !authResult.data.session) {
+        setError("Your account was created. Check your email for the confirmation link, then return here to sign in.");
+        return;
+      }
+
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError || !userData.user) {
+        setError(userError?.message || "We could not establish your session. Please sign in again.");
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("id", userData.user.id)
+        .maybeSingle();
+
+      router.push(profile ? "/home" : "/onboarding");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+    } finally {
       setLoading(false);
-      setError(error.message);
-      return;
     }
-
-    const { data: userData } = await supabase.auth.getUser();
-    if (!userData.user) {
-      setLoading(false);
-      return;
-    }
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("id", userData.user.id)
-      .maybeSingle();
-
-    setLoading(false);
-    router.push(profile ? "/home" : "/onboarding");
   }
 
   return (
@@ -72,7 +81,7 @@ export default function Home() {
           className="w-full px-4 py-3 rounded-lg border border-navy/20 bg-white text-navy"
         />
 
-        {error && <p className="text-red-600 text-sm">{error}</p>}
+        {error && <p role="alert" className="text-red-600 text-sm">{error}</p>}
 
         <button
           type="submit"
