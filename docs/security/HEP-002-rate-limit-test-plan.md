@@ -25,7 +25,7 @@ All checked items below passed in the latest GitHub Actions run. Synthetic users
 - [x] Direct SELECT against `private.api_rate_limits` is denied to API roles.
 - [x] Direct INSERT, UPDATE and DELETE against `private.api_rate_limits` are denied to API roles.
 - [x] API roles have no direct access to other users' counters; synthetic users receive independent counters.
-- [ ] Counter updates under concurrent requests are not yet stress-tested.
+- [x] Atomic counter updates verified with 24 concurrent PostgreSQL sessions: exactly 12 allowed and 12 rejected for the fixed kitchen limit.
 - [x] Fixed limits are enforced: kitchen 12, narrator 10, journal 8, meds-followup 6, report 3 per 60-second window.
 - [x] Exceeded limits return `allowed = false` and a positive retry interval.
 - [x] Expired windows reset.
