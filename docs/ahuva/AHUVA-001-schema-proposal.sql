@@ -78,7 +78,7 @@ create table public.ahuva_food_allergen_links (
   allergen_group_code text not null references public.ahuva_allergen_groups(code),
   source_id uuid not null,
   relation_type text not null
-    check (relation_type in ('contains','derived_from','may_contain')),
+    check (relation_type in ('contains','derived_from','may_contain','cross_contact_risk')),
   evidence_status text not null
     check (evidence_status in ('verified','manufacturer_declared','unverified')),
   evidence_note text,
@@ -215,6 +215,8 @@ create table public.ahuva_user_preferences (
   preference_memory_consent_at timestamptz,
   preference_memory_consent_version text,
   preference_memory_withdrawn_at timestamptz,
+  check ((preference_memory_consent_at is null and preference_memory_consent_version is null)
+      or (preference_memory_consent_at is not null and preference_memory_consent_version is not null)),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -264,7 +266,7 @@ create table public.ahuva_user_constraints (
   severity text,
   reaction_description text,
   verification_status text not null default 'user_declared'
-    check (verification_status in ('user_declared','clinician_verified','unverified')),
+    check (verification_status in ('user_declared','unverified')),
   source text not null default 'user_declared',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
