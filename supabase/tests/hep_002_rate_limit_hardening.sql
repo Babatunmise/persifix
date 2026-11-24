@@ -26,7 +26,7 @@ CREATE TABLE private.api_rate_limits (
 );
 
 -- Apply the exact migration under test.
-\i supabase/migrations/20261119140000_hep_002_server_controlled_rate_limits.sql
+\i supabase/migrations/20261119174222_hep_002_server_controlled_rate_limits.sql
 
 -- Verify function security modes, search_path, RLS and effective grants.
 DO $$
