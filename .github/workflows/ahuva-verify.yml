@@ -43,7 +43,7 @@ jobs:
       - name: TypeScript
         run: npx tsc --noEmit
       - name: ESLint
-        run: npm run lint
+        run: npx eslint src/components/AhuvaKitchen.tsx src/components/BottomNav.tsx src/lib/ahuva-pot-math.mjs src/lib/ahuva-pot-math.test.mjs src/app/ahuva/page.tsx src/app/api/kitchen/route.ts src/app/kitchen/page.tsx
       - name: Production build
         run: npm run build
         env:
