@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { supabase } from "@/supabase";
 
 type Ingredient = { name: string; amount: number; unit: string };
@@ -203,7 +203,7 @@ export default function AhuvaKitchen() {
     return amount * servings / selected.servings;
   }
 
-  function sendMessage(event: React.FormEvent<HTMLFormElement>) {
+  function sendMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!message.trim()) return;
     setNotice("Ahuva's live conversational service is not connected yet. Your message has not been sent or stored.");
