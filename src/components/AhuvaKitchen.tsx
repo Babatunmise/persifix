@@ -46,16 +46,17 @@ export default function AhuvaKitchen() {
   const [hydrated, setHydrated] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [timerInput, setTimerInput] = useState("5");
-  const [clock, setClock] = useState(Date.now());
+  const [clock, setClock] = useState(0);
   const [feedbackNote, setFeedbackNote] = useState("");
   const [measurementSystem, setMeasurementSystem] = useState<MeasurementSystem>("metric");
 
   useEffect(() => {
+    let restored = emptySession;
     try {
       const stored = window.localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored) as Partial<Session>;
-        const restored = { ...emptySession, ...parsed };
+        restored = { ...emptySession, ...parsed };
         if (restored.timerStatus === "running" && restored.timerEndAt) {
           restored.timerRemainingMs = Math.max(0, restored.timerEndAt - Date.now());
           if (restored.timerRemainingMs === 0) {
@@ -63,12 +64,16 @@ export default function AhuvaKitchen() {
             restored.timerEndAt = null;
           }
         }
-        setSession(restored);
       }
     } catch {
       window.localStorage.removeItem(STORAGE_KEY);
     }
-    setHydrated(true);
+    const frame = window.requestAnimationFrame(() => {
+      setSession(restored);
+      setClock(Date.now());
+      setHydrated(true);
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
   useEffect(() => {
