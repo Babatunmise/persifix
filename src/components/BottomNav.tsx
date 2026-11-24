@@ -9,6 +9,7 @@ export default function BottomNav() {
   const links = [
     { name: "Home", href: "/home", icon: "home" },
     { name: "Kitchen", href: "/kitchen", icon: "restaurant" },
+    { name: "Ahuva", href: "/ahuva", icon: "soup_kitchen" },
     { name: "Gym", href: "/gym", icon: "directions_walk" },
     { name: "Sanctuary", href: "/sanctuary", icon: "spa" },
     { name: "Medicine", href: "/medicine", icon: "medication" },
