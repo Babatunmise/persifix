@@ -125,14 +125,7 @@ export default function AhuvaKitchen() {
   useEffect(() => {
     if (!timerRunning) return;
     const interval = window.setInterval(() => {
-      setSeconds((current) => {
-        if (current <= 1) {
-          window.clearInterval(interval);
-          setTimerRunning(false);
-          return 0;
-        }
-        return current - 1;
-      });
+      setSeconds((current) => Math.max(0, current - 1));
     }, 1000);
     return () => window.clearInterval(interval);
   }, [timerRunning]);
@@ -181,6 +174,10 @@ export default function AhuvaKitchen() {
     void loadExistingDailySummary();
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    if (timerRunning && seconds === 0) setTimerRunning(false);
+  }, [timerRunning, seconds]);
 
   const filters = ["All", "West African", "Mediterranean", "Global"];
   const visibleRecipes = useMemo(
