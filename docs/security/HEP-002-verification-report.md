@@ -54,7 +54,7 @@ All **28/28 checks passed**. Temporary fixtures were removed and cleanup was ver
 
 ## PR #5 — isolated validation results
 
-The latest GitHub Actions run is pending for the final branch commit; the PostgreSQL concurrency job has passed on the current commit. Final application validation is being rerun after the Journal fail-closed gate and migration-version alignment.
+The final GitHub Actions run is [45461356304](https://github.com/Babatunmise/persifix/actions/runs/45461356304), on commit `53a645e5d34dc78e8252e07cdbb840456cd8c703`. Both the isolated PostgreSQL job and application validation job passed.
 
 **PASS** **Isolated PostgreSQL 17 migration and RPC tests**
 - Applied the exact proposed migration to a disposable PostgreSQL service.
@@ -74,11 +74,12 @@ The latest GitHub Actions run is pending for the final branch commit; the Postgr
 
 <badge>PASS</badge> **Application validation**
 - `npm ci`
+- `npm audit --audit-level=high` — no high or critical dependency advisories
 - ESLint on all six HEP-002 API/security files
 - `npx tsc --noEmit`
 - `npm run build`
 
-All four steps passed on the latest commit.
+All five steps passed on the final validated code commit.
 
 **Scope note:** A full-repository `npm run lint` initially found 10 JSX-escaping errors in the existing Gym and Home UI pages. Those are outside the six API/security files changed by PR #5, so the HEP-002 workflow now lints the remediation files directly rather than expanding this security patch into unrelated UI cleanup. TypeScript and the full production build pass.
 
