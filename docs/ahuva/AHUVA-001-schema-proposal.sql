@@ -426,7 +426,7 @@ create table public.ahuva_saved_meals (
   updated_at timestamptz not null default now(),
   unique (id, user_id),
   foreign key (source_session_id, user_id)
-    references public.ahuva_cooking_sessions(id, user_id) on delete set null (session_id) (source_session_id)
+    references public.ahuva_cooking_sessions(id, user_id) on delete set null (source_session_id)
 );
 alter table public.ahuva_saved_meals enable row level security;
 create policy "Users manage own Ahuva saved meals"
@@ -446,7 +446,7 @@ create table public.ahuva_cooking_feedback (
   preference_learning_consent_at timestamptz,
   created_at timestamptz not null default now(),
   foreign key (session_id, user_id)
-    references public.ahuva_cooking_sessions(id, user_id) on delete set null,
+    references public.ahuva_cooking_sessions(id, user_id) on delete set null (session_id),
   foreign key (saved_meal_id, user_id)
     references public.ahuva_saved_meals(id, user_id) on delete set null (saved_meal_id),
   check (session_id is not null or saved_meal_id is not null)
@@ -475,7 +475,7 @@ create table public.ahuva_nutrition_calculations (
     check (confidence_class in ('high','moderate','limited','unrated')),
   calculated_at timestamptz not null default now(),
   foreign key (session_id, user_id)
-    references public.ahuva_cooking_sessions(id, user_id) on delete set null
+    references public.ahuva_cooking_sessions(id, user_id) on delete set null (session_id)
 );
 alter table public.ahuva_nutrition_calculations enable row level security;
 create policy "Users read own Ahuva nutrition calculations"
