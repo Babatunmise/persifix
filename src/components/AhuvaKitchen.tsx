@@ -35,13 +35,93 @@ const shortcuts = [
   { id: "improve", title: "Help me improve a meal", description: "Keep the meal you enjoy; refine how you make it." },
   { id: "prepare", title: "Help me prepare something", description: "Organise a practical meal around your time and needs." },
 ];
-const parseIngredient = (line: string, factor: number) => {
-  const match = line.match(/^\s*(\d+(?:\.\d+)?)\s+(.+)$/);
-  if (!match) return line;
-  const amount = Number(match[1]) * factor;
-  const formatted = Number.isInteger(amount) ? String(amount) : String(Number(amount.toFixed(2)));
-  return line.replace(match[0], formatted + " " + match[2]);
+type MeasurementSystem = "metric" | "imperial";
+type IngredientMath = { result: string; note?: string };
+
+const UNIT_DEFINITIONS: Record<string, { dimension: "mass" | "volume"; baseFactor: number; metricUnit: string; imperialUnit: string }> = {
+  g: { dimension: "mass", baseFactor: 1, metricUnit: "g", imperialUnit: "oz" },
+  gram: { dimension: "mass", baseFactor: 1, metricUnit: "g", imperialUnit: "oz" },
+  grams: { dimension: "mass", baseFactor: 1, metricUnit: "g", imperialUnit: "oz" },
+  kg: { dimension: "mass", baseFactor: 1000, metricUnit: "kg", imperialUnit: "lb" },
+  kilogram: { dimension: "mass", baseFactor: 1000, metricUnit: "kg", imperialUnit: "lb" },
+  kilograms: { dimension: "mass", baseFactor: 1000, metricUnit: "kg", imperialUnit: "lb" },
+  oz: { dimension: "mass", baseFactor: 28.349523125, metricUnit: "g", imperialUnit: "oz" },
+  ounce: { dimension: "mass", baseFactor: 28.349523125, metricUnit: "g", imperialUnit: "oz" },
+  ounces: { dimension: "mass", baseFactor: 28.349523125, metricUnit: "g", imperialUnit: "oz" },
+  lb: { dimension: "mass", baseFactor: 453.59237, metricUnit: "kg", imperialUnit: "lb" },
+  lbs: { dimension: "mass", baseFactor: 453.59237, metricUnit: "kg", imperialUnit: "lb" },
+  pound: { dimension: "mass", baseFactor: 453.59237, metricUnit: "kg", imperialUnit: "lb" },
+  pounds: { dimension: "mass", baseFactor: 453.59237, metricUnit: "kg", imperialUnit: "lb" },
+  ml: { dimension: "volume", baseFactor: 1, metricUnit: "ml", imperialUnit: "tsp" },
+  milliliter: { dimension: "volume", baseFactor: 1, metricUnit: "ml", imperialUnit: "tsp" },
+  milliliters: { dimension: "volume", baseFactor: 1, metricUnit: "ml", imperialUnit: "tsp" },
+  l: { dimension: "volume", baseFactor: 1000, metricUnit: "l", imperialUnit: "cup" },
+  liter: { dimension: "volume", baseFactor: 1000, metricUnit: "l", imperialUnit: "cup" },
+  liters: { dimension: "volume", baseFactor: 1000, metricUnit: "l", imperialUnit: "cup" },
+  tsp: { dimension: "volume", baseFactor: 4.92892159375, metricUnit: "ml", imperialUnit: "tsp" },
+  teaspoon: { dimension: "volume", baseFactor: 4.92892159375, metricUnit: "ml", imperialUnit: "tsp" },
+  teaspoons: { dimension: "volume", baseFactor: 4.92892159375, metricUnit: "ml", imperialUnit: "tsp" },
+  tbsp: { dimension: "volume", baseFactor: 14.78676478125, metricUnit: "ml", imperialUnit: "tbsp" },
+  tablespoon: { dimension: "volume", baseFactor: 14.78676478125, metricUnit: "ml", imperialUnit: "tbsp" },
+  tablespoons: { dimension: "volume", baseFactor: 14.78676478125, metricUnit: "ml", imperialUnit: "tbsp" },
+  cup: { dimension: "volume", baseFactor: 236.5882365, metricUnit: "ml", imperialUnit: "cup" },
+  cups: { dimension: "volume", baseFactor: 236.5882365, metricUnit: "ml", imperialUnit: "cup" },
+  "fl oz": { dimension: "volume", baseFactor: 29.5735295625, metricUnit: "ml", imperialUnit: "fl oz" },
 };
+
+const NON_LINEAR_INGREDIENTS = /\b(salt|seasoning|spice|chilli powder|chili powder|baking powder|baking soda|yeast|gelatin|gelatine|thickener|cornstarch|corn flour|oil|water|stock|broth|sugar|vinegar|lemon juice)\b/i;
+
+function parseAmount(value: string): number | null {
+  if (value.includes("/")) {
+    const [numerator, denominator] = value.split("/").map(Number);
+    if (!denominator || !Number.isFinite(numerator) || !Number.isFinite(denominator)) return null;
+    const result = numerator / denominator;
+    return result > 0 && result <= 100000 ? result : null;
+  }
+  const result = Number(value);
+  return Number.isFinite(result) && result > 0 && result <= 100000 ? result : null;
+}
+
+function formatQuantity(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) return "—";
+  return String(Number(value.toFixed(2)));
+}
+
+function calculateIngredient(line: string, factor: number, system: MeasurementSystem): IngredientMath {
+  const match = line.match(/^\s*(\d+(?:\.\d+)?|\d+\/\d+)\s+(.+?)\s+(.+?)\s*$/);
+  if (!match) return { result: line, note: "Quantity or unit not recognised; left unchanged." };
+  const amount = parseAmount(match[1]);
+  if (amount === null) return { result: line, note: "Invalid quantity; left unchanged." };
+  const unit = match[2].trim().toLowerCase().replace(/\.$/, "");
+  const ingredient = match[3].trim();
+  if (NON_LINEAR_INGREDIENTS.test(ingredient)) {
+    return { result: line, note: "Review this ingredient manually; its quantity may not scale linearly." };
+  }
+  const definition = UNIT_DEFINITIONS[unit];
+  if (!definition) {
+    return {
+      result: formatQuantity(amount * factor) + " " + match[2] + " " + ingredient,
+      note: "Quantity scaled; unit conversion is unsupported, so the original unit is retained.",
+    };
+  }
+  const scaledBase = amount * factor * definition.baseFactor;
+  if (system === "metric") {
+    const targetUnit = definition.metricUnit;
+    const targetFactor = targetUnit === "kg" || targetUnit === "l" ? 1000 : 1;
+    return { result: formatQuantity(scaledBase / targetFactor) + " " + targetUnit + " " + ingredient };
+  }
+  if (definition.dimension === "mass") {
+    const usePounds = scaledBase >= 453.59237;
+    const targetUnit = usePounds ? "lb" : "oz";
+    const targetFactor = usePounds ? 453.59237 : 28.349523125;
+    return { result: formatQuantity(scaledBase / targetFactor) + " " + targetUnit + " " + ingredient };
+  }
+  const useCups = scaledBase >= 236.5882365;
+  const useTablespoons = !useCups && scaledBase >= 14.78676478125;
+  const targetUnit = useCups ? "cup" : useTablespoons ? "tbsp" : "tsp";
+  const targetFactor = useCups ? 236.5882365 : useTablespoons ? 14.78676478125 : 4.92892159375;
+  return { result: formatQuantity(scaledBase / targetFactor) + " " + targetUnit + " " + ingredient };
+}
 
 export default function AhuvaKitchen() {
   const [session, setSession] = useState<Session>(emptySession);
@@ -50,6 +130,7 @@ export default function AhuvaKitchen() {
   const [timerInput, setTimerInput] = useState("5");
   const [clock, setClock] = useState(Date.now());
   const [feedbackNote, setFeedbackNote] = useState("");
+  const [measurementSystem, setMeasurementSystem] = useState<MeasurementSystem>("metric");
 
   useEffect(() => {
     try {
@@ -239,16 +320,22 @@ export default function AhuvaKitchen() {
             <button onClick={() => update({ screen: "plan" })} className="mb-6 text-sm font-semibold text-sanctos-green">← Back to plan</button>
             <p className="text-xs font-bold uppercase tracking-wider text-sanctos-green">Pot Math</p>
             <h2 className="mt-2 font-serif text-3xl">Adjust the quantities.</h2>
-            <div className="mt-5 flex flex-wrap items-end gap-4 rounded-2xl bg-alive-bg p-4">
+            <div className="mt-5 flex flex-wrap items-end gap-4 rounded-2xl bg-alive-bg p-4">\n              <label className="text-xs font-semibold">Display units<select value={measurementSystem} onChange={e => setMeasurementSystem(e.target.value as MeasurementSystem)} className="mt-2 block rounded-xl border border-sanctos-sand bg-white p-2 text-sm"><option value="metric">Metric</option><option value="imperial">Imperial</option></select></label>
               <label className="text-xs font-semibold">Original servings<input type="number" min="1" max="50" value={session.baseServings} onChange={e => update({ baseServings: Math.max(1, Math.min(50, Number(e.target.value) || 1)) })} className="mt-2 block w-24 rounded-xl border border-sanctos-sand bg-white p-2 text-sm" /></label>
               <span className="pb-2 text-sanctos-navy/40">→</span>
               <label className="text-xs font-semibold">New servings<input type="number" min="1" max="50" value={session.servings} onChange={e => update({ servings: Math.max(1, Math.min(50, Number(e.target.value) || 1)) })} className="mt-2 block w-24 rounded-xl border border-sanctos-sand bg-white p-2 text-sm" /></label>
               <span className="pb-2 text-sm font-semibold text-sanctos-green">× {Number(factor.toFixed(3))}</span>
             </div>
             <ul className="mt-5 divide-y divide-sanctos-sand">
-              {ingredients.map((line, index) => <li key={index} className="flex justify-between gap-4 py-3 text-sm"><span>{line}</span><strong className="text-right text-sanctos-green">{parseIngredient(line, factor)}</strong></li>)}
+              {ingredients.map((line, index) => {
+                const calculated = calculateIngredient(line, factor, measurementSystem);
+                return <li key={index} className="flex flex-col gap-1 border-b border-sanctos-sand py-3 text-sm sm:flex-row sm:justify-between">
+                  <span>{line}</span><strong className="text-left text-sanctos-green sm:text-right">{calculated.result}</strong>
+                  {calculated.note && <span className="text-xs text-amber-800 sm:basis-full">{calculated.note}</span>}
+                </li>;
+              })}
             </ul>
-            <p className="mt-4 rounded-xl bg-sanctos-sand/50 p-3 text-xs leading-5 text-sanctos-navy/60">Only clearly stated numeric quantities are scaled. Units are not converted. Seasoning, thickening agents, leavening, cooking liquid, pan size and cooking time may not scale linearly; review these manually.</p>
+            <p className="mt-4 rounded-xl bg-sanctos-sand/50 p-3 text-xs leading-5 text-sanctos-navy/60">Supported mass and volume units convert within their own dimensions only. No mass-to-volume conversion is attempted because ingredient density is unknown. Ingredients with potentially non-linear behaviour are flagged for manual adjustment and are not blindly multiplied. Unsupported or ambiguous units remain visible with an explanation. Pan size and cooking time always require recipe-specific review.</p>
             <button onClick={() => update({ screen: "plan" })} className="mt-6 rounded-full bg-sanctos-green px-5 py-3 text-sm font-semibold text-white">Back to preparation plan</button>
           </section>
         )}
@@ -270,7 +357,7 @@ export default function AhuvaKitchen() {
         {session.screen === "cook" && (
           <section className="mx-auto max-w-3xl space-y-5">
             <div className="flex items-center justify-between"><button onClick={() => update({ screen: "plan" })} className="text-sm font-semibold text-sanctos-green">← Preparation plan</button><span className="text-xs text-sanctos-navy/50">{progress}% complete</span></div>
-            <div className="h-2 overflow-hidden rounded-full bg-sanctos-sand"><div className="h-full rounded-full bg-sanctos-green transition-all" style={{ width: progress + "%" }} /></div>
+            <div className="h-2 overflow-hidden rounded-full bg-sanctos-sand"><div role="progressbar" aria-label="Cooking progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} className="h-full rounded-full bg-sanctos-green transition-all" style={{ width: progress + "%" }} /></div>
             <div className="rounded-[2rem] border border-sanctos-sand bg-white p-6 sm:p-8">
               <p className="text-xs font-bold uppercase tracking-wider text-sanctos-green">Cooking workspace</p>
               <h2 className="mt-2 font-serif text-3xl">{session.mealName}</h2>
@@ -283,11 +370,11 @@ export default function AhuvaKitchen() {
                 </div>
                 <div>
                   <h3 className="font-serif text-xl">Cooking steps</h3>
-                  <ol className="mt-3 space-y-3">{steps.map((step, index) => <li key={index} className="flex gap-3 rounded-xl bg-alive-bg p-3"><input type="checkbox" checked={session.completedSteps.includes(index)} onChange={e => update({ completedSteps: e.target.checked ? [...session.completedSteps, index] : session.completedSteps.filter(x => x !== index), activeStep: index })} className="mt-1 accent-sanctos-green" /><button onClick={() => update({ activeStep: index })} className="text-left text-sm leading-6"><span className="mr-2 text-xs font-bold text-sanctos-green">{index + 1}.</span>{step}</button></li>)}</ol>
+                  <ol className="mt-3 space-y-3">{steps.map((step, index) => <li key={index} className="flex gap-3 rounded-xl bg-alive-bg p-3"><input type="checkbox" checked={session.completedSteps.includes(index)} onChange={e => update({ completedSteps: e.target.checked ? [...session.completedSteps, index] : session.completedSteps.filter(x => x !== index), activeStep: index })} className="mt-1 accent-sanctos-green" /><button onClick={() => update({ activeStep: index })} aria-current={session.activeStep === index ? "step" : undefined} className="text-left text-sm leading-6"><span className="mr-2 text-xs font-bold text-sanctos-green">{index + 1}.</span>{step}</button></li>)}</ol>
                 </div>
               </div>
               <div className="mt-7 rounded-2xl border border-sanctos-sand p-4">
-                <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-serif text-xl">Cooking timer</h3><p className="text-xs text-sanctos-navy/50">Timer recovery is stored on this device in this preview.</p></div><p className="font-mono text-3xl tabular-nums" aria-live="off">{timerLabel}</p></div>
+                <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-serif text-xl">Cooking timer</h3><p className="text-xs text-sanctos-navy/50">Timer recovery is stored on this device in this preview.</p></div><p className="font-mono text-3xl tabular-nums" aria-live="polite">{timerLabel}</p></div>
                 <div className="mt-4 flex flex-wrap gap-2">
                   {session.timerStatus === "idle" || session.timerStatus === "elapsed" ? <><input aria-label="Timer minutes" type="number" min="1" max="240" value={timerInput} onChange={e => setTimerInput(e.target.value)} className="w-24 rounded-xl border border-sanctos-sand px-3 py-2 text-sm" /><button onClick={startTimer} className="rounded-xl bg-sanctos-green px-4 py-2 text-sm font-semibold text-white">Start timer</button></> : session.timerStatus === "running" ? <button onClick={pauseTimer} className="rounded-xl bg-sanctos-green px-4 py-2 text-sm font-semibold text-white">Pause</button> : <button onClick={resumeTimer} className="rounded-xl bg-sanctos-green px-4 py-2 text-sm font-semibold text-white">Resume</button>}
                   {session.timerStatus !== "idle" && <button onClick={resetTimer} className="rounded-xl border border-sanctos-sand px-4 py-2 text-sm font-semibold">Reset</button>}
