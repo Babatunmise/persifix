@@ -219,7 +219,7 @@ export default function AhuvaKitchen() {
 
         {session.screen === "plan" && (
           <section className="mx-auto max-w-3xl space-y-5">
-            <div className="flex items-center justify-between"><button onClick={() => update({ screen: "home" })} className="text-sm font-semibold text-sanctos-green">← Kitchen home</button><span className="text-xs text-sanctos-navy/45">Food preparation plan</span></div>
+            <div className="flex items-center justify-between"><button onClick={goHome} className="text-sm font-semibold text-sanctos-green">← Kitchen home</button><span className="text-xs text-sanctos-navy/45">Food preparation plan</span></div>
             <div className="rounded-[2rem] bg-white p-6 sm:p-8">
               <p className="text-xs font-bold uppercase tracking-wider text-sanctos-green">Your task</p>
               <h2 className="mt-2 font-serif text-3xl">Let’s organise your meal.</h2>
@@ -246,7 +246,8 @@ export default function AhuvaKitchen() {
             <button onClick={() => update({ screen: "plan" })} className="mb-6 text-sm font-semibold text-sanctos-green">← Back to plan</button>
             <p className="text-xs font-bold uppercase tracking-wider text-sanctos-green">Pot Math</p>
             <h2 className="mt-2 font-serif text-3xl">Adjust the quantities.</h2>
-            <div className="mt-5 flex flex-wrap items-end gap-4 rounded-2xl bg-alive-bg p-4">\n              <label className="text-xs font-semibold">Display units<select value={measurementSystem} onChange={e => setMeasurementSystem(e.target.value as MeasurementSystem)} className="mt-2 block rounded-xl border border-sanctos-sand bg-white p-2 text-sm"><option value="metric">Metric</option><option value="imperial">Imperial</option></select></label>
+            <div className="mt-5 flex flex-wrap items-end gap-4 rounded-2xl bg-alive-bg p-4">
+              <label className="text-xs font-semibold">Display units<select value={measurementSystem} onChange={e => setMeasurementSystem(e.target.value as MeasurementSystem)} className="mt-2 block rounded-xl border border-sanctos-sand bg-white p-2 text-sm"><option value="metric">Metric</option><option value="imperial">Imperial</option></select></label>
               <label className="text-xs font-semibold">Original servings<input type="number" min="1" max="50" value={session.baseServings} onChange={e => update({ baseServings: Math.max(1, Math.min(50, Number(e.target.value) || 1)) })} className="mt-2 block w-24 rounded-xl border border-sanctos-sand bg-white p-2 text-sm" /></label>
               <span className="pb-2 text-sanctos-navy/40">→</span>
               <label className="text-xs font-semibold">New servings<input type="number" min="1" max="50" value={session.servings} onChange={e => update({ servings: Math.max(1, Math.min(50, Number(e.target.value) || 1)) })} className="mt-2 block w-24 rounded-xl border border-sanctos-sand bg-white p-2 text-sm" /></label>
