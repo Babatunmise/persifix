@@ -50,7 +50,7 @@ Proposed schema file:
 `docs/ahuva/AHUVA-001-schema-proposal.sql`
 
 It defines:
-- global food identities and locale/region aliases;
+- global food identities, locale/region aliases and sourced allergen-group/derivative/cross-contact links;
 - versioned nutrition sources, nutrient definitions, food nutrient records and portion evidence;
 - explicit unit definitions, aliases and conversion factors;
 - user preferences and preference items;
@@ -82,7 +82,7 @@ The design uses owner UUIDs, composite session/user foreign keys, RLS on every t
 ### Test status
 Two-user isolation, owner spoofing, child-row cross-linking, anonymous access, and deletion/consent-withdrawal tests cannot run before the schema is approved and applied to an isolated test database. They are not claimed as passed.
 
-HEP-002 validation workflow was triggered by the branch update; final run result is pending.
+HEP-002's isolated PostgreSQL migration/RPC validation job completed successfully on an earlier branch commit. Its parallel changed-file typecheck initially failed because the Cooking Workspace still referenced the removed parser; that call was corrected in a subsequent commit. A fresh HEP-002 validation run is in progress. The Ahuva verification workflow was also interrupted by later branch pushes while dependency installation was running; a fresh run for the current head is queued. The Vercel build for commit 6dee5c4 compiled, passed TypeScript and generated all static pages; a new preview build for the current head is queued.
 
 ## E. Nutrition-source evaluation
 
@@ -123,6 +123,25 @@ FAO's general database terms must not be treated as a blanket licence for every 
 
 No provider has been integrated or licensed. No nutrition calculations are active in Ahuva.
 
+## Clinical Guard design
+
+The schema now distinguishes user-declared allergy, intolerance, medical restriction, religious restriction, dislike and voluntary preference records. It also models allergen groups and sourced ingredient relationships including contains, derived-from, may-contain and cross-contact-risk evidence.
+
+Clinical Guard must:
+- Treat an allergy as a hard constraint, never as a preference.
+- Check canonical food identity, regional aliases, derivatives and approved allergen evidence after plan creation and after every adaptation.
+- Treat missing or ambiguous ingredient identity, incomplete source coverage and unknown cross-contact status as **not verified**, never as safe.
+- Keep intolerance, medical restrictions, religious restrictions, dislikes and voluntary preferences as separate rule classes with different messaging and decision logic.
+- Never let an AI response override a deterministic allergy block.
+- Avoid using medication records for interaction advice and never recommend changes to prescribed medication.
+- Avoid sending health/allergy records to external AI while the approval gate remains closed.
+
+This is the approved design direction, not a completed clinical validation engine. Clinical and nutrition review is still required before the safeguards can be called clinically verified.
+
+## AI integration architecture (prepared, not enabled)
+
+The intended adapter boundary is server-side only: authenticated task context → data-minimised request builder → provider adapter → strict structured-output parser → deterministic schema and safety validation → user-confirmed plan. Provider selection, contract, retention, privacy, consent, data residency, logging and output validation remain approval gates. No provider is called, no provider secret is required by this branch, and the existing external AI gate remains disabled.
+
 ## F. Functional and accessibility verification
 
 ### Pot Math tests
@@ -152,6 +171,8 @@ The Ahuva workflow and HEP-002 validation were observed running after the workfl
 
 ### Not yet verified
 - Full authenticated browser journey;
+- Cross-device session recovery after the approved schema and API implementation;
+- Clinical Guard rule tests against sourced derivatives, may-contain and cross-contact records;
 - small-screen/tablet/desktop visual review;
 - keyboard-only navigation and focus visibility;
 - screen-reader announcement order and control names;
