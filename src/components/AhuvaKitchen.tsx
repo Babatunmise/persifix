@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { supabase } from "@/supabase";
 
 type Ingredient = { name: string; amount: number; unit: string };
 type Recipe = {
@@ -95,6 +96,16 @@ const RECIPES: Recipe[] = [
   },
 ];
 
+function calculateAge(dob: string | null) {
+  if (!dob) return 40;
+  const birthDate = new Date(dob);
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const month = today.getMonth() - birthDate.getMonth();
+  if (month < 0 || (month === 0 && today.getDate() < birthDate.getDate())) age--;
+  return age;
+}
+
 const formatAmount = (value: number) =>
   Number.isInteger(value) ? String(value) : String(Number(value.toFixed(2)));
 
@@ -109,6 +120,7 @@ export default function AhuvaKitchen() {
   const [message, setMessage] = useState("");
   const [notice, setNotice] = useState("");
   const [activeFilter, setActiveFilter] = useState("All");
+  const [dailySummary, setDailySummary] = useState({ caloriesConsumed: 0, caloriesTarget: 2000, caloriesBurned: 0, sodiumConsumed: 0, loaded: false });
 
   useEffect(() => {
     if (!timerRunning) return;
@@ -124,6 +136,51 @@ export default function AhuvaKitchen() {
     }, 1000);
     return () => window.clearInterval(interval);
   }, [timerRunning]);
+
+  useEffect(() => {
+    let active = true;
+    async function loadExistingDailySummary() {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!active || !userData.user) return;
+      const userId = userData.user.id;
+      let caloriesTarget = 2000;
+      const { data: profile } = await supabase.from("profiles")
+        .select("gender, date_of_birth, height, height_unit, weight, weight_unit, goals")
+        .eq("id", userId).maybeSingle();
+      if (profile) {
+        let weightKg = profile.weight || 70;
+        if (profile.weight_unit === "lb") weightKg *= 0.453592;
+        let heightCm = profile.height || 170;
+        if (profile.height_unit === "in") heightCm *= 2.54;
+        const age = calculateAge(profile.date_of_birth);
+        let bmr = (10 * weightKg) + (6.25 * heightCm) - (5 * age);
+        if (profile.gender === "male") bmr += 5;
+        else if (profile.gender === "female") bmr -= 161;
+        else bmr -= 78;
+        let tdee = bmr * 1.2;
+        if (profile.goals?.includes("lose_weight")) tdee -= 500;
+        caloriesTarget = Math.round(Math.max(tdee, 1200));
+      }
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const [mealResult, workoutResult] = await Promise.all([
+        supabase.from("meal_logs").select("calories, sodium_mg").eq("user_id", userId).gte("created_at", today.toISOString()),
+        supabase.from("workout_logs").select("calories_burned").eq("user_id", userId).gte("created_at", today.toISOString()),
+      ]);
+      if (!active) return;
+      const meals = mealResult.data || [];
+      const workouts = workoutResult.data || [];
+      setDailySummary({
+        caloriesConsumed: meals.reduce((sum, row) => sum + (Number(row.calories) || 0), 0),
+        sodiumConsumed: meals.reduce((sum, row) => sum + (Number(row.sodium_mg) || 0), 0),
+        caloriesBurned: workouts.reduce((sum, row) => sum + (Number(row.calories_burned) || 0), 0),
+        caloriesTarget,
+        loaded: true,
+      });
+    }
+    void loadExistingDailySummary();
+    return () => { active = false; };
+  }, []);
 
   const filters = ["All", "West African", "Mediterranean", "Global"];
   const visibleRecipes = useMemo(
@@ -176,6 +233,16 @@ export default function AhuvaKitchen() {
           </div>
         </div>
       </header>
+
+      <div className="mx-auto max-w-6xl px-5 pt-4 sm:px-8">
+        <section className="grid grid-cols-2 gap-3 rounded-2xl border border-sanctos-sand bg-white p-4 sm:grid-cols-4" aria-label="Existing daily food and activity summary">
+          <div><p className="text-[10px] font-bold uppercase tracking-wider text-sanctos-navy/45">Calories recorded</p><p className="mt-1 text-lg font-semibold tabular-nums">{dailySummary.loaded ? dailySummary.caloriesConsumed.toLocaleString() : "—"} <span className="text-xs font-normal text-sanctos-navy/50">kcal</span></p></div>
+          <div><p className="text-[10px] font-bold uppercase tracking-wider text-sanctos-navy/45">Daily target</p><p className="mt-1 text-lg font-semibold tabular-nums">{dailySummary.loaded ? (dailySummary.caloriesTarget + dailySummary.caloriesBurned).toLocaleString() : "—"} <span className="text-xs font-normal text-sanctos-navy/50">kcal</span></p></div>
+          <div><p className="text-[10px] font-bold uppercase tracking-wider text-sanctos-navy/45">Sodium recorded</p><p className="mt-1 text-lg font-semibold tabular-nums">{dailySummary.loaded ? dailySummary.sodiumConsumed.toLocaleString() : "—"} <span className="text-xs font-normal text-sanctos-navy/50">mg</span></p></div>
+          <div><p className="text-[10px] font-bold uppercase tracking-wider text-sanctos-navy/45">Activity calories</p><p className="mt-1 text-lg font-semibold tabular-nums">{dailySummary.loaded ? dailySummary.caloriesBurned.toLocaleString() : "—"} <span className="text-xs font-normal text-sanctos-navy/50">kcal</span></p></div>
+          <p className="col-span-2 text-[10px] leading-4 text-sanctos-navy/40 sm:col-span-4">Existing Sanctos log summary. Historical entries may contain estimates; these figures are not a verified nutritional analysis.</p>
+        </section>
+      </div>
 
       <div className="mx-auto grid max-w-6xl gap-8 px-5 py-7 sm:px-8 lg:grid-cols-[minmax(0,1fr)_340px] lg:py-10">
         <section className="min-w-0">
