@@ -123,6 +123,12 @@ export default function AhuvaKitchen() {
     update({ ...emptySession, screen: "conversation", intent, task: labels[intent] ?? "" });
     setPrompt("");
   }
+  function submitHomePrompt(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!prompt.trim()) return;
+    update({ task: prompt.trim(), intent: "user_defined", screen: "conversation" });
+    setPrompt("");
+  }
   function submitPrompt(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!prompt.trim()) return;
@@ -176,7 +182,7 @@ export default function AhuvaKitchen() {
               </div>
               <h2 className="max-w-xl font-serif text-3xl leading-tight sm:text-4xl">What are we doing in the kitchen today?</h2>
               <p className="mt-3 max-w-xl text-sm leading-6 text-white/70">Start with what you enjoy, what you have, or what you need. We’ll work from there.</p>
-              <form onSubmit={submitPrompt} className="mt-7 flex gap-2 rounded-2xl bg-white p-2">
+              <form onSubmit={submitHomePrompt} className="mt-7 flex gap-2 rounded-2xl bg-white p-2">
                 <label htmlFor="ahuva-prompt" className="sr-only">Tell Ahuva what you need</label>
                 <input id="ahuva-prompt" value={prompt} onChange={e => setPrompt(e.target.value)} placeholder="Tell me what’s on your mind…" className="min-w-0 flex-1 bg-transparent px-3 text-sm text-sanctos-navy outline-none placeholder:text-sanctos-navy/40" />
                 <button type="submit" disabled={!prompt.trim()} className="rounded-xl bg-sanctos-green px-4 py-3 text-sm font-semibold text-white disabled:opacity-40">Start</button>
