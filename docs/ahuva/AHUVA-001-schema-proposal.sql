@@ -426,7 +426,7 @@ create table public.ahuva_saved_meals (
   updated_at timestamptz not null default now(),
   unique (id, user_id),
   foreign key (source_session_id, user_id)
-    references public.ahuva_cooking_sessions(id, user_id) on delete set null (session_id) (session_id) (source_session_id)
+    references public.ahuva_cooking_sessions(id, user_id) on delete set null (session_id) (source_session_id)
 );
 alter table public.ahuva_saved_meals enable row level security;
 create policy "Users manage own Ahuva saved meals"
