@@ -17,20 +17,30 @@ export default function Home() {
     setLoading(true);
     setError(null);
 
-    const { error } =
+    const authResult =
       mode === "signup"
         ? await supabase.auth.signUp({ email, password })
         : await supabase.auth.signInWithPassword({ email, password });
 
-    if (error) {
+    if (authResult.error) {
       setLoading(false);
-      setError(error.message);
+      setError(authResult.error.message);
       return;
     }
 
-    const { data: userData } = await supabase.auth.getUser();
-    if (!userData.user) {
+    // Supabase may require email confirmation before creating an authenticated
+    // session. In that case signUp succeeds but getUser() correctly returns no
+    // authenticated user; explain the next step instead of silently doing nothing.
+    if (mode === "signup" && !authResult.data.session) {
       setLoading(false);
+      setError("Your account was created. Check your email for the confirmation link, then return here to sign in.");
+      return;
+    }
+
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError || !userData.user) {
+      setLoading(false);
+      setError(userError?.message || "We could not establish your session. Please sign in again.");
       return;
     }
 
