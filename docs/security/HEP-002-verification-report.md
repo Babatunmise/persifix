@@ -70,6 +70,7 @@ The latest GitHub Actions run is [45458152027](https://github.com/Babatunmise/pe
 - Verified exhausted limits return a positive retry interval.
 - Verified expired windows reset and two synthetic users receive independent counters.
 - Verified atomic counter updates under 24 concurrent PostgreSQL sessions: exactly 12 requests were allowed and 12 were rejected for the fixed kitchen limit.
+- Added an explicit `SANCTOS_EXTERNAL_AI_APPROVED` gate to Journal so no external AI request is made while approval is withheld.
 
 <badge>PASS</badge> **Application validation**
 - `npm ci`
@@ -108,17 +109,23 @@ The Executive Office approved the reviewed migration. RLS is enabled on `private
 
 The user elected to defer leaked-password protection. Supabase's security advisor continues to report this warning. No plan upgrade or paid change has been made. This remains an open security risk and is not treated as resolved.
 
-### 4. Supabase owner-level default ACLs — INVESTIGATION OPEN
+### 4. Supabase owner-level default ACLs — INVESTIGATED; NO CURRENT HEP-002 EXPOSURE FOUND
 
-Catalog review confirms that `supabase_admin` has default privileges in `public`, `graphql` and `graphql_public` that grant object access to `anon`, `authenticated` and `service_role`. The active database role is `postgres`, is not a member of `supabase_admin`, and cannot change that role's default privileges. No ACL changes have been made.
+Catalog review confirms that `supabase_admin` has platform-managed default privileges in `public`, `graphql` and `graphql_public`. The active database role is `postgres`, is not a member of `supabase_admin`, and cannot alter those defaults. No ACL changes were made, consistent with the investigation-only instruction.
 
-**Next action:** seek Supabase owner-level intervention or an authoritative supported procedure. Do not accept the residual risk or attempt privilege changes through the current database role without further Executive direction. Until resolved, every new database object must receive an explicit effective-privilege review before exposure.
+The live object audit found:
+- All eight existing application tables in `public` have RLS enabled; `anon` has no SELECT privilege and `authenticated` access remains subject to the existing RLS policies.
+- No application tables or views exist in `graphql` or `graphql_public`.
+- The only current object owned by `supabase_admin` in those exposed schemas is Supabase's `graphql_public.graphql` entry-point function.
+- No current application table in `public` is owned by `supabase_admin`.
 
-### 5. External AI safeguards — OPEN
+**Disposition:** this is a platform-managed default-privilege configuration, not evidence of current cross-account access or an active HEP-002 exposure. Leave it unchanged. Treat it as a standing platform-level residual: review effective grants and RLS for any future object created by `supabase_admin` before it becomes reachable. It is not a blocker to the HEP-002 API remediation or its release.
 
-Contractual, privacy, regional, retention and consent safeguards for the external AI provider remain unresolved. `SANCTOS_EXTERNAL_AI_APPROVED` must remain unset. Kitchen and Narrator must continue to fail closed. Journal text and patient-specific facts must not be transmitted to the external provider.
+### 5. External AI safeguards — DISABLED BY DEFAULT; NOT A RELEASE BLOCKER FOR NON-AI ROUTES
 
-**Decision required:** approve vendor safeguards and the consent model before any patient-specific health information is sent externally.
+Contractual, privacy, regional, retention and consent safeguards for the external AI provider remain unresolved. `SANCTOS_EXTERNAL_AI_APPROVED` remains unset. Kitchen, Narrator and Journal now all fail closed with HTTP 503 before making an external AI request. Journal text and patient-specific facts are not transmitted to the provider. The production environment does not currently contain the approval flag; the DeepSeek credential is not configured with a usable value.
+
+**Disposition:** do not enable the external AI integration as part of HEP-002. Keep these features unavailable until a separate explicit approval follows vendor due diligence and a consent decision. This does not block release of the non-AI API security remediation.
 
 ### 6. Runtime verification and rollout
 
