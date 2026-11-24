@@ -54,7 +54,7 @@ All **28/28 checks passed**. Temporary fixtures were removed and cleanup was ver
 
 ## PR #5 — isolated validation results
 
-The latest GitHub Actions run is [45458152027](https://github.com/Babatunmise/persifix/actions/runs/45458152027), on commit `6899d272d6e7e51674462daaaf905f35f8b8bf80`.
+The latest GitHub Actions run is pending for the final branch commit; the PostgreSQL concurrency job has passed on the current commit. Final application validation is being rerun after the Journal fail-closed gate and migration-version alignment.
 
 **PASS** **Isolated PostgreSQL 17 migration and RPC tests**
 - Applied the exact proposed migration to a disposable PostgreSQL service.
@@ -84,7 +84,7 @@ All four steps passed on the latest commit.
 
 ## Live production database findings
 
-The production migration `20261119174222` (`hep_002_server_controlled_rate_limits`) is recorded in Supabase migration history.
+The production migration `20261119174222` (`hep_002_server_controlled_rate_limits`) is recorded in Supabase migration history. The repository migration file has now been renamed to the same version so the committed migration history matches production; the SQL definitions, wrapper signatures, RLS state and table grants were compared with the live catalog. Do not reapply this migration.
 
 Post-migration catalog verification confirms:
 - Both public `consume_api_rate_limit` wrappers are SECURITY INVOKER, use an empty search path, and are executable by `authenticated` only (not `anon` or `service_role`).
