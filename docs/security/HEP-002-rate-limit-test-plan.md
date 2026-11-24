@@ -36,6 +36,7 @@ All checked items below passed in the latest GitHub Actions run. Synthetic users
 
 ## C. Application validation
 
+- [ ] Dependency audit: `npm audit --audit-level=high`.
 - [x] Targeted ESLint on the six HEP-002 API/security files.
 - [x] TypeScript check: `npx tsc --noEmit`.
 - [x] Production build: `npm run build`.
