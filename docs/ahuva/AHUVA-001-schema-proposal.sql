@@ -37,6 +37,40 @@ create policy "Ahuva food aliases readable by authenticated users"
   on public.ahuva_food_aliases for select to authenticated using (true);
 grant select on public.ahuva_food_aliases to authenticated;
 
+create table public.ahuva_allergen_groups (
+  code text primary key,
+  display_name text not null,
+  description text,
+  created_at timestamptz not null default now()
+);
+alter table public.ahuva_allergen_groups enable row level security;
+create policy "Ahuva allergen group definitions readable by authenticated users"
+  on public.ahuva_allergen_groups for select to authenticated using (true);
+grant select on public.ahuva_allergen_groups to authenticated;
+
+create table public.ahuva_food_allergen_links (
+  id uuid primary key default gen_random_uuid(),
+  food_id uuid not null references public.ahuva_foods(id) on delete cascade,
+  allergen_group_code text not null references public.ahuva_allergen_groups(code),
+  source_id uuid not null,
+  relation_type text not null
+    check (relation_type in ('contains','derived_from','may_contain')),
+  evidence_status text not null
+    check (evidence_status in ('verified','manufacturer_declared','unverified')),
+  evidence_note text,
+  created_at timestamptz not null default now(),
+  foreign key (source_id) references public.ahuva_nutrition_sources(id),
+  unique (food_id, allergen_group_code, source_id, relation_type)
+);
+alter table public.ahuva_food_allergen_links enable row level security;
+create policy "Ahuva allergen links readable from approved sources"
+  on public.ahuva_food_allergen_links for select to authenticated
+  using (exists (
+    select 1 from public.ahuva_nutrition_sources s
+    where s.id = source_id and s.review_status = 'approved'
+  ));
+grant select on public.ahuva_food_allergen_links to authenticated;
+
 create table public.ahuva_nutrition_sources (
   id uuid primary key default gen_random_uuid(),
   provider text not null,
@@ -225,6 +259,7 @@ create table public.ahuva_user_constraints (
   constraint_type text not null
     check (constraint_type in ('allergy','intolerance','medical_restriction','religious_restriction','dislike','voluntary_preference')),
   food_id uuid references public.ahuva_foods(id),
+  allergen_group_code text references public.ahuva_allergen_groups(code),
   ingredient_label text not null,
   severity text,
   reaction_description text,
