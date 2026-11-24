@@ -1,7 +1,7 @@
 # HEP-002 Rate-Limit Hardening — Verification Plan
 
 **Target:** PR #5, branch `hep-002/rate-limit-hardening`  
-**Latest automated run:** [GitHub Actions 44569188702](https://github.com/Babatunmise/persifix/actions/runs/44569188702)  
+**Latest automated run:** [GitHub Actions 45461356304](https://github.com/Babatunmise/persifix/actions/runs/45461356304) — PASS  
 **Production changes:** rate-limit database migration applied and verified; application rollout and runtime verification remain pending
 
 ## A. Pre-migration checks
@@ -36,7 +36,7 @@ All checked items below passed in the latest GitHub Actions run. Synthetic users
 
 ## C. Application validation
 
-- [ ] Dependency audit: `npm audit --audit-level=high`.
+- [x] Dependency audit: `npm audit --audit-level=high` — no high or critical advisories.
 - [x] Targeted ESLint on the six HEP-002 API/security files.
 - [x] TypeScript check: `npx tsc --noEmit`.
 - [x] Production build: `npm run build`.
