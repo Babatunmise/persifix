@@ -97,6 +97,19 @@ HEP-002 validation workflow was triggered by the branch update; final run result
 
 FAO/INFOODS lists WAFCT 2019 and explains its improved West African coverage and analytical emphasis. It also publishes a separate density database for volume/weight conversion. The Nigeria Food Database 2019 is listed in FAO/INFOODS' Africa directory, but a directory listing is not sufficient evidence of commercial reuse rights. A published myfood24 West Africa study reports 924 Nigerian food/drink items sourced from WAFCT 2019, packaged-food labels, Nigeria's 2017 food composition table, mixed dishes and literature; this supports the value of regional data, but does not itself grant Sanctos a licence to reuse the assembled database.
 
+
+### Source references and licensing checks
+
+- USDA FoodData Central data types, downloads and CC0 statement: https://fdc.nal.usda.gov/data-documentation/ and https://fdc.nal.usda.gov/download-datasets/ and https://fdc.nal.usda.gov/api-guide/
+- FAO/INFOODS WAFCT 2019, density database and analytical database catalogue: https://www.fao.org/infoods/infoods/tables-and-databases/faoinfoods-databases/en
+- FAO/INFOODS Africa directory listing Nigeria Food Database 2019: https://www.fao.org/infoods/infoods/tables-and-databases/africa/en
+- Nigeria dietary assessment study describing the myfood24 West Africa database and its mixed source composition: https://pmc.ncbi.nlm.nih.gov/articles/PMC11509910/
+- UK CoFID 2021 publication and Open Government Licence notice: https://www.gov.uk/government/publications/composition-of-foods-integrated-dataset-cofid
+- EuroFIR database access and membership information: https://www.eurofir.org/food-information/how-to-access-fcdbs/
+- FAO dataset terms, attribution and third-party exceptions: https://www.fao.org/contact-us/terms/db-terms-of-use/en
+
+FAO's general database terms must not be treated as a blanket licence for every source file hosted or indexed by FAO. Confirm the licence and reuse rights of each underlying dataset and third-party contribution before copying or redistributing it.
+
 ### Deterministic nutrition method
 
 1. Resolve the food to a canonical identity using exact name, locale/region aliases, variety and preparation state. Do not silently map a local food to a superficially similar foreign food.
