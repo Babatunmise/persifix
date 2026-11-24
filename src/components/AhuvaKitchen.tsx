@@ -88,16 +88,17 @@ function formatQuantity(value: number): string {
 }
 
 function calculateIngredient(line: string, factor: number, system: MeasurementSystem): IngredientMath {
-  const match = line.match(/^\s*(\d+(?:\.\d+)?|\d+\/\d+)\s+(.+?)\s+(.+?)\s*$/);
+  const match = line.match(/^\s*(\d+(?:\.\d+)?|\d+\/\d+)\s+(?:(fl\s+oz|[^\s]+)\s+)?(.+?)\s*$/i);
   if (!match) return { result: line, note: "Quantity or unit not recognised; left unchanged." };
   const amount = parseAmount(match[1]);
   if (amount === null) return { result: line, note: "Invalid quantity; left unchanged." };
-  const unit = match[2].trim().toLowerCase().replace(/\.$/, "");
+  const unit = (match[2] ?? "item").trim().toLowerCase().replace(/\.$/, "");
   const ingredient = match[3].trim();
   if (NON_LINEAR_INGREDIENTS.test(ingredient)) {
     return { result: line, note: "Review this ingredient manually; its quantity may not scale linearly." };
   }
   const definition = UNIT_DEFINITIONS[unit];
+  if (unit === "item") return { result: formatQuantity(amount * factor) + " " + ingredient };
   if (!definition) {
     return {
       result: formatQuantity(amount * factor) + " " + match[2] + " " + ingredient,
@@ -270,7 +271,7 @@ export default function AhuvaKitchen() {
               <div className="mt-4 rounded-2xl bg-sanctos-sand/60 p-4">
                 <p className="text-sm font-semibold">Pick up where you left off</p>
                 <p className="mt-1 text-xs leading-5 text-sanctos-navy/60">{hydrated && session.mealName ? `Your ${session.mealName} session is saved on this device.` : "Your active cooking session will appear here when you start one."}</p>
-                {hydrated && session.mealName && <button onClick={() => update({ screen: session.screen === "cook" ? "cook" : "plan" })} className="mt-3 text-xs font-bold text-sanctos-green">Resume session →</button>}
+                {hydrated && (session.task || session.mealName) && <button onClick={() => update({ screen: session.screen === "home" ? "conversation" : session.screen })} className="mt-3 text-xs font-bold text-sanctos-green">Resume session →</button>}
               </div>
             </section>
           </div>
