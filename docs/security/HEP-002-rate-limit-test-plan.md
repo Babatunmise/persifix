@@ -32,7 +32,7 @@ All checked items below passed in the latest GitHub Actions run. Synthetic users
 - [x] Public wrappers are SECURITY INVOKER.
 - [x] Private helper is SECURITY DEFINER with an empty search path.
 - [ ] Confirm `private` is not in Supabase API Exposed schemas.
-- [ ] Rerun Supabase security advisors after the production migration; current production findings remain.
+- [x] Rerun Supabase security advisors after the production migration; only the expected private-table RLS-without-policy INFO and deferred leaked-password WARN remain.
 
 ## C. Application validation
 
@@ -44,8 +44,9 @@ All checked items below passed in the latest GitHub Actions run. Synthetic users
 - [ ] Verify 400/415/413 validation paths after rollout.
 - [ ] Verify 429 and `Retry-After` for all five endpoint limits after rollout.
 - [ ] Verify rate-limit storage failure fails closed with 503 in the deployed environment.
-- [x] Preserve the existing fail-closed controls for Kitchen and Narrator while external AI approval is absent.
-- [x] Preserve the rule that journal text and patient-specific facts are not sent to the external AI provider.
+- [x] Kitchen and Narrator fail closed while external AI approval is absent.
+- [x] Journal also fails closed before any external AI request while approval is absent.
+- [x] Journal text and patient-specific facts are not sent to the external AI provider.
 - [x] Preserve the existing ownership-scoped report queries and the completed 28/28 cross-account table checks.
 
 **Lint scope note:** full-repository lint currently reports unrelated JSX-escaping errors in Gym and Home UI files. PR #5's six API/security files lint successfully; the full application typecheck and build pass.
@@ -62,7 +63,13 @@ All checked items below passed in the latest GitHub Actions run. Synthetic users
 8. PR #4 has been closed without merging; do not reintroduce its temporary test-only page.
 9. Keep PR #5 unmerged until production rollout and runtime verification pass.
 
-## E. Stop conditions
+## E. Outstanding risk dispositions
+
+- `supabase_admin` default ACLs were investigated without changes, as instructed. The active role cannot alter them. The live audit found no application tables/views in `graphql` or `graphql_public`, all eight current `public` application tables have RLS enabled, and `anon` has no SELECT access. This platform-managed default-privilege configuration is a documented residual, not a current HEP-002 release blocker. Review future objects created by `supabase_admin` before exposure.
+- Leaked-password protection remains deferred under the prior Executive decision; do not upgrade the plan or change Auth settings as part of HEP-002.
+- External AI approval remains withheld. Kitchen, Narrator and Journal fail closed; do not set `SANCTOS_EXTERNAL_AI_APPROVED` as part of this release.
+
+## F. Stop conditions
 
 Stop rollout and do not deploy application code if:
 - the private schema is exposed through the API;
