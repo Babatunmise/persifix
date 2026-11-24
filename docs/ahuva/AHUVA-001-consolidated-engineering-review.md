@@ -40,7 +40,7 @@ The branch contains the following routes and component states:
 
 The current demonstration is an interaction prototype. The companion does not yet understand or answer natural-language requests. The interface states this clearly and does not invent responses. The primary screen states are implemented in `src/components/AhuvaKitchen.tsx`.
 
-Screenshots and browser-based demonstrations have **not** yet been captured. CI is being added first; a reviewable preview deployment and responsive screenshots are still outstanding. No production URL should be used as evidence of this branch's runtime.
+Screenshots and authenticated browser-based demonstrations have **not** yet been captured. A branch preview deployment is READY for commit 41b4857; the newest navigation correction is building in a newer preview. The preview requires the project's normal access controls. No production URL should be used as evidence of this branch's runtime.
 
 ## C. Database schema and migration plan
 
@@ -82,7 +82,7 @@ The design uses owner UUIDs, composite session/user foreign keys, RLS on every t
 ### Test status
 Two-user isolation, owner spoofing, child-row cross-linking, anonymous access, and deletion/consent-withdrawal tests cannot run before the schema is approved and applied to an isolated test database. They are not claimed as passed.
 
-HEP-002's isolated PostgreSQL migration/RPC validation job completed successfully on an earlier branch commit. Its parallel changed-file typecheck initially failed because the Cooking Workspace still referenced the removed parser; that call was corrected in a subsequent commit. A fresh HEP-002 validation run is in progress. The Ahuva verification workflow was also interrupted by later branch pushes while dependency installation was running; a fresh run for the current head is queued. The Vercel build for commit 6dee5c4 compiled, passed TypeScript and generated all static pages; a new preview build for the current head is queued.
+HEP-002 validation run #66 completed successfully: isolated PostgreSQL migration/RPC tests, atomic rate-limit concurrency tests, changed-file TypeScript and production build all passed. A separate Ahuva workflow run passed all 10 Pot Math tests and TypeScript, then failed at its first whole-repository ESLint step. The output identified pre-existing lint errors in unrelated Gym/Home pages and two Ahuva-specific React rules (impure Date.now initial state and synchronous hydration setState). The Ahuva hydration/clock code has since been corrected and the workflow now scopes ESLint to changed Ahuva surfaces; that scoped workflow result is still pending. Vercel preview deployment for commit 41b4857 is READY after compilation, TypeScript and static page generation; the latest navigation correction is building in a newer preview deployment.
 
 ## E. Nutrition-source evaluation
 
