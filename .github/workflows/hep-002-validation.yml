@@ -133,3 +133,101 @@ jobs:
             echo "$route: HTTP 401 as expected"
             rm -f "$body_file"
           done
+
+      - name: Verify authenticated validation, fail-closed responses and rate limits
+        env:
+          BASE_URL: https://www.getsanctos.com
+          HEP002_TEST_ACCESS_TOKEN: ${{ secrets.HEP002_TEST_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "$HEP002_TEST_ACCESS_TOKEN" ]; then
+            echo "SKIP: add a disposable test user's access token as HEP002_TEST_ACCESS_TOKEN to run authenticated HTTP checks."
+            exit 0
+          fi
+          echo "::add-mask::$HEP002_TEST_ACCESS_TOKEN"
+          headers_file="$(mktemp)"
+          response_file="$(mktemp)"
+
+          request() {
+            local route="$1"
+            local body="$2"
+            local content_type="${3:-application/json}"
+            curl --silent --show-error --location --max-redirs 5 \
+              --connect-timeout 10 --max-time 30 \
+              --dump-header "$headers_file" --output "$response_file" --write-out '%{http_code}' \
+              --request POST "$BASE_URL/api/$route" \
+              --header "Authorization: Bearer $HEP002_TEST_ACCESS_TOKEN" \
+              --header "Content-Type: $content_type" \
+              --data-binary "$body"
+          }
+
+          expect_status() {
+            local route="$1"
+            local status="$2"
+            local expected="$3"
+            if [ "$status" != "$expected" ]; then
+              echo "$route returned HTTP $status; expected $expected"
+              cat "$response_file"
+              exit 1
+            fi
+          }
+
+          # Validation and fail-closed checks consume one request each.
+          status="$(request journal '{}')"
+          expect_status journal "$status" 400
+          status="$(request journal '{"entrySubmitted":true}')"
+          expect_status journal "$status" 503
+          status="$(request journal 'not-json' 'text/plain')"
+          expect_status journal "$status" 415
+
+          status="$(request kitchen '{}')"
+          expect_status kitchen "$status" 400
+          status="$(request kitchen '{"messages":[{"role":"user","content":"I have rice and beans."}]}')"
+          expect_status kitchen "$status" 503
+
+          status="$(request narrator '{"readingId":"not-a-uuid"}')"
+          expect_status narrator "$status" 400
+          status="$(request narrator '{"readingId":"00000000-0000-4000-8000-000000000001"}')"
+          expect_status narrator "$status" 404
+
+          status="$(request meds-followup '{"reason":"Unknown"}')"
+          expect_status meds-followup "$status" 400
+          status="$(request meds-followup '{"reason":"Forgot"}')"
+          expect_status meds-followup "$status" 200
+
+          status="$(request report '{}')"
+          expect_status report "$status" 400
+
+          test_limit() {
+            local route="$1"
+            local limit="$2"
+            local already_used="$3"
+            local body="$4"
+            local content_type="$5"
+            local expected_allowed="$6"
+            local remaining=$((limit - already_used))
+            local status
+            local retry_after
+            for _ in $(seq 1 "$remaining"); do
+              status="$(request "$route" "$body" "$content_type")"
+              expect_status "$route" "$status" "$expected_allowed"
+            done
+            status="$(request "$route" "$body" "$content_type")"
+            expect_status "$route" "$status" 429
+            retry_after="$(awk 'BEGIN { IGNORECASE=1 } /^Retry-After:/ { gsub("\\r",""); print $2 }' "$headers_file" | tail -n 1)"
+            if ! [[ "$retry_after" =~ ^[1-9][0-9]*$ ]]; then
+              echo "$route returned 429 without a positive Retry-After header"
+              cat "$headers_file"
+              exit 1
+            fi
+            echo "$route: HTTP 429 with Retry-After=$retry_after"
+          }
+
+          test_limit journal 8 3 '{"entrySubmitted":true}' 'application/json' 503
+          test_limit kitchen 12 2 '{"messages":[{"role":"user","content":"I have rice and beans."}]}' 'application/json' 503
+          test_limit narrator 10 2 '{"readingId":"00000000-0000-4000-8000-000000000001"}' 'application/json' 404
+          test_limit meds-followup 6 2 '{"reason":"Forgot"}' 'application/json' 200
+          test_limit report 3 1 '{}' 'application/json' 400
+
+          rm -f "$headers_file" "$response_file"
+          echo "Authenticated validation, fail-closed and rate-limit checks passed."
