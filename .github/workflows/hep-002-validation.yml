@@ -117,7 +117,7 @@ jobs:
           set -euo pipefail
           for route in journal kitchen meds-followup narrator report; do
             body_file="$(mktemp)"
-            status="$(curl --silent --show-error \
+            status="$(curl --silent --show-error --location --max-redirs 5 \
               --connect-timeout 10 --max-time 30 --retry 3 --retry-delay 2 \
               --output "$body_file" --write-out '%{http_code}' \
               --request POST "$BASE_URL/api/$route" \
