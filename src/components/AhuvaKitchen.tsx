@@ -189,7 +189,7 @@ export default function AhuvaKitchen() {
               <div className="mt-4 rounded-2xl bg-sanctos-sand/60 p-4">
                 <p className="text-sm font-semibold">Pick up where you left off</p>
                 <p className="mt-1 text-xs leading-5 text-sanctos-navy/60">{hydrated && session.mealName ? `Your ${session.mealName} session is saved on this device.` : "Your active cooking session will appear here when you start one."}</p>
-                {hydrated && session.mealName && <button onClick={() => update({ screen: "cook" })} className="mt-3 text-xs font-bold text-sanctos-green">Resume cooking →</button>}
+                {hydrated && session.mealName && <button onClick={() => update({ screen: session.screen === "cook" ? "cook" : "plan" })} className="mt-3 text-xs font-bold text-sanctos-green">Resume session →</button>}
               </div>
             </section>
           </div>
