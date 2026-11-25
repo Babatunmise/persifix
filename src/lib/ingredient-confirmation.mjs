@@ -33,15 +33,20 @@ export function extractConfirmedIngredientText(intent, details, conversation) {
 export function isIngredientConfirmed(ingredient, confirmedText, allUserText = "") {
   const normalizedIngredient = normalizeIngredientText(ingredient);
   if (!normalizedIngredient) return false;
-  const normalizedConfirmed = \` \${normalizeIngredientText(confirmedText)} \`;
-  const normalizedAll = \` \${normalizeIngredientText(allUserText)} \`;
-  const variants = [normalizedIngredient, \`\${normalizedIngredient}s\`];
+  const normalizedConfirmed = " " + normalizeIngredientText(confirmedText) + " ";
+  const normalizedAll = " " + normalizeIngredientText(allUserText) + " ";
+  const variants = [...new Set([
+    normalizedIngredient,
+    normalizedIngredient + "s",
+    normalizedIngredient.endsWith("o") ? normalizedIngredient + "es" : "",
+    normalizedIngredient.endsWith("y") ? normalizedIngredient.slice(0, -1) + "ies" : "",
+  ].filter(Boolean))];
   const negativeMarkers = variants.flatMap((name) => [
-    \` no \${name} \`, \` not \${name} \`, \` without \${name} \`,
-    \` out of \${name} \`, \` ran out of \${name} \`,
-    \` do not have \${name} \`, \` don t have \${name} \`,
-    \` doesn t have \${name} \`, \` don t got \${name} \`,
+    " no " + name + " ", " not " + name + " ", " without " + name + " ",
+    " out of " + name + " ", " ran out of " + name + " ",
+    " do not have " + name + " ", " don t have " + name + " ",
+    " doesn t have " + name + " ", " don t got " + name + " ",
   ]);
   if (negativeMarkers.some((marker) => normalizedAll.includes(marker))) return false;
-  return variants.some((name) => normalizedConfirmed.includes(\` \${name} \`));
+  return variants.some((name) => normalizedConfirmed.includes(" " + name + " "));
 }
