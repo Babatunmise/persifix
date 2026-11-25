@@ -73,7 +73,7 @@ function validateAssistantResult(value: unknown): value is {
 }
 
 function normalizeIngredientText(value: string): string {
-  return value.toLocaleLowerCase().normalize("NFKD").replace(/[\\u0300-\\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+  return value.toLocaleLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
 }
 
 function hasExplicitIngredientConfirmation(ingredient: string, userText: string): boolean {
@@ -147,7 +147,7 @@ export async function POST(req: NextRequest) {
   const apiKey = process.env.DEEPSEEK_API_KEY;
   if (!apiKey) return jsonError("Ahuva is temporarily unavailable. Please try again later.", 503);
 
-  const userProvidedText = [body.details, ...conversation.filter((turn) => turn.role === "user").map((turn) => turn.content)].join("\\n");
+  const userProvidedText = [body.details, ...conversation.filter((turn) => turn.role === "user").map((turn) => turn.content)].join("\n");
   const context = [
     `Intent: ${body.intent}`,
     `Cooking mode: ${body.mode}`,
