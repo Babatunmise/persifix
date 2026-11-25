@@ -64,7 +64,7 @@ export type FoodReferenceIndex = {
 export type FoodMatchCandidate = {
   food: FoodReferenceRecord;
   matchType: "canonical_name" | "alias";
-  alias?: Pick<FoodReferenceAlias, "value" | "languageTag" | "geographicScope" | "aliasType">;
+  alias?: Pick<FoodReferenceAlias, "value" | "languageTag" | "geographicScope" | "aliasType" | "synonymScope">;
 };
 
 export type FoodMatchResult =
@@ -126,6 +126,7 @@ export function resolveFoodTerm(
   for (const alias of index.aliases) {
     if (
       alias.status !== "verified" ||
+      (alias.synonymScope !== undefined && alias.synonymScope !== "exact") ||
       normalizeFoodTerm(alias.value) !== normalizedQuery ||
       sourcesById.get(alias.sourceId)?.useStatus !== "approved"
     ) {
