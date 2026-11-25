@@ -52,7 +52,7 @@ export default function KitchenHub() {
           <h2 className="mt-4 font-serif text-[2.8rem] leading-[1.05] tracking-tight text-[#183D30] sm:text-6xl">What would you like to do?</h2>
           <p className="mt-5 max-w-xl text-base leading-7 text-[#68796E] sm:text-lg">Whether you’re cooking at home, eating out or looking for a snack, Kitchen helps you make a good food decision.</p>
         </div>
-        <section aria-label="Kitchen activities" className="mt-10 grid gap-4">
+        <section aria-label="Kitchen activities" className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
           {activities.map((activity, index) => {
             const content = (
               <>
@@ -60,21 +60,21 @@ export default function KitchenHub() {
                   <span className={`flex h-12 w-12 items-center justify-center rounded-2xl ${activity.tone} font-serif text-2xl text-[#315B49]`}>{activity.symbol}</span>
                   <span className={activity.active ? "rounded-full bg-[#E8EFE5] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#315B49]" : "rounded-full bg-[#F2F1EC] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8B918A]"}>{activity.status}</span>
                 </div>
-                <div className="mt-6 flex items-end justify-between gap-4">
+                <div className="mt-auto flex items-end justify-between gap-2 pt-5">
                   <div>
-                    <h3 className="font-serif text-2xl text-[#183D30] sm:text-3xl">{activity.title}</h3>
-                    <p className="mt-2 max-w-xl text-sm leading-6 text-[#718477]">{activity.description}</p>
+                    <h3 className="font-serif text-xl text-[#183D30] sm:text-3xl">{activity.title}</h3>
+                    <p className="mt-2 text-xs leading-5 text-[#718477] sm:text-sm sm:leading-6">{activity.description}</p>
                   </div>
                   <span aria-hidden="true" className="pb-1 text-2xl text-[#789080]">{activity.active ? "→" : "·"}</span>
                 </div>
               </>
             );
             return activity.active ? (
-              <Link key={activity.title} href={activity.href} className="group rounded-[1.75rem] border border-[#183D30]/10 bg-white/90 p-6 shadow-[0_12px_36px_rgba(24,61,48,0.045)] transition duration-200 hover:-translate-y-0.5 hover:border-[#6F927B]/50 hover:shadow-[0_18px_42px_rgba(24,61,48,0.09)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6F927B] focus-visible:ring-offset-2">
+              <Link key={activity.title} href={activity.href} className="group flex min-h-52 flex-col rounded-[1.5rem] border border-[#183D30]/10 bg-white/90 p-4 shadow-[0_12px_36px_rgba(24,61,48,0.045)] transition duration-200 hover:-translate-y-0.5 hover:border-[#6F927B]/50 hover:shadow-[0_18px_42px_rgba(24,61,48,0.09)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6F927B] focus-visible:ring-offset-2 sm:min-h-64 sm:rounded-[1.75rem] sm:p-6">
                 {content}
               </Link>
             ) : (
-              <div key={activity.title} aria-disabled="true" className="rounded-[1.75rem] border border-[#183D30]/8 bg-white/55 p-6">
+              <div key={activity.title} aria-disabled="true" className="flex min-h-52 flex-col rounded-[1.5rem] border border-[#183D30]/8 bg-white/55 p-4 sm:min-h-64 sm:rounded-[1.75rem] sm:p-6">
                 {content}
               </div>
             );
