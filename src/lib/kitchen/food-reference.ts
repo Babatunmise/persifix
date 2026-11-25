@@ -15,7 +15,7 @@ export type FoodAliasType =
   | "scientific_name"
   | "former_name";
 
-export type FoodSourceQualityStatus = "approved" | "review_required" | "excluded";
+export type FoodSourceQualityStatus = "approved" | "review_required" | "excluded" | "not_applicable";
 export type FoodSourceType = "ontology" | "food_composition_database" | "directory" | "curated_alias";
 
 export type FoodReferenceSource = {
