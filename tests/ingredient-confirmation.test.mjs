@@ -37,3 +37,14 @@ test("ingredients-first entry treats the submitted list as explicitly available"
   for (const item of ["chicken", "rice", "onions"]) assert.equal(isIngredientConfirmed(item, list, list), true, item);
   assert.equal(isIngredientConfirmed("tomatoes", list, list), false);
 });
+
+test("parses the structured inventory field with literal or real newline separators", async () => {
+  const { extractStructuredConfirmedIngredients } = await import("../src/lib/ingredient-confirmation.mjs");
+  const literal = "Meal: chicken stew\\nIngredients the user confirms having: I have chicken, rice, onions\\nSeasonings: salt, stock cubes";
+  const real = "Meal: chicken stew\nIngredients the user confirms having: I have chicken, rice, onions\nSeasonings: salt, stock cubes";
+  for (const details of [literal, real]) {
+    const list = extractStructuredConfirmedIngredients(details);
+    for (const item of ["chicken", "rice", "onions"]) assert.equal(isIngredientConfirmed(item, list, details), true, item);
+    assert.equal(isIngredientConfirmed("salt", list, details), false);
+  }
+});
