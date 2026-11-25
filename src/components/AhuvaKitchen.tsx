@@ -216,7 +216,7 @@ export default function AhuvaKitchen() {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#718477]">Ahuva · DASH-guided cooking</p>
-                <h3 className="mt-2 font-serif text-2xl text-[#183D30]">Meal ideas for you</h3>
+                <h3 className="mt-2 font-serif text-2xl text-[#183D30]">Your meal, made better</h3>
               </div>
               <div className="flex shrink-0 items-center gap-3">
                 
