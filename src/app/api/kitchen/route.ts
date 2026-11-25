@@ -171,8 +171,25 @@ export async function POST(req: NextRequest) {
       signal: AbortSignal.timeout(20_000),
     });
 
-    if (!response.ok) return jsonError("Ahuva could not respond just now. Please try again.", 502);
-    const data: unknown = await response.json();
+    if (!response.ok) {
+      const status = response.status;
+      const category =
+        status === 401 || status === 403 ? "provider_auth_rejected" :
+        status === 429 ? "provider_rate_limited" :
+        status >= 500 ? "provider_server_error" :
+        "provider_request_rejected";
+      // Log only the provider status and a fixed category. Never log request
+      // content, response bodies, credentials, or provider error messages.
+      console.error("[ahuva] DeepSeek request failed", { category, status });
+      return jsonError("Ahuva could not respond just now. Please try again.", 502);
+    }
+    let data: unknown;
+    try {
+      data = await response.json();
+    } catch {
+      console.error("[ahuva] DeepSeek returned invalid JSON", { category: "provider_invalid_json" });
+      return jsonError("Ahuva returned an incomplete response. Please try again.", 502);
+    }
     if (!isRecord(data) || !Array.isArray(data.choices) || !isRecord(data.choices[0]) ||
         !isRecord(data.choices[0].message) || !safeString(data.choices[0].message.content, 8_000)) {
       return jsonError("Ahuva returned an incomplete response. Please try again.", 502);
@@ -204,7 +221,15 @@ export async function POST(req: NextRequest) {
     }
 
     return Response.json(parsed);
-  } catch {
+  } catch (error) {
+    const category = error instanceof Error && error.name === "TimeoutError"
+      ? "provider_timeout"
+      : error instanceof Error && error.name === "AbortError"
+        ? "provider_aborted"
+        : "provider_network_error";
+    // Error messages can contain request or transport details; log only a
+    // fixed category and do not serialize the error object.
+    console.error("[ahuva] DeepSeek transport failed", { category });
     return jsonError("Ahuva is temporarily unavailable. Please try again.", 502);
   }
 }
