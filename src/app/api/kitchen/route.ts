@@ -76,10 +76,28 @@ function normalizeIngredientText(value: string): string {
   return value.toLocaleLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
 }
 
-function hasExplicitIngredientConfirmation(ingredient: string, userText: string): boolean {
+function hasExplicitIngredientConfirmation(
+  ingredient: string,
+  userText: string,
+  inventoryListWasExplicitlyProvided: boolean,
+): boolean {
+  const normalizedIngredient = normalizeIngredientText(ingredient);
+  if (!normalizedIngredient) return false;
+  const escapedIngredient = normalizedIngredient.split(" ").map((part) =>
+    part.replace(/[.*+?^${}()|[\]\\]/g, "\\function hasExplicitIngredientConfirmation(ingredient: string, userText: string): boolean {
   const normalizedIngredient = normalizeIngredientText(ingredient);
   const normalizedUserText = normalizeIngredientText(userText);
   return normalizedIngredient.length > 0 && (` ${normalizedUserText} `).includes(` ${normalizedIngredient} `);
+}"),
+  ).join("\\s+");
+  const negative = new RegExp(`\\b(?:no|not|without|out of|ran out of|do not have|don't have|doesn't have)\\s+(?:any\\s+)?${escapedIngredient}\\b`, "i");
+  if (negative.test(userText)) return false;
+  if (inventoryListWasExplicitlyProvided) {
+    const normalizedUserText = normalizeIngredientText(userText);
+    return (` ${normalizedUserText} `).includes(` ${normalizedIngredient} `);
+  }
+  const positive = new RegExp(`\\b(?:i have|i've got|i got|we have|we've got|available|in my kitchen|in my fridge|at home|just bought)\\s+(?:some\\s+)?${escapedIngredient}\\b`, "i");
+  return positive.test(userText);
 }
 
 export async function POST(req: NextRequest) {
@@ -147,7 +165,10 @@ export async function POST(req: NextRequest) {
   const apiKey = process.env.DEEPSEEK_API_KEY;
   if (!apiKey) return jsonError("Ahuva is temporarily unavailable. Please try again later.", 503);
 
-  const userProvidedText = [body.details, ...conversation.filter((turn) => turn.role === "user").map((turn) => turn.content)].join("\n");
+  const userProvidedText = [
+    body.intent === "ingredients" ? body.details : "",
+    ...conversation.filter((turn, index) => turn.role === "user" && index > 0).map((turn) => turn.content),
+  ].filter(Boolean).join("\n");
   const context = [
     `Intent: ${body.intent}`,
     `Cooking mode: ${body.mode}`,
@@ -193,7 +214,7 @@ export async function POST(req: NextRequest) {
     // Never label an ingredient as available unless the user explicitly named it.
     if (parsed.plan) {
       parsed.plan.ingredients = parsed.plan.ingredients.map((ingredient) =>
-        ingredient.availability === "available" && !hasExplicitIngredientConfirmation(ingredient.name, userProvidedText)
+        ingredient.availability === "available" && !hasExplicitIngredientConfirmation(ingredient.name, userProvidedText, body.intent === "ingredients")
           ? { ...ingredient, availability: "missing" as const }
           : ingredient,
       );
