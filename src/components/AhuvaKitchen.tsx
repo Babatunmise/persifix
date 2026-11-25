@@ -21,29 +21,6 @@ type CookingResult = {
   reason?: string;
 };
 
-const entryOptions: {
-  id: EntryIntent;
-  number: string;
-  title: string;
-  description: string;
-  placeholder: string;
-}[] = [
-  {
-    id: "meal",
-    number: "01",
-    title: "I know what I want to cook",
-    description: "Bring your meal idea. Ahuva helps you make it work better.",
-    placeholder: "Describe the meal and how you usually prepare it.",
-  },
-  {
-    id: "ingredients",
-    number: "02",
-    title: "I have ingredients",
-    description: "Start with what is available. Find a meal that makes sense.",
-    placeholder: "Tell Ahuva what ingredients you have available. Include quantities if you know them.",
-  },
-];
-
 export default function AhuvaKitchen() {
   const intent: EntryIntent = "meal";
   const [details, setDetails] = useState("");
@@ -154,7 +131,6 @@ export default function AhuvaKitchen() {
     await askAhuva(turns);
   }
 
-  const selectedEntry = entryOptions.find((option) => option.id === intent);
   const hasResult = result !== null;
 
   return (
