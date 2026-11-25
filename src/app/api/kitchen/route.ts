@@ -9,8 +9,6 @@ import {
   redactDirectIdentifiers,
 } from "@/lib/api-security";
 
-type CookingMode = "your-way" | "ahuvas-way";
-type CookingIntent = "meal" | "ingredients";
 type Turn = { role: "user" | "assistant"; content: string };
 
 const SENSITIVE_CONTEXT = /\\b(?:blood pressure|hypertension|hypotension|medication|medicines|prescription|diagnos(?:is|ed)|allerg(?:y|ies|ic)|intoleran(?:ce|t)|kidney disease|renal disease|diabetes|pregnan(?:t|cy)|heart failure|medical condition|doctor told me)\\b/i;
@@ -152,7 +150,7 @@ export async function POST(req: NextRequest) {
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: context },
-          ...conversation,
+          ...conversation.slice(1),
         ],
         response_format: { type: "json_object" },
         stream: false,
