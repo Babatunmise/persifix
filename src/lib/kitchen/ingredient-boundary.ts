@@ -62,7 +62,10 @@ export function allIngredientsAvailable(
   availableIngredients: readonly string[],
   proposedIngredients: readonly string[],
 ): boolean {
-  if (proposedIngredients.length === 0) return false;
-  return classifyIngredientsAgainstInventory(availableIngredients, proposedIngredients)
-    .every((item) => item.disposition === "available");
+  if (proposedIngredients.length === 0 || proposedIngredients.some((name) => typeof name !== "string" || !name.trim())) {
+    return false;
+  }
+  const classified = classifyIngredientsAgainstInventory(availableIngredients, proposedIngredients);
+  return classified.length === proposedIngredients.length &&
+    classified.every((item) => item.disposition === "available");
 }
