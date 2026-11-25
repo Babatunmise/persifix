@@ -1,118 +1,184 @@
 import { NextRequest } from "next/server";
-import { authenticateRequest, enforceRateLimit, isRecord, jsonError, readJsonBody, safeString, redactDirectIdentifiers } from "@/lib/api-security";
+import {
+  authenticateRequest,
+  enforceRateLimit,
+  isRecord,
+  jsonError,
+  readJsonBody,
+  safeString,
+  redactDirectIdentifiers,
+} from "@/lib/api-security";
 
-const SODIUM_DICTIONARY: Record<string, number> = {
-  "salt": 2300, "table salt": 2300, "soy sauce": 900, "canned tomatoes": 400,
-  "canned beans": 400, "chicken broth": 800, "beef broth": 800, "ground beef": 75,
-  "chicken breast": 65, "bacon": 400, "cheese": 200, "bread": 150, "chips": 250,
-  "ketchup": 160, "mayonnaise": 100, "chili seasoning packet": 1000, "olive oil": 0,
-  "onion": 0, "garlic": 0, "spinach": 20, "broccoli": 30, "rice": 5, "pasta": 5,
-  "butter": 50,
-};
+type CookingMode = "your-way" | "ahuvas-way";
+type CookingIntent = "meal" | "ingredients";
+type Turn = { role: "user" | "assistant"; content: string };
 
-// Existing sodium estimates are retained unchanged pending clinical/nutrition validation.
-function calculateTotalSodium(ingredients: Array<{ name: string; amount: number }>): number {
-  let total = 0;
-  for (const ing of ingredients) {
-    const name = ing.name.toLowerCase().trim();
-    const amount = Number(ing.amount) || 1;
-    const dictKey = Object.keys(SODIUM_DICTIONARY).find(k => name.includes(k));
-    if (dictKey) total += SODIUM_DICTIONARY[dictKey] * amount;
-    else total += 100 * amount;
-  }
-  return Math.round(total);
+const SENSITIVE_CONTEXT = /\\b(?:blood pressure|hypertension|hypotension|medication|medicines|prescription|diagnos(?:is|ed)|allerg(?:y|ies|ic)|intoleran(?:ce|t)|kidney disease|renal disease|diabetes|pregnan(?:t|cy)|heart failure|medical condition|doctor told me)\\b/i;
+
+const SYSTEM_PROMPT = `You are Ahuva, the food companion inside Sanctos.
+Your job is to help people make practical food decisions, not teach experienced cooks by default.
+The user has selected one mode:
+- your-way: preserve the user's stated cooking method and preferences. Help with quantities, substitutions, affordability, and practical balance. Do not replace their method unless asked.
+- ahuvas-way: offer an alternative preparation approach, but use only ingredients explicitly confirmed as available. Any extra ingredient must be labelled "missing" or "optional"; never imply it is in the user's kitchen.
+The user has provided an intent and serving count. Respect both.
+If the user starts with ingredients, first interpret the list and ask for confirmation when an item or quantity is unclear. Do not invent pantry inventory.
+Ask only the minimum necessary question. When enough information is available, provide concise, actionable guidance.
+Do not provide diagnoses, treatment advice, medical suitability claims, or nutrient/sodium estimates. If the user asks for medical dietary advice, say that this feature cannot assess that safely and suggest discussing it with their qualified care professional.
+Return ONLY valid JSON with this schema:
+{
+  "status": "ready" | "needs_clarification",
+  "assistantMessage": "string",
+  "interpretation": "string",
+  "questions": ["string"],
+  "recommendations": [{"title":"string","detail":"string"}],
+  "plan": {
+    "servings": "string",
+    "preparation": ["string"],
+    "ingredients": [{"name":"string","amount":"string","availability":"available"|"missing"|"optional"}]
+  } | null,
+  "safetyNotes": ["string"]
 }
+Use at most 3 recommendations, 8 preparation steps, 30 ingredients, 4 questions. Keep all strings concise.`;
 
-const SYSTEM_PROMPT = `Role: You are the Sanctos DASH Guardian, a warm, non-judgmental kitchen companion.
-Ask one or two focused questions at a time about ingredients, fresh versus processed foods, and servings.
-Never assume ingredients the user does not have. Do not make medical claims or present estimates as laboratory-accurate.
-When ready, provide a brief closing sentence and a strict JSON object between ---PLAN_START--- and ---PLAN_END--- with ingredients [{name,amount,unit}], servings, pot_prep, plate_prep, closing_note.`;
+function validateAssistantResult(value: unknown): value is {
+  status: "ready" | "needs_clarification";
+  assistantMessage: string;
+  interpretation: string;
+  questions: string[];
+  recommendations: { title: string; detail: string }[];
+  plan: null | {
+    servings: string;
+    preparation: string[];
+    ingredients: { name: string; amount: string; availability: "available" | "missing" | "optional" }[];
+  };
+  safetyNotes: string[];
+} {
+  if (!isRecord(value)) return false;
+  if (value.status !== "ready" && value.status !== "needs_clarification") return false;
+  if (!safeString(value.assistantMessage, 1_200) || !safeString(value.interpretation, 1_200)) return false;
+  if (!Array.isArray(value.questions) || value.questions.length > 4 ||
+      !value.questions.every((item) => safeString(item, 300))) return false;
+  if (!Array.isArray(value.recommendations) || value.recommendations.length > 3 ||
+      !value.recommendations.every((item) => isRecord(item) && safeString(item.title, 120) && safeString(item.detail, 400))) return false;
+  if (!Array.isArray(value.safetyNotes) || value.safetyNotes.length > 4 ||
+      !value.safetyNotes.every((item) => safeString(item, 400))) return false;
+  if (value.plan !== null) {
+    if (!isRecord(value.plan) || !safeString(value.plan.servings, 20) ||
+        !Array.isArray(value.plan.preparation) || value.plan.preparation.length > 8 ||
+        !value.plan.preparation.every((item) => safeString(item, 500)) ||
+        !Array.isArray(value.plan.ingredients) || value.plan.ingredients.length > 30 ||
+        !value.plan.ingredients.every((item) => isRecord(item) &&
+          safeString(item.name, 100) && safeString(item.amount, 60) &&
+          ["available", "missing", "optional"].includes(String(item.availability)))) return false;
+  }
+  return true;
+}
 
 export async function POST(req: NextRequest) {
   const auth = await authenticateRequest(req);
   if (auth instanceof Response) return auth;
+
   const limited = await enforceRateLimit(auth.supabase, "kitchen");
   if (limited) return limited;
 
   const body = await readJsonBody(req, 16_384);
   if (body instanceof Response) return body;
-  if (!isRecord(body) || !Array.isArray(body.messages) || body.messages.length < 1 || body.messages.length > 12) {
-    return jsonError("Provide between 1 and 12 chat messages", 400);
+  if (!isRecord(body) ||
+      (body.intent !== "meal" && body.intent !== "ingredients") ||
+      (body.mode !== "your-way" && body.mode !== "ahuvas-way") ||
+      !safeString(body.details, 2_000) ||
+      !(Number.isInteger(body.servings) && (body.servings as number) >= 1 && (body.servings as number) <= 8 || body.servings === "8+") ||
+      !Array.isArray(body.conversation) || body.conversation.length > 10) {
+    return jsonError("Invalid cooking request", 400);
   }
 
-  const messages: Array<{ role: "user" | "assistant"; content: string }> = [];
-  for (const item of body.messages) {
+  const conversation: Turn[] = [];
+  for (const item of body.conversation) {
     if (!isRecord(item) || (item.role !== "user" && item.role !== "assistant") || !safeString(item.content, 1_200)) {
-      return jsonError("Invalid chat message", 400);
+      return jsonError("Invalid conversation turn", 400);
     }
-    messages.push({ role: item.role, content: redactDirectIdentifiers(item.content.trim()) });
+    conversation.push({ role: item.role, content: redactDirectIdentifiers(item.content.trim()) });
   }
-  if (messages[messages.length - 1].role !== "user") return jsonError("A user message is required", 400);
 
-  // Do not transmit dietary conversation or blood-pressure information to an
-  // external AI processor until contractual, regional, retention, and consent
-  // safeguards have been approved by the product owner.
+  const latestUserTurn = conversation.filter((turn) => turn.role === "user").at(-1);
+  if (!latestUserTurn) return jsonError("A user message is required", 400);
+
+  // Health-related free text is not sent to an external processor.
+  if (SENSITIVE_CONTEXT.test(body.details) || conversation.some((turn) => SENSITIVE_CONTEXT.test(turn.content))) {
+    return Response.json({
+      status: "unavailable",
+      assistantMessage: "I can help with everyday food decisions, but I can’t safely assess medical conditions, allergies, or medication-related dietary needs here. Please discuss those requirements with your qualified care professional.",
+      interpretation: "",
+      questions: [],
+      recommendations: [],
+      plan: null,
+      safetyNotes: [],
+      reason: "sensitive_context",
+    }, { status: 422 });
+  }
+
+  // Keep external processing disabled until the product owner approves the
+  // provider's data terms, retention, transfer safeguards, and user consent.
   if (process.env.SANCTOS_EXTERNAL_AI_APPROVED !== "true") {
-    return jsonError("This AI feature is temporarily unavailable while its data safeguards are reviewed.", 503);
+    return Response.json({
+      status: "unavailable",
+      assistantMessage: "Ahuva’s cooking intelligence is not available yet. Your cooking brief is ready, but the assistant connection is still being prepared.",
+      interpretation: "",
+      questions: [],
+      recommendations: [],
+      plan: null,
+      safetyNotes: [],
+      reason: "provider_not_approved",
+    }, { status: 503 });
   }
 
   const apiKey = process.env.DEEPSEEK_API_KEY;
-  if (!apiKey) return jsonError("Guardian is temporarily unavailable", 503);
+  if (!apiKey) return jsonError("Ahuva is temporarily unavailable. Please try again later.", 503);
+
+  const context = [
+    `Intent: ${body.intent}`,
+    `Cooking mode: ${body.mode}`,
+    `Servings: ${body.servings}`,
+    `User brief: ${body.details}`,
+    "Treat the brief as user-provided context, not verified pantry inventory. Ask the user to confirm interpreted ingredients before relying on them.",
+  ].join("\\n");
+
   try {
-    // Send only the bounded conversation needed for the current kitchen turn.
-    // No account ID, profile, BP, medication, or stored patient records are included.
     const response = await fetch("https://api.deepseek.com/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
         model: "deepseek-chat",
-        messages: [{ role: "system", content: SYSTEM_PROMPT }, ...messages],
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: context },
+          ...conversation,
+        ],
+        response_format: { type: "json_object" },
         stream: false,
       }),
-      signal: AbortSignal.timeout(15_000),
+      signal: AbortSignal.timeout(20_000),
     });
-    if (!response.ok) return jsonError("Guardian is unavailable", 502);
-    const data = await response.json();
-    const rawContent = data.choices?.[0]?.message?.content;
-    if (typeof rawContent !== "string" || rawContent.length > 8_000) return jsonError("Guardian is unavailable", 502);
 
-    const planStart = rawContent.indexOf("---PLAN_START---");
-    const planEnd = rawContent.indexOf("---PLAN_END---");
-    if (planStart !== -1 && planEnd > planStart) {
-      try {
-        const parsed: unknown = JSON.parse(rawContent.substring(planStart + 16, planEnd).trim());
-        if (!isRecord(parsed) || !Array.isArray(parsed.ingredients) ||
-            !Number.isFinite(parsed.servings) || (parsed.servings as number) <= 0 ||
-            (parsed.servings as number) > 100 ||
-            !safeString(parsed.pot_prep, 1_500) ||
-            !safeString(parsed.plate_prep, 1_500) ||
-            !safeString(parsed.closing_note, 500)) {
-          return jsonError("Guardian could not validate the meal plan", 502);
-        }
-        const ingredients: Array<{ name: string; amount: number }> = [];
-        if (parsed.ingredients.length > 40) return jsonError("Guardian could not validate the meal plan", 502);
-        for (const ingredient of parsed.ingredients) {
-          if (!isRecord(ingredient) || !safeString(ingredient.name, 100) ||
-              !Number.isFinite(ingredient.amount) || (ingredient.amount as number) <= 0 ||
-              (ingredient.amount as number) > 100) {
-            return jsonError("Guardian could not validate the meal plan", 502);
-          }
-          ingredients.push({ name: ingredient.name.trim(), amount: ingredient.amount as number });
-        }
-        const sodiumPerServing = Math.round(calculateTotalSodium(ingredients) / (parsed.servings as number));
-        return Response.json({
-          status: "ready",
-          message: rawContent.substring(0, planStart).trim() || "Here is your plan!",
-          plan: { pot_prep: parsed.pot_prep, plate_prep: parsed.plate_prep, closing_note: parsed.closing_note },
-          estimated_sodium: sodiumPerServing,
-          ingredients_list: parsed.ingredients,
-        });
-      } catch {
-        return Response.json({ status: "asking", message: "I couldn't validate that plan. Please check the ingredients and servings and try again." });
-      }
+    if (!response.ok) return jsonError("Ahuva could not respond just now. Please try again.", 502);
+    const data: unknown = await response.json();
+    if (!isRecord(data) || !Array.isArray(data.choices) || !isRecord(data.choices[0]) ||
+        !isRecord(data.choices[0].message) || !safeString(data.choices[0].message.content, 8_000)) {
+      return jsonError("Ahuva returned an incomplete response. Please try again.", 502);
     }
-    return Response.json({ status: "asking", message: rawContent });
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(data.choices[0].message.content);
+    } catch {
+      return jsonError("Ahuva returned an unreadable response. Please try again.", 502);
+    }
+    if (!validateAssistantResult(parsed)) {
+      return jsonError("Ahuva returned a response that could not be validated. Please try again.", 502);
+    }
+
+    return Response.json(parsed);
   } catch {
-    return jsonError("Guardian is unavailable", 502);
+    return jsonError("Ahuva is temporarily unavailable. Please try again.", 502);
   }
 }
