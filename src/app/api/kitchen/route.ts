@@ -72,6 +72,16 @@ function validateAssistantResult(value: unknown): value is {
   return true;
 }
 
+function normalizeIngredientText(value: string): string {
+  return value.toLocaleLowerCase().normalize("NFKD").replace(/[\\u0300-\\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function hasExplicitIngredientConfirmation(ingredient: string, userText: string): boolean {
+  const normalizedIngredient = normalizeIngredientText(ingredient);
+  const normalizedUserText = normalizeIngredientText(userText);
+  return normalizedIngredient.length > 0 && (` ${normalizedUserText} `).includes(` ${normalizedIngredient} `);
+}
+
 export async function POST(req: NextRequest) {
   const auth = await authenticateRequest(req);
   if (auth instanceof Response) return auth;
@@ -81,11 +91,15 @@ export async function POST(req: NextRequest) {
 
   const body = await readJsonBody(req, 16_384);
   if (body instanceof Response) return body;
+  const validServings = typeof body === "object" && body !== null &&
+    ((typeof body.servings === "number" && Number.isInteger(body.servings) && body.servings >= 1 && body.servings <= 8) ||
+      (typeof body.servings === "string" && (/^[1-8]$/.test(body.servings) || body.servings === "8+")));
+
   if (!isRecord(body) ||
       (body.intent !== "meal" && body.intent !== "ingredients") ||
       (body.mode !== "your-way" && body.mode !== "ahuvas-way") ||
       !safeString(body.details, 2_000) ||
-      !(Number.isInteger(body.servings) && (body.servings as number) >= 1 && (body.servings as number) <= 8 || body.servings === "8+") ||
+      !validServings ||
       !Array.isArray(body.conversation) || body.conversation.length > 10) {
     return jsonError("Invalid cooking request", 400);
   }
@@ -133,13 +147,14 @@ export async function POST(req: NextRequest) {
   const apiKey = process.env.DEEPSEEK_API_KEY;
   if (!apiKey) return jsonError("Ahuva is temporarily unavailable. Please try again later.", 503);
 
+  const userProvidedText = [body.details, ...conversation.filter((turn) => turn.role === "user").map((turn) => turn.content)].join("\\n");
   const context = [
     `Intent: ${body.intent}`,
     `Cooking mode: ${body.mode}`,
     `Servings: ${body.servings}`,
     `User brief: ${body.details}`,
     "Treat the brief as user-provided context, not verified pantry inventory. Ask the user to confirm interpreted ingredients before relying on them.",
-  ].join("\\n");
+  ].join("\n");
 
   try {
     const response = await fetch("https://api.deepseek.com/chat/completions", {
@@ -173,6 +188,15 @@ export async function POST(req: NextRequest) {
     }
     if (!validateAssistantResult(parsed)) {
       return jsonError("Ahuva returned a response that could not be validated. Please try again.", 502);
+    }
+
+    // Never label an ingredient as available unless the user explicitly named it.
+    if (parsed.plan) {
+      parsed.plan.ingredients = parsed.plan.ingredients.map((ingredient) =>
+        ingredient.availability === "available" && !hasExplicitIngredientConfirmation(ingredient.name, userProvidedText)
+          ? { ...ingredient, availability: "missing" as const }
+          : ingredient,
+      );
     }
 
     return Response.json(parsed);
