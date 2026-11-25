@@ -98,7 +98,7 @@ export default function AhuvaKitchen() {
       setStage(2);
       return;
     }
-    if (stage === 2 && ingredients.trim()) {
+    if (stage === 2 && ingredients.trim() && seasonings.trim()) {
       setStage(3);
     }
   }
@@ -185,10 +185,10 @@ export default function AhuvaKitchen() {
                 <div className="rounded-2xl border border-[#E6EBE3] bg-[#F8FAF6] p-4">
                   <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#718477]">Seasonings & flavour</p>
                   <label htmlFor="ahuva-seasonings" className="mt-2 mb-2 block text-sm font-semibold text-[#29483B]">What do you use to season your food?</label>
-                  <p className="mb-3 text-xs leading-5 text-[#718477]">Include salt, stock cubes, seasoning blends, sauces, herbs and spices. This helps Ahuva consider hidden sources of sodium.</p>
-                  <textarea id="ahuva-seasonings" rows={2} maxLength={1000} value={seasonings} onChange={(event) => setSeasonings(event.target.value)} placeholder="For example: salt, stock, spice blends, sauces, garlic, herbs…" className="w-full resize-y rounded-xl border border-[#DCE4DA] bg-white px-4 py-3 text-sm leading-6 text-[#183D30] outline-none placeholder:text-[#9AA89D] focus:border-[#789780]" />
+                  <p className="mb-3 text-xs leading-5 text-[#718477]">Include salt, stock cubes, seasoning blends, sauces, herbs and spices. If you use none or are unsure, say so. This helps Ahuva consider hidden sources of sodium.</p>
+                  <textarea id="ahuva-seasonings" rows={2} required maxLength={1000} value={seasonings} onChange={(event) => setSeasonings(event.target.value)} placeholder="For example: salt, stock cubes, spice blends, sauces, garlic, herbs… Or type none / not sure." className="w-full resize-y rounded-xl border border-[#DCE4DA] bg-white px-4 py-3 text-sm leading-6 text-[#183D30] outline-none placeholder:text-[#9AA89D] focus:border-[#789780]" />
                 </div>
-                <div className="flex justify-end"><button type="submit" disabled={!ingredients.trim()} className="rounded-full bg-[#183D30] px-6 py-3 text-sm font-semibold text-white disabled:opacity-45">Continue →</button></div>
+                <div className="flex justify-end"><button type="submit" disabled={!ingredients.trim() || !seasonings.trim()} className="rounded-full bg-[#183D30] px-6 py-3 text-sm font-semibold text-white disabled:opacity-45">Continue →</button></div>
               </form>
             )}
 
