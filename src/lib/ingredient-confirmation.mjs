@@ -2,6 +2,20 @@ export function normalizeIngredientText(value) {
   return value.toLocaleLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
 }
 
+export function extractStructuredConfirmedIngredients(details) {
+  const lines = details.replace(/\\n/g, "\n").split(/\r?\n/);
+  const inventoryLine = lines.find((line) =>
+    /^Ingredients the user confirms having:/i.test(line.trim()),
+  );
+  if (!inventoryLine) return null;
+  const ingredients = inventoryLine
+    .trim()
+    .replace(/^Ingredients the user confirms having:\s*/i, "")
+    .replace(/^I have\s+/i, "")
+    .trim();
+  return ingredients || null;
+}
+
 export function extractConfirmedIngredientText(intent, details, conversation) {
   if (intent === "ingredients") return details;
   const confirmations = conversation
