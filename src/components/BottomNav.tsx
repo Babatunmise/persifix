@@ -8,7 +8,7 @@ export default function BottomNav() {
 
   const links = [
     { name: "Home", href: "/home", icon: "home" },
-    { name: "Kitchen", href: "/ahuva", icon: "restaurant" },
+    { name: "Ahuva", href: "/ahuva", icon: "restaurant" },
     { name: "Gym", href: "/gym", icon: "directions_walk" },
     { name: "Sanctuary", href: "/sanctuary", icon: "spa" },
     { name: "Medicine", href: "/medicine", icon: "medication" },
@@ -18,7 +18,7 @@ export default function BottomNav() {
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-alive-bg/90 backdrop-blur-xl border-t border-sanctos-navy/5 pb-safe max-w-md mx-auto">
       <div className="flex justify-around items-center h-20 px-2">
         {links.map((link) => {
-          const isActive = pathname === link.href || (link.href === "/ahuva" && pathname === "/kitchen");
+          const isActive = pathname === link.href;
           return (
             <Link
               key={link.name}
