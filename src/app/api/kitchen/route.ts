@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
 
   const body = await readJsonBody(req, 16_384);
   if (body instanceof Response) return body;
-  const validServings = typeof body === "object" && body !== null &&
+  const validServings = isRecord(body) &&
     ((typeof body.servings === "number" && Number.isInteger(body.servings) && body.servings >= 1 && body.servings <= 8) ||
       (typeof body.servings === "string" && (/^[1-8]$/.test(body.servings) || body.servings === "8+")));
 
