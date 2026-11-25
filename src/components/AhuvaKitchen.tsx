@@ -209,7 +209,7 @@ export default function AhuvaKitchen() {
                 <h3 className="mt-2 font-serif text-2xl text-[#183D30]">Meal ideas for you</h3>
               </div>
               <div className="flex shrink-0 items-center gap-3">
-                {result?.status !== "unavailable" && <button type="button" disabled={loading} onClick={() => switchMode(mode === "your-way" ? "ahuvas-way" : "your-way")} className="text-xs font-semibold text-[#315B49] underline underline-offset-4 disabled:opacity-40">{mode === "your-way" ? "See Ahuva’s Way" : "Return to Your Way"}</button>}
+                
                 <button type="button" onClick={reset} className="text-xs font-semibold text-[#718477] underline underline-offset-4">New meal</button>
               </div>
             </div>
