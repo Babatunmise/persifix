@@ -1,8 +1,12 @@
-import { redirect } from "next/navigation";
+import BottomNav from "@/components/BottomNav";
+import KitchenHub from "@/components/KitchenHub";
+import KitchenRouteGuard from "@/components/KitchenRouteGuard";
 
-// Ahuva is the companion experience inside Sanctos Kitchen.
-// Keep the legacy URL as a compatibility redirect so users enter the
-// realigned experience instead of the retired DASH Guardian interface.
 export default function KitchenPage() {
-  redirect("/ahuva");
+  return (
+    <KitchenRouteGuard>
+      <KitchenHub />
+      <BottomNav />
+    </KitchenRouteGuard>
+  );
 }
