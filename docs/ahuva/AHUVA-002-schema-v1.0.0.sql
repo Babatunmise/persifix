@@ -226,6 +226,32 @@ for each row execute function public.ahuva_assign_consent_revision();
 
 -- Call within the same transaction as the protected persistent write and hold
 -- the lock through commit. Withdrawal acquires the identical lock.
+create function public.ahuva_record_consent(
+  p_user_id uuid, p_scope text, p_expected_revision bigint,
+  p_action text, p_policy_version text, p_purpose text
+)
+returns bigint language plpgsql security definer
+set search_path = pg_catalog, public
+as $
+declare v_current bigint; v_next bigint;
+begin
+  perform pg_advisory_xact_lock(hashtextextended(p_user_id::text || ':' || p_scope, 0));
+  select scope_revision into v_current
+    from public.ahuva_consent_events
+    where user_id = p_user_id and scope = p_scope
+    order by scope_revision desc limit 1;
+  if v_current is distinct from p_expected_revision then
+    raise exception 'consent_revision_conflict' using errcode = '40001';
+  end if;
+  insert into public.ahuva_consent_events(user_id, scope, scope_revision, action, policy_version, purpose)
+    values (p_user_id, p_scope, 1, p_action, p_policy_version, p_purpose)
+    returning scope_revision into v_next;
+  return v_next;
+end;
+$;
+revoke all on function public.ahuva_record_consent(uuid, text, bigint, text, text, text) from public, anon, authenticated;
+grant execute on function public.ahuva_record_consent(uuid, text, bigint, text, text, text) to service_role;
+
 create function public.ahuva_require_consent(
   p_user_id uuid, p_scope text, p_expected_revision bigint
 )
@@ -792,7 +818,7 @@ to service_role;
 
 -- Consent history and accepted mutation records are append-only at the application boundary.
 -- FK cascades may remove child rows when their owning session/account is deleted.
-revoke update, delete, truncate on table public.ahuva_consent_events from service_role;
+revoke insert, update, delete, truncate on table public.ahuva_consent_events from service_role;
 revoke update, delete, truncate on table public.ahuva_session_mutations from service_role;
 
 commit;
@@ -806,6 +832,12 @@ commit;
 --    revision n+1, raises 42501, and writes no data.
 -- 3. Simultaneous grant/withdraw operations serialize; each gets a distinct
 --    increasing revision. The last lock holder's committed event is latest.
--- 4. A stale queued write with expected revision n is rejected after n+1 exists.
+-- 4. A delayed grant based on expected revision n, arriving after withdrawal n+1,
+--    fails compare-and-set with 40001 and cannot become the latest event.
+-- 5. A stale queued persistent write with expected revision n is rejected after n+1.
 -- Run these as two-connection PostgreSQL integration tests only after Gate B.
 -- This review defines expected outcomes and does not claim execution.
+
+-- Consent changes must use ahuva_record_consent (compare-and-set). Direct
+-- service_role INSERT is revoked so delayed stale grant requests cannot bypass
+-- the expected-revision check. The helper's insert trigger assigns revision.
