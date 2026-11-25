@@ -15,11 +15,16 @@ export type FoodAliasType =
   | "scientific_name"
   | "former_name";
 
+export type FoodSourceQualityStatus = "approved" | "review_required" | "excluded";
+export type FoodSourceType = "ontology" | "food_composition_database" | "directory" | "curated_alias";
+
 export type FoodReferenceSource = {
   id: string;
   name: string;
   datasetVersion: string;
   licence: string;
+  sourceType?: FoodSourceType;
+  qualityStatus?: FoodSourceQualityStatus;
   useStatus: FoodSourceUseStatus;
   attribution?: string;
   termsUrl?: string;

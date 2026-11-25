@@ -36,6 +36,7 @@ export type FoodOnImportCandidate = {
 export type FoodImportIssueCode =
   | "source_not_registered"
   | "source_not_approved"
+  | "source_quality_not_approved"
   | "missing_dataset_version"
   | "missing_licence"
   | "missing_attribution"
@@ -155,6 +156,9 @@ export function validateFoodImportBatch(
   } else {
     if (source.useStatus !== "approved") {
       errors.push({ severity: "error", code: "source_not_approved", message: "Source rights must be approved before import publication." });
+    }
+    if (source.qualityStatus !== "approved") {
+      errors.push({ severity: "error", code: "source_quality_not_approved", message: "Source quality must be independently approved before import publication." });
     }
     if (!nonEmpty(source.datasetVersion)) {
       errors.push({ severity: "error", code: "missing_dataset_version", message: "The source dataset version is required." });
