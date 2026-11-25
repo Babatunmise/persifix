@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { extractConfirmedIngredientText, isIngredientConfirmed } from "@/lib/ingredient-confirmation.mjs";
 import {
   authenticateRequest,
   enforceRateLimit,
@@ -73,70 +74,6 @@ function validateAssistantResult(value: unknown): value is {
   return true;
 }
 
-function normalizeIngredientText(value: string): string {
-  return value.toLocaleLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
-}
-
-function extractConfirmedIngredients(details: string): string | null {
-  // The client may send either real newlines or the literal "\n" separator.
-  const lines = details.replace(/\\n/g, "\n").split(/\r?\n/);
-  const inventoryLine = lines.find((line) =>
-    /^Ingredients the user confirms having:/i.test(line.trim()),
-  );
-  if (!inventoryLine) return null;
-
-  const ingredients = inventoryLine
-    .trim()
-    .replace(/^Ingredients the user confirms having:\s*/i, "")
-    .replace(/^I have\s+/i, "")
-    .trim();
-
-  return ingredients || null;
-}
-
-function hasExplicitIngredientConfirmation(
-  ingredient: string,
-  userText: string,
-  inventoryListWasExplicitlyProvided: boolean,
-): boolean {
-  const normalizedIngredient = normalizeIngredientText(ingredient);
-  const normalizedUserText = normalizeIngredientText(userText);
-  if (!normalizedIngredient) return false;
-
-  const paddedText = " " + normalizedUserText + " ";
-  const negativeMarkers = [
-    " no " + normalizedIngredient,
-    " not " + normalizedIngredient,
-    " without " + normalizedIngredient,
-    " out of " + normalizedIngredient,
-    " ran out of " + normalizedIngredient,
-    " do not have " + normalizedIngredient,
-    " don t have " + normalizedIngredient,
-    " doesn t have " + normalizedIngredient,
-  ];
-  if (negativeMarkers.some((marker) => paddedText.includes(marker + " "))) return false;
-
-  if (inventoryListWasExplicitlyProvided) {
-    return paddedText.includes(" " + normalizedIngredient + " ");
-  }
-
-  const positiveMarkers = [
-    " i have " + normalizedIngredient,
-    " i have some " + normalizedIngredient,
-    " i ve got " + normalizedIngredient,
-    " i ve got some " + normalizedIngredient,
-    " i got " + normalizedIngredient,
-    " we have " + normalizedIngredient,
-    " we have some " + normalizedIngredient,
-    " we ve got " + normalizedIngredient,
-    " available " + normalizedIngredient,
-    " in my kitchen " + normalizedIngredient,
-    " in my fridge " + normalizedIngredient,
-    " at home " + normalizedIngredient,
-    " just bought " + normalizedIngredient,
-  ];
-  return positiveMarkers.some((marker) => paddedText.includes(marker + " "));
-}
 export async function POST(req: NextRequest) {
   const auth = await authenticateRequest(req);
   if (auth instanceof Response) return auth;
@@ -208,7 +145,7 @@ export async function POST(req: NextRequest) {
   ].filter(Boolean).join("\n");
   const confirmedIngredientText =
     extractConfirmedIngredients(body.details) ??
-    (body.intent === "ingredients" ? userProvidedText : null);
+    extractConfirmedIngredientText(body.intent, body.details, conversation);
   const context = [
     "Task: help the user prepare the meal they asked for, with practical DASH-aligned adjustments.",
     `User's meal, confirmed ingredients, seasonings and serving count: ${body.details}`,
@@ -254,10 +191,10 @@ export async function POST(req: NextRequest) {
       // The selected serving count is authoritative; do not let the model drift.
       parsed.plan.servings = String(body.servings);
       parsed.plan.ingredients = parsed.plan.ingredients.map((ingredient) =>
-        ingredient.availability === "available" && !hasExplicitIngredientConfirmation(
+        ingredient.availability === "available" && !isIngredientConfirmed(
           ingredient.name,
-          confirmedIngredientText ?? userProvidedText,
-          confirmedIngredientText !== null || body.intent === "ingredients",
+          confirmedIngredientText ?? "",
+          userProvidedText,
         )
           ? { ...ingredient, availability: "missing" as const }
           : ingredient,
