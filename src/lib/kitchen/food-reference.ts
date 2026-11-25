@@ -51,6 +51,7 @@ export type FoodReferenceAlias = {
   aliasType: FoodAliasType;
   sourceId: string;
   sourceRecordId: string;
+  synonymScope?: "exact" | "broad" | "narrow" | "related" | "unknown";
   status: FoodRecordStatus;
 };
 
@@ -143,6 +144,7 @@ export function resolveFoodTerm(
           languageTag: alias.languageTag,
           geographicScope: alias.geographicScope,
           aliasType: alias.aliasType,
+          synonymScope: alias.synonymScope,
         },
       });
     }

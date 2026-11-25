@@ -119,14 +119,46 @@ This layer does not:
 
 Allergy and derivative checks require a separately reviewed taxonomy and deterministic guard. Unknown or ambiguous identity must remain unknown.
 
-## 8. Initial implementation
+## 8. Source evaluation and initial adapter
+
+### FoodOn evaluation
+
+FoodOn is selected as a candidate global identity/classification backbone, not as a complete food database or a sole source of truth. Its stated scope covers generic raw and processed food materials, and its repository describes integration of food material, taxonomy, processing and related concepts. The ontology repository declares CC BY 4.0. The current release and dependency-level provenance must still be pinned and reviewed before publication; imported ontology dependencies and third-party cross-references must not be assumed to share the same licence.
+
+FoodOn's table tooling can expose term IDs, English labels, taxonomy, characteristics, cross-references, synonyms and definitions. Its documented synonym export combines `hasSynonym` and `hasExactSynonym`; therefore, a flattened synonym list does not prove exact identity. Only scope-aware, explicitly exact synonyms can be considered for later alias verification. Broad, narrow, related or unknown synonyms remain non-matchable pending review.
+
+FoodOn's curation guidance notes that labels are generally singular and English-oriented; plural recognition is expected to be handled by external resources. Ahuva must not treat FoodOn as multilingual coverage. Language-tagged aliases must come from sources that explicitly provide language metadata or from separately reviewed curation.
+
+### Source separation
+
+- FoodOn: candidate identity, classification and food-form concepts.
+- FAO/INFOODS directory: discovery of food-composition datasets, not a dataset itself and not an endorsement of listed resources.
+- Food-composition adapters: independently evaluated sources with nutrient values, units, analytical methods, food identifiers, portions and publication/update metadata.
+- A dataset may be useful for identity mapping without being licensed or sufficiently documented for nutrition calculations.
+
+Every food-composition source must be assessed using the FAO/INFOODS Evaluation Framework: documentation, food coverage, food identification, component/value coverage and expression, data quality and compilation checks, public access, and publication/update frequency. This is a source-quality gate, not a clinical validation by itself.
+
+### Import pipeline
+
+1. Pin a source release/version and retain its licence, attribution, terms and provenance.
+2. Parse source terms into a staging format; retain source term IDs and original labels.
+3. Map terms to internal stable food IDs without changing the source identifier.
+4. Stage all imported food records and aliases as `pending_review`.
+5. Validate source rights, required provenance, unique IDs, language tags, orphan aliases and ambiguous name collisions.
+6. Keep non-exact or scope-unknown synonyms non-matchable. Do not infer language from geography.
+7. Independently review identity, form, processing state and alias semantics before marking records verified.
+8. Publish only reviewed records from approved sources; preserve attribution and source-version history.
+
+No bulk import is authorised by this specification. The first implementation is a review-only adapter and validation pipeline.
+
+## 9. Initial implementation
 
 The new food-reference module provides:
 - Global, region-neutral types for sources, foods and aliases.
 - Exact canonical-name and verified-alias matching.
 - Licence-aware eligibility.
 - Explicit ambiguous and not-found results.
-- No seeded food catalogue and no regional defaults.
+- No seeded food catalogue and no regional defaults.\n\n`src/lib/kitchen/food-reference-import.ts` adds a review-only FoodOn mapping adapter and import validator. Imported terms remain pending review; unapproved source rights, missing provenance, invalid language tags, orphan aliases and unreviewed verified records are rejected. The adapter does not ingest or publish FoodOn data.
 
 This is a foundation, not a complete food database or production nutrition engine.
 
@@ -139,4 +171,4 @@ This is a foundation, not a complete food database or production nutrition engin
 - Unknown terms remain not found.
 - Ingredient identity is not confused with inventory, substitution or nutrition.
 - No external AI, database migration or clinical claim is introduced.
-- The user interface uses globally neutral prompts rather than country-specific sample meals.
+- The user interface uses globally neutral prompts rather than country-specific sample meals.\n- FoodOn is treated as an identity backbone candidate, not as multilingual or nutrient-complete coverage.\n- Import candidates remain pending review and cannot resolve until source rights and record identity are approved.\n- Only explicitly exact, reviewed synonyms can later become matchable aliases.
