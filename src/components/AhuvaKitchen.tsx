@@ -67,7 +67,7 @@ export default function AhuvaKitchen() {
     setError(null);
   }
 
-  async function askAhuva(turns: Turn[]) {
+  async function askAhuva(turns: Turn[], modeOverride: CookingMode = mode) {
     if (!intent || !details.trim()) return;
     setLoading(true);
     setError(null);
@@ -85,7 +85,7 @@ export default function AhuvaKitchen() {
         },
         body: JSON.stringify({
           intent,
-          mode,
+          mode: modeOverride,
           details: details.trim(),
           servings,
           conversation: turns,
@@ -106,6 +106,12 @@ export default function AhuvaKitchen() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function switchMode(nextMode: CookingMode) {
+    if (nextMode === mode || loading || conversation.length === 0) return;
+    setMode(nextMode);
+    await askAhuva(conversation, nextMode);
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -217,7 +223,10 @@ export default function AhuvaKitchen() {
                 <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#718477]">Ahuva · {mode === "your-way" ? "Your Way" : "Ahuva’s Way"}</p>
                 <h3 className="mt-2 font-serif text-2xl text-[#183D30]">Your cooking session</h3>
               </div>
-              <button type="button" onClick={reset} className="text-xs font-semibold text-[#718477] underline underline-offset-4">New meal</button>
+              <div className="flex shrink-0 items-center gap-3">
+                {result?.status !== "unavailable" && <button type="button" disabled={loading} onClick={() => switchMode(mode === "your-way" ? "ahuvas-way" : "your-way")} className="text-xs font-semibold text-[#315B49] underline underline-offset-4 disabled:opacity-40">{mode === "your-way" ? "See Ahuva’s Way" : "Return to Your Way"}</button>}
+                <button type="button" onClick={reset} className="text-xs font-semibold text-[#718477] underline underline-offset-4">New meal</button>
+              </div>
             </div>
             <p className="mt-5 whitespace-pre-wrap text-[15px] leading-7 text-[#29483B]">{result?.assistantMessage}</p>
 
