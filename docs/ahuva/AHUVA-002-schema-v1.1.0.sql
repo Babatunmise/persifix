@@ -211,7 +211,7 @@ create index ahuva_consent_events_latest_idx
 create function public.ahuva_assign_consent_revision()
 returns trigger language plpgsql security definer
 set search_path = pg_catalog, public
-as $
+as $$
 begin
   perform pg_advisory_xact_lock(hashtextextended(new.user_id::text || ':' || new.scope, 0));
   select coalesce(max(scope_revision), 0) + 1 into new.scope_revision
@@ -219,7 +219,7 @@ begin
     where user_id = new.user_id and scope = new.scope;
   return new;
 end;
-$;
+$$;
 create trigger ahuva_consent_revision_before_insert
 before insert on public.ahuva_consent_events
 for each row execute function public.ahuva_assign_consent_revision();
@@ -232,7 +232,7 @@ create function public.ahuva_record_consent(
 )
 returns bigint language plpgsql security definer
 set search_path = pg_catalog, public
-as $
+as $$
 declare v_current bigint; v_next bigint;
 begin
   perform pg_advisory_xact_lock(hashtextextended(p_user_id::text || ':' || p_scope, 0));
@@ -248,7 +248,7 @@ begin
     returning scope_revision into v_next;
   return v_next;
 end;
-$;
+$$;
 revoke all on function public.ahuva_record_consent(uuid, text, bigint, text, text, text) from public, anon, authenticated;
 grant execute on function public.ahuva_record_consent(uuid, text, bigint, text, text, text) to service_role;
 
@@ -257,7 +257,7 @@ create function public.ahuva_require_consent(
 )
 returns bigint language plpgsql security definer
 set search_path = pg_catalog, public
-as $
+as $$
 declare v_revision bigint; v_action text;
 begin
   perform pg_advisory_xact_lock(hashtextextended(p_user_id::text || ':' || p_scope, 0));
@@ -270,7 +270,7 @@ begin
   end if;
   return v_revision;
 end;
-$;
+$$;
 revoke all on function public.ahuva_assign_consent_revision() from public, anon, authenticated;
 revoke all on function public.ahuva_require_consent(uuid, text, bigint) from public, anon, authenticated;
 grant execute on function public.ahuva_require_consent(uuid, text, bigint) to service_role;
