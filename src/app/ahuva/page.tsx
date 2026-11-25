@@ -30,7 +30,14 @@ export default function AhuvaPage() {
   }, [router]);
 
   if (checkingAccess) {
-    return <main className="min-h-screen bg-alive-bg" aria-label="Loading Ahuva" />;
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-alive-bg px-6 text-sanctos-navy">
+        <div role="status" aria-live="polite" className="flex items-center gap-3 text-sm">
+          <span aria-hidden="true" className="h-5 w-5 animate-spin rounded-full border-2 border-sanctos-green/20 border-t-sanctos-green" />
+          <span>Preparing your kitchen…</span>
+        </div>
+      </main>
+    );
   }
 
   return (
