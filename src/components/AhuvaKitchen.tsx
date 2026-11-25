@@ -17,14 +17,14 @@ const entryOptions: {
     number: "01",
     title: "I know what I want to cook",
     description: "Bring your meal idea. Ahuva helps you make it work better.",
-    placeholder: "e.g. Jollof rice for four people. I usually cook it with...",
+    placeholder: "e.g. Describe the meal, how you usually prepare it, and who it is for.",
   },
   {
     id: "ingredients",
     number: "02",
     title: "I have ingredients",
     description: "Start with what is available. Find a meal that makes sense.",
-    placeholder: "e.g. Rice, tomatoes, eggs, spinach and onions.",
+    placeholder: "e.g. List the ingredients you have. Include quantities if you know them.",
   },
 ];
 
@@ -145,7 +145,7 @@ export default function AhuvaKitchen() {
                     className={`rounded-2xl border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#789780] ${mode === "ahuvas-way" ? "border-[#315B49] bg-[#F0F5EE] ring-1 ring-[#315B49]" : "border-[#E1E8DE] bg-white hover:border-[#9BAF9D]"}`}
                   >
                     <span className="font-serif text-xl text-[#183D30]">Ahuva’s Way</span>
-                    <span className="mt-2 block text-sm leading-6 text-[#718477]">See Ahuva’s suggested ingredients and preparation method. Guidance is optional.</span>
+                    <span className="mt-2 block text-sm leading-6 text-[#718477]">See another preparation approach, grounded in the ingredients you have. Guidance is optional.</span>
                   </button>
                 </div>
               </div>
