@@ -742,4 +742,9 @@ grant all on table
   public.ahuva_nutrition_calculations, public.ahuva_nutrition_calculation_items
 to service_role;
 
+-- Consent history and accepted mutation records are append-only at the application boundary.
+-- FK cascades may remove child rows when their owning session/account is deleted.
+revoke update, delete, truncate on table public.ahuva_consent_events from service_role;
+revoke update, delete, truncate on table public.ahuva_session_mutations from service_role;
+
 commit;
