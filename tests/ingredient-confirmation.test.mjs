@@ -48,3 +48,10 @@ test("parses the structured inventory field with literal or real newline separat
     assert.equal(isIngredientConfirmed("salt", list, details), false);
   }
 });
+
+test("matches common singular and plural ingredient forms", () => {
+  const list = "tomatoes, potatoes, berries";
+  assert.equal(isIngredientConfirmed("tomato", list, list), true);
+  assert.equal(isIngredientConfirmed("potato", list, list), true);
+  assert.equal(isIngredientConfirmed("berry", list, list), true);
+});
