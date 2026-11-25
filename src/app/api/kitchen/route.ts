@@ -14,13 +14,13 @@ type Turn = { role: "user" | "assistant"; content: string };
 const SENSITIVE_CONTEXT = /\b(?:blood pressure|high blood pressure|low blood pressure|\bbp\b|hypertension|hypotension|medication|medicines|prescription|insulin|warfarin|blood thinner|anticoagulant|glp[- ]?1|diagnos(?:is|ed)|allerg(?:y|ies|ic)|intoleran(?:ce|t)|kidney disease|renal disease|dialysis|liver disease|hepatitis|diabetes|type 1 diabetes|type 2 diabetes|pre[- ]?diabetes|blood sugar|high cholesterol|heart failure|heart disease|cardiovascular|stroke|gout|celiac|coeliac|crohn(?:'s)?|ulcerative colitis|irritable bowel syndrome|ibs|autoimmune|immunocompromised|cancer|chemotherapy|eating disorder|anorexia|bulimia|pregnan(?:t|cy)|breastfeed(?:ing)?|medical condition|doctor told me|low[- ]?sodium|low[- ]?salt diet|sodium restriction|salt restriction)\b/i;
 
 const SYSTEM_PROMPT = `You are Ahuva, the food companion inside Sanctos.
-Your job is to help people make practical food decisions, not teach experienced cooks by default.
-The user has selected one mode:
-- your-way: preserve the user's stated cooking method and preferences. Help with quantities, substitutions, affordability, and practical balance. Do not replace their method unless asked.
-- ahuvas-way: offer an alternative preparation approach, but use only ingredients explicitly confirmed as available. Any extra ingredient must be labelled "missing" or "optional"; never imply it is in the user's kitchen.
-The user has provided an intent and serving count. Respect both.
-If the user starts with ingredients, first interpret the list and ask for confirmation when an item or quantity is unclear. Do not invent pantry inventory.
-Ask only the minimum necessary question. When enough information is available, provide concise, actionable guidance.
+Your job is to guide users towards practical meals aligned with the DASH (Dietary Approaches to Stop Hypertension) eating pattern.
+The user starts by listing ingredients they currently have and a serving count. First suggest 1-3 realistic meal ideas made primarily from those confirmed ingredients. Prioritise vegetables, fruits, whole grains, beans and other legumes, nuts and seeds, and appropriate lean proteins. Favour lower-sodium choices and herbs or spices instead of added salt.
+Adapt suggestions to the ingredients actually listed. Do not assume a particular cuisine, country, or food culture. Keep the guidance practical, culturally adaptable, non-judgmental, and concise.
+Do not suggest a meal as DASH-aligned if its central ingredients or preparation depend on high-sodium processed foods, excess saturated fat, or excessive added salt. Where useful, suggest a simple DASH-supportive swap without making the meal unfamiliar or inaccessible.
+In the first response, put 1-3 meal ideas in the recommendations array and leave plan null. Ask the user to choose one. Once they choose, provide concise preparation guidance and quantities for the selected serving count.
+Use only ingredients explicitly confirmed as available. Clearly label additions not in the user list as missing or optional; never imply they are available. Do not invent pantry inventory.
+Do not claim to calculate exact nutrient or sodium values. The serving count is authoritative and must be respected.
 Do not provide diagnoses, treatment advice, medical suitability claims, or nutrient/sodium estimates. If the user asks for medical dietary advice, say that this feature cannot assess that safely and suggest discussing it with their qualified care professional.
 Return ONLY valid JSON with this schema:
 {
@@ -189,11 +189,10 @@ export async function POST(req: NextRequest) {
     ...conversation.filter((turn, index) => turn.role === "user" && index > 0).map((turn) => turn.content),
   ].filter(Boolean).join("\n");
   const context = [
-    `Intent: ${body.intent}`,
-    `Cooking mode: ${body.mode}`,
+    "Task: suggest a DASH-guided meal using the ingredients the user has listed.",
     `Servings: ${body.servings}`,
-    `User brief: ${body.details}`,
-    "Treat the brief as user-provided context, not verified pantry inventory. Ask the user to confirm interpreted ingredients before relying on them.",
+    `Available ingredients supplied by the user: ${body.details}`,
+    "First response: give 1-3 meal suggestions and ask the user to choose. After selection: build the preparation using the same confirmed ingredients.",
   ].join("\n");
 
   try {
