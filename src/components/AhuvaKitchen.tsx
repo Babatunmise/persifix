@@ -158,19 +158,6 @@ export default function AhuvaKitchen() {
           <p className="mt-5 max-w-xl text-base leading-7 text-[#68796E] sm:text-lg">Tell Ahuva what you feel like eating. She’ll work with your ingredients and seasonings to help make it more DASH-friendly.</p>
         </div>
 
-        {!intent && (
-          <section aria-label="Choose how to start" className="mt-10 grid gap-4 sm:grid-cols-2">
-            {entryOptions.map((option) => (
-              <button key={option.id} type="button" onClick={() => setIntent(option.id)} className="group relative min-h-48 overflow-hidden rounded-[1.75rem] border border-[#183D30]/10 bg-white/85 p-6 text-left shadow-[0_12px_36px_rgba(24,61,48,0.045)] transition duration-200 hover:-translate-y-1 hover:border-[#6F927B]/50 hover:shadow-[0_18px_42px_rgba(24,61,48,0.09)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6F927B] focus-visible:ring-offset-2">
-                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#E8EFE5] font-serif text-lg text-[#315B49]">{option.number}</span>
-                <h3 className="mt-7 font-serif text-[1.55rem] leading-tight text-[#183D30]">{option.title}</h3>
-                <p className="mt-2 max-w-xs text-sm leading-6 text-[#718477]">{option.description}</p>
-                <span aria-hidden="true" className="absolute bottom-6 right-6 text-xl text-[#9AAB9D] transition group-hover:translate-x-1 group-hover:text-[#315B49]">→</span>
-              </button>
-            ))}
-          </section>
-        )}
-
         {!hasResult && (
           <section className="mt-10 max-w-2xl rounded-[1.75rem] border border-[#183D30]/10 bg-white/90 p-5 shadow-[0_16px_44px_rgba(24,61,48,0.06)] sm:p-7">
             <div className="flex items-start justify-between gap-4">
