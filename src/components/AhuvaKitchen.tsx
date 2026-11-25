@@ -4,7 +4,6 @@ import { useState, type FormEvent } from "react";
 import { supabase } from "@/supabase";
 
 type EntryIntent = "meal" | "ingredients";
-type CookingMode = "your-way" | "ahuvas-way";
 type Turn = { role: "user" | "assistant"; content: string };
 type CookingResult = {
   status: "ready" | "needs_clarification" | "unavailable";
@@ -67,7 +66,7 @@ export default function AhuvaKitchen() {
     setError(null);
   }
 
-  async function askAhuva(turns: Turn[], initial = false) {
+  async function askAhuva(turns: Turn[]) {
     if (!intent || !details.trim()) return;
     setLoading(true);
     setError(null);
@@ -113,7 +112,7 @@ export default function AhuvaKitchen() {
     if (!details.trim() || !intent || loading) return;
     const turns: Turn[] = [{ role: "user", content: details.trim() }];
     setConversation(turns);
-    await askAhuva(turns, true);
+    await askAhuva(turns);
   }
 
   async function submitFollowUp(event: FormEvent<HTMLFormElement>) {
