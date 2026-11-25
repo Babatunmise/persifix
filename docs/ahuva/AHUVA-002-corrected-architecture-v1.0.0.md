@@ -1,13 +1,13 @@
 # AHUVA-002 — Corrected Architecture Package
 
 **Specification:** AHUVA-002  
-**Version:** 1.0.0  
+**Version:** 1.1.0  
 **Status:** Corrected submission for Argus Gate A review  
 **Repository:** Babatunmise/persifix  
 **Branch:** feature/ahuva-definitive-realignment  
 **PR:** #7 — open, draft, unmerged  
 **Runtime code head assessed:** 1f0860085f1795b0ea7ed163c55af45afcbea682  
-**Schema definition:** [AHUVA-002-schema-v1.0.0.sql](./AHUVA-002-schema-v1.0.0.sql)  
+**Schema definition:** [AHUVA-002-schema-v1.1.0.sql](./AHUVA-002-schema-v1.1.0.sql)  
 **Supersedes:** AHUVA-001 schema proposal and the initial AHUVA-002 submission where they conflict.
 
 > This is a review artifact, not a migration. No SQL in this package has been executed. It grants no authority to create, apply, validate or roll back a migration.
@@ -38,7 +38,8 @@ The database is not a raw conversation archive or general AI memory store. Exter
 - Anonymous users have no Ahuva access. Authenticated clients have owner-scoped SELECT only. All mutations pass through trusted server operations.
 - Server operations independently authenticate the caller, derive owner identity from the verified session, validate consent and enforce ownership. A service-role key is server-only and must never be sent to a browser.
 - Session declarations are applied in the current session without requiring long-term personalisation consent.
-- Persistent consent is affirmative, granular, versioned and revocable. No consent is inferred from ordinary use, task entry, completion or feedback.
+- Persistent consent is affirmative, granular, monotonically revisioned per user/scope, serialized and revocable. No consent is inferred from ordinary use, task entry, completion or feedback.
+- Every persistent write takes the same transaction-scoped per-user/scope lock as consent changes and validates the exact latest granted revision before writing.
 - Session mutations are atomic, revision-checked and idempotent. Silent last-write-wins is prohibited.
 - Server timestamps determine timer expiry and ordering.
 - Unknown ingredient identity, allergen relation, cross-contact or nutrition values never become a positive safety claim or fabricated number.
@@ -48,7 +49,7 @@ The database is not a raw conversation archive or general AI memory store. Exter
 
 ## 2. Canonical schema and reconciliation
 
-The complete SQL definition is `AHUVA-002-schema-v1.0.0.sql`. It is the sole authoritative proposed SQL for Gate A. The prior `AHUVA-001-schema-proposal.sql` is retained as historical design evidence only and must not be applied or extended.
+The complete SQL definition is `AHUVA-002-schema-v1.1.0.sql`. It is the sole authoritative proposed SQL for Gate A. The prior `AHUVA-001-schema-proposal.sql` is retained as historical design evidence only and must not be applied or extended.
 
 ### Canonical entities
 
@@ -66,7 +67,8 @@ The complete SQL definition is `AHUVA-002-schema-v1.0.0.sql`. It is the sole aut
 - `ahuva_unit_conversions`
 
 **Consent and persistent profile**
-- `ahuva_consent_events` — append-only grant/withdrawal history by scope and policy version.
+- `ahuva_consent_events` — append-only grant/withdrawal history with a server-assigned monotonic revision per user and scope; uniqueness is `(user_id, scope, scope_revision)`.
+- Consent scopes include `pantry_storage` for deliberate cross-session pantry retention.
 - `ahuva_user_preferences`
 - `ahuva_user_preference_items`
 - `ahuva_user_constraints` — only persistent allergy, intolerance, medical and religious restriction records.
@@ -120,7 +122,7 @@ No authenticated client receives INSERT, UPDATE or DELETE table grants. Deletion
 
 ## 3. Consent-to-data-category matrix
 
-All consent scopes default to not granted. Current-session use is distinct from cross-session storage.
+All consent scopes default to not granted. Current-session use is distinct from cross-session storage. Consent revisions are monotonically increasing independently for each `(user_id, scope)`; revision numbers are assigned by the database, never supplied by a client.
 
 | Data category | Current-session treatment | Persistent storage requirement | Scope |
 |---|---|---|---|
@@ -130,6 +132,9 @@ All consent scopes default to not granted. Current-session use is distinct from 
 | Religious restrictions | May be declared and applied to the current session | Separate explicit opt-in; do not infer or derive religious identity | `religious_restrictions` |
 | Dislikes | May guide only the current task | Explicit opt-in for cross-session taste memory | `personalisation` |
 | Voluntary preferences | May guide only the current task | Explicit opt-in for cross-session preference memory | `personalisation` |
+| Pantry item, quantity, location and expiry | May be used for the current task | Separate, deliberate pantry-save action and active opt-in; conversation mention is never permission | `pantry_storage` |
+| Household size | May be used for current serving calculation | Optional personalisation; save only after explicit setting action and active `personalisation` consent | `personalisation` |
+| Locale, region and measurement system | May be used for current display/conversion | Operational settings only when user deliberately selects them; not optional personalisation and not inferred from IP, language or conversation | No personalisation consent; explicit setting action required |
 
 Feedback has its own `feedback_learning` scope. Submitting feedback is not consent to learn from it. A feedback note may contain sensitive information; do not automatically classify or copy its text into a profile.
 
@@ -147,7 +152,14 @@ For every persistent write, the trusted server must:
 7. Prevent an offline queued write from being accepted after withdrawal.
 8. Record only non-sensitive operational metadata; never log the underlying allergy, restriction or preference value.
 
-Persistent allergy/intolerance/medical restriction writes require `health_restrictions`. Persistent religious restriction writes require `religious_restrictions`. Dislikes and voluntary preferences are stored as preference items and require `personalisation`. A preference consent cannot authorise health or religious restriction storage.
+Persistent allergy/intolerance/medical restriction writes require `health_restrictions`. Persistent religious restriction writes require `religious_restrictions`. Dislikes, voluntary preferences and household size require `personalisation`. Pantry rows require `pantry_storage`; a user must deliberately invoke a save/add-to-pantry action that clearly states the item will be retained across sessions. Mentioning an ingredient, discussing a pantry, or asking for a recipe in ordinary conversation never grants pantry permission. Locale, region and measurement system are operational settings: persist only after the user explicitly selects or edits the setting, and do not infer them from IP address, device locale, language or conversation. A preference consent cannot authorise health, religious or pantry storage.
+
+#### Consent ordering and transaction contract
+
+- Every consent event carries `scope_revision`; a `BEFORE INSERT` database trigger obtains `pg_advisory_xact_lock` on a stable hash of `(user_id, scope)` and assigns `max(scope_revision)+1`. A unique constraint on `(user_id, scope, scope_revision)` is the final ordering invariant. `recorded_at` is audit metadata, not the ordering authority.
+- Consent grant/withdrawal operations acquire that same transaction-scoped advisory lock before inserting the event. Persistent writes acquire it before reading consent and hold it until the data write commits. The trusted operation passes the revision it observed; the database helper rejects the write unless the latest event is `granted` and its revision exactly matches the expected revision.
+- If a persistent write locks first, it may commit under the then-current grant; a subsequent withdrawal waits, receives the next revision and deletes/invalidates the scoped records in its own transaction. If withdrawal locks first, a waiting write observes the later withdrawal and fails. An older grant can never supersede a later withdrawal, irrespective of client clocks or request arrival timestamps.
+- The helper and trigger are server-only. Client DML remains revoked. Consent changes and affected data deletion are one transaction. Offline queued writes carry the expected scope revision and are rejected if it is no longer current.
 
 Withdrawal blocks future writes immediately. Existing records under that scope are removed from operational use and deleted through the approved withdrawal operation. A session-only declaration already made for an active task remains applicable to that task until the session is deleted or the user removes/corrects it.
 
@@ -168,12 +180,27 @@ These are proposed product defaults for Argus review, not legal retention advice
 | Persistent religious restrictions | Until withdrawal or deletion | Review prompt at least every 12 months; do not infer religious identity |
 | Optional feedback | 12 months | Delete/de-identify at expiry; learning only under separate feedback consent |
 | Temporary session context | 24 hours after last refresh | Purge automatically; no raw transcript archive |
-| Pantry items | Until user deletion; inactivity expiry requires separate approval | User-visible edit/export/delete |
+| Pantry items | Until user deletion or withdrawal of `pantry_storage` | Deliberate save action only; withdrawal disables pantry use and deletes pantry rows; user-visible edit/export/delete |
 | Nutrition calculations | 30 days unless explicitly retained in a supported user-facing history | Purge calculation and child items together |
 | Local browser cache | 7 days maximum since last server confirmation | Clear on sign-out/account switch and after deletion acknowledgement; no sensitive health values in cache |
 | Pending offline mutations | Retain until acknowledged/resolved, maximum 30 days | Warn before expiry; never silently discard a safety-restrictive update |
 | Operational security logs | 30 days proposed | Opaque IDs/event codes only; no transcripts, ingredient health notes, allergy values or tokens |
 | Backup copies containing deleted records | Provider-specific; no 35-day promise is currently supportable | Document actual backup source, rotation, expiry, access and restore behaviour before production |
+
+### Persistent profile field classification
+
+`ahuva_user_preferences` contains deliberately separated fields:
+
+| Field | Classification and purpose | Persistence rule | Consent |
+|---|---|---|---|
+| `user_id`, `id` | Ownership/record identity | System-derived identity; never client-selectable | None; security/operations |
+| `created_at`, `updated_at` | Operational audit timestamps | Server-generated | None |
+| `locale` | Operational display/language setting | Persist only after explicit user selection/edit; do not infer | None |
+| `region_code` | Operational regional food catalogue and unit context | Persist only after explicit user selection/edit; do not infer location | None |
+| `measurement_system` | Operational unit-format setting | Persist only after explicit user selection/edit; default is a UI fallback until confirmed, not proof of user preference | None |
+| `household_size` | Optional personalisation used for serving suggestions | Persist only after explicit user action while latest `personalisation` consent is granted | `personalisation` |
+
+`ahuva_pantry_items` stores user-provided pantry inventory (food identity/name, optional quantity/unit, storage location and expiry) to support pantry-aware recipe suggestions and inventory management. It is not required for ordinary cooking. Each insert/update requires a deliberate pantry save action and current `pantry_storage` consent in the same transaction. Pantry rows are not extracted from conversation history. Withdrawal deletes pantry rows and invalidates pending/offline pantry writes; individual deletion removes only the selected item. Account deletion removes all pantry rows. Pantry values may reveal household routines or dietary patterns, so logs must contain opaque IDs/event codes only.
 
 ### Individual deletion
 
@@ -393,3 +420,13 @@ The architecture is proposed, not implemented. Do not describe the SQL or privac
 No production database access or modification, migration, disposable migration validation, PR merge, production deployment, external AI activation or HEP-002 change has been performed or is authorised by this submission.
 
 — **Hephaestus Engineering Office**
+
+
+### AHUVA-002 Gate A conditional-review amendments — v1.1.0
+
+- Added per-user/per-scope monotonic consent revisions, uniqueness, transaction-scoped serialization and exact-revision validation for persistent writes.
+- Defined grant/withdrawal race outcomes and a deterministic concurrency test matrix; execution remains pending because Argus expressly prohibited SQL/database operations.
+- Added `pantry_storage` consent, deliberate-save semantics, and withdrawal/deletion/retention treatment; ordinary conversation never authorises pantry persistence.
+- Classified every `ahuva_user_preferences` field, separating operational settings from optional personalisation.
+- Strengthened `last_mutation_id` to a composite `(mutation_id, session_id, user_id)` foreign key and added matching uniqueness to the mutation ledger.
+- Architecture and authoritative SQL are versioned together as 1.1.0; no SQL was executed.
