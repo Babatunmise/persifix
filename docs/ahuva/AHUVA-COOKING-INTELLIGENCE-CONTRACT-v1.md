@@ -15,6 +15,7 @@ Cooking is decision support for people who already know how to cook.
 - Do not turn every interaction into a cooking lesson or medical consultation.
 - Ask only for information needed to make the next decision.
 - Never invent pantry contents, ingredient quantities, nutrient values or food-safety assurances.
+- Both modes must use only explicitly supplied available ingredients as confirmed inventory; any unconfirmed ingredient must be labelled as a suggestion or missing item.
 
 ## 2. User journey
 
@@ -39,6 +40,7 @@ type CookingRequestV1 = {
   intent: CookingIntent;
   mode: CookingMode;
   description: string;
+  availableIngredients?: string[]; // explicit user-provided inventory; empty means Ahuva must ask
   servings: number; // integer, 1–20
   context?: {
     budget?: { amount: number; currency: string };
@@ -142,6 +144,10 @@ The backend must validate every model/provider result against the response schem
 
 ### Ahuva's Way
 
+- Must be grounded in the same user-provided ingredient inventory as Your Way.
+- The mode changes the preparation approach, never what the user owns or has available.
+- If the inventory is missing or unclear, ask for it before proposing an ingredient-dependent plan.
+- Separate ingredients already available from suggested additions; additions are optional until the user approves them.
 - May propose an alternative method and ingredient list.
 - Distinguish required ingredients from optional additions.
 - Guided steps are provided only when requested or clearly useful.
