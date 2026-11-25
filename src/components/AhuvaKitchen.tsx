@@ -1,389 +1,359 @@
 "use client";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { supabase } from "@/supabase";
 
-type Ingredient = { name: string; amount: number; unit: string };
-type Recipe = {
-  id: string;
-  name: string;
-  cuisine: string;
-  description: string;
-  time: number;
-  servings: number;
-  image: string;
-  ingredients: Ingredient[];
-  steps: string[];
-  note: string;
-};
+type Message = { role: "ahuva" | "you"; text: string };
+type Stage = "discover" | "prepare" | "cook" | "complete";
 
-const RECIPES: Recipe[] = [
-  {
-    id: "tomato-rice",
-    name: "One-pot tomato rice",
-    cuisine: "West African",
-    description: "A comforting, tomato-rich rice with peppers, onion and warming spices.",
-    time: 35,
-    servings: 4,
-    image: "🍅",
-    ingredients: [
-      { name: "Long-grain rice", amount: 2, unit: "cups" },
-      { name: "Fresh tomatoes", amount: 4, unit: "medium" },
-      { name: "Red bell pepper", amount: 1, unit: "large" },
-      { name: "Onion", amount: 1, unit: "medium" },
-      { name: "Unsalted stock or water", amount: 2.5, unit: "cups" },
-      { name: "Ground paprika", amount: 1, unit: "tsp" },
-    ],
-    steps: [
-      "Rinse the rice until the water runs mostly clear, then set it aside.",
-      "Blend the tomatoes and red pepper into a coarse mixture.",
-      "Soften the chopped onion in a little oil, then add the tomato mixture and spices.",
-      "Cook the tomato base until reduced and fragrant.",
-      "Stir in the rice and stock or water. Cover and cook gently until the rice is tender.",
-      "Rest for 5 minutes, fluff gently and taste before serving.",
-    ],
-    note: "Keep your preferred flavour profile. Use unsalted stock and season gradually; the final taste depends on the ingredients you choose.",
-  },
-  {
-    id: "herb-pasta",
-    name: "Lemony herb pasta",
-    cuisine: "Mediterranean",
-    description: "A bright weeknight pasta with garlic, lemon, greens and fresh herbs.",
-    time: 25,
-    servings: 2,
-    image: "🍋",
-    ingredients: [
-      { name: "Pasta", amount: 180, unit: "g" },
-      { name: "Spinach", amount: 2, unit: "cups" },
-      { name: "Garlic", amount: 2, unit: "cloves" },
-      { name: "Lemon", amount: 1, unit: "whole" },
-      { name: "Olive oil", amount: 1, unit: "tbsp" },
-      { name: "Fresh parsley", amount: 2, unit: "tbsp" },
-    ],
-    steps: [
-      "Bring a pot of water to a boil and cook the pasta according to its packet.",
-      "Warm olive oil gently and cook the sliced garlic until fragrant.",
-      "Add spinach and stir until just wilted.",
-      "Add lemon zest, a squeeze of lemon and a splash of pasta water.",
-      "Toss the drained pasta through the sauce and finish with parsley.",
-    ],
-    note: "Choose the pasta shape you enjoy. A little pasta water helps the sauce cling without needing a heavy addition.",
-  },
-  {
-    id: "lentil-bowl",
-    name: "Warm lentil and vegetable bowl",
-    cuisine: "Global",
-    description: "A flexible, fibre-rich bowl with lentils, roasted vegetables and a yoghurt dressing.",
-    time: 40,
-    servings: 3,
-    image: "🥕",
-    ingredients: [
-      { name: "Cooked lentils", amount: 2, unit: "cups" },
-      { name: "Carrots", amount: 2, unit: "medium" },
-      { name: "Courgette", amount: 1, unit: "medium" },
-      { name: "Plain yoghurt", amount: 0.5, unit: "cup" },
-      { name: "Ground cumin", amount: 1, unit: "tsp" },
-      { name: "Lemon juice", amount: 1, unit: "tbsp" },
-    ],
-    steps: [
-      "Heat the oven to 200°C and cut the vegetables into bite-sized pieces.",
-      "Toss the vegetables with oil and cumin, then roast until tender and lightly browned.",
-      "Warm the cooked lentils in a small pan with a splash of water.",
-      "Mix yoghurt with lemon juice and a little black pepper.",
-      "Arrange lentils and vegetables in bowls and finish with the dressing.",
-    ],
-    note: "Use any vegetables you have that roast well. If using canned lentils, check the label and rinse them if appropriate.",
-  },
+const quickStarts = [
+  { title: "I know what I want to cook", detail: "Start with a meal in mind.", prompt: "I know what I want to cook." },
+  { title: "Use what I already have", detail: "Build around ingredients in my kitchen.", prompt: "Help me make something with what I already have." },
+  { title: "Make my usual meal work better", detail: "Keep the food I love. Help me adapt it.", prompt: "Help me improve a meal I already enjoy." },
+  { title: "I need a practical meal", detail: "Work around my time and situation.", prompt: "Help me organise a practical meal for today." },
 ];
 
-function calculateAge(dob: string | null) {
-  if (!dob) return 40;
-  const birthDate = new Date(dob);
-  const today = new Date();
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const month = today.getMonth() - birthDate.getMonth();
-  if (month < 0 || (month === 0 && today.getDate() < birthDate.getDate())) age--;
-  return age;
-}
-
-const formatAmount = (value: number) =>
-  Number.isInteger(value) ? String(value) : String(Number(value.toFixed(2)));
+const initialMessage: Message = {
+  role: "ahuva",
+  text: "I’m here. Tell me what you’re thinking of cooking, what you have, or what kind of help would make today easier.",
+};
 
 export default function AhuvaKitchen() {
-  const [selected, setSelected] = useState<Recipe | null>(null);
-  const [servings, setServings] = useState(4);
-  const [checked, setChecked] = useState<number[]>([]);
-  const [completed, setCompleted] = useState<number[]>([]);
-  const [seconds, setSeconds] = useState(0);
-  const [timerRunning, setTimerRunning] = useState(false);
+  const [stage, setStage] = useState<Stage>("discover");
+  const [messages, setMessages] = useState<Message[]>([initialMessage]);
+  const [composer, setComposer] = useState("");
+  const [task, setTask] = useState("");
+  const [mealName, setMealName] = useState("");
+  const [ingredientsText, setIngredientsText] = useState("");
+  const [stepsText, setStepsText] = useState("");
+  const [servings, setServings] = useState(2);
+  const [activeStep, setActiveStep] = useState(0);
+  const [checkedIngredients, setCheckedIngredients] = useState<number[]>([]);
+  const [completedSteps, setCompletedSteps] = useState<number[]>([]);
+  const [workspaceTab, setWorkspaceTab] = useState<"plan" | "prep" | "cook">("plan");
   const [timerMinutes, setTimerMinutes] = useState("5");
-  const [message, setMessage] = useState("");
-  const [notice, setNotice] = useState("");
-  const [activeFilter, setActiveFilter] = useState("All");
-  const [dailySummary, setDailySummary] = useState({ caloriesConsumed: 0, caloriesTarget: 2000, caloriesBurned: 0, sodiumConsumed: 0, loaded: false });
+  const [timerEnd, setTimerEnd] = useState<number | null>(null);
+  const [now, setNow] = useState(Date.now());
+  const [timerPaused, setTimerPaused] = useState<number | null>(null);
 
-  useEffect(() => {
-    if (!timerRunning) return;
-    const interval = window.setInterval(() => {
-      setSeconds((current) => Math.max(0, current - 1));
-    }, 1000);
-    return () => window.clearInterval(interval);
-  }, [timerRunning]);
-
-  useEffect(() => {
-    let active = true;
-    async function loadExistingDailySummary() {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!active || !userData.user) return;
-      const userId = userData.user.id;
-      let caloriesTarget = 2000;
-      const { data: profile } = await supabase.from("profiles")
-        .select("gender, date_of_birth, height, height_unit, weight, weight_unit, goals")
-        .eq("id", userId).maybeSingle();
-      if (profile) {
-        let weightKg = profile.weight || 70;
-        if (profile.weight_unit === "lb") weightKg *= 0.453592;
-        let heightCm = profile.height || 170;
-        if (profile.height_unit === "in") heightCm *= 2.54;
-        const age = calculateAge(profile.date_of_birth);
-        let bmr = (10 * weightKg) + (6.25 * heightCm) - (5 * age);
-        if (profile.gender === "male") bmr += 5;
-        else if (profile.gender === "female") bmr -= 161;
-        else bmr -= 78;
-        let tdee = bmr * 1.2;
-        if (profile.goals?.includes("lose_weight")) tdee -= 500;
-        caloriesTarget = Math.round(Math.max(tdee, 1200));
-      }
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const [mealResult, workoutResult] = await Promise.all([
-        supabase.from("meal_logs").select("calories, sodium_mg").eq("user_id", userId).gte("created_at", today.toISOString()),
-        supabase.from("workout_logs").select("calories_burned").eq("user_id", userId).gte("created_at", today.toISOString()),
-      ]);
-      if (!active) return;
-      const meals = mealResult.data || [];
-      const workouts = workoutResult.data || [];
-      setDailySummary({
-        caloriesConsumed: meals.reduce((sum, row) => sum + (Number(row.calories) || 0), 0),
-        sodiumConsumed: meals.reduce((sum, row) => sum + (Number(row.sodium_mg) || 0), 0),
-        caloriesBurned: workouts.reduce((sum, row) => sum + (Number(row.calories_burned) || 0), 0),
-        caloriesTarget,
-        loaded: true,
-      });
-    }
-    void loadExistingDailySummary();
-    return () => { active = false; };
-  }, []);
-
-  useEffect(() => {
-    if (timerRunning && seconds === 0) setTimerRunning(false);
-  }, [timerRunning, seconds]);
-
-  const filters = ["All", "West African", "Mediterranean", "Global"];
-  const visibleRecipes = useMemo(
-    () => activeFilter === "All" ? RECIPES : RECIPES.filter((recipe) => recipe.cuisine === activeFilter),
-    [activeFilter],
+  const ingredients = useMemo(
+    () => ingredientsText.split("\n").map((item) => item.trim()).filter(Boolean),
+    [ingredientsText],
   );
+  const steps = useMemo(
+    () => stepsText.split("\n").map((item) => item.trim()).filter(Boolean),
+    [stepsText],
+  );
+  const remaining = timerEnd ? Math.max(0, timerEnd - now) : timerPaused ?? 0;
+  const timerLabel = `${String(Math.floor(remaining / 60000)).padStart(2, "0")}:${String(Math.floor((remaining % 60000) / 1000)).padStart(2, "0")}`;
+  const progress = steps.length ? Math.round((completedSteps.length / steps.length) * 100) : 0;
 
-  function openRecipe(recipe: Recipe) {
-    setSelected(recipe);
-    setServings(recipe.servings);
-    setChecked([]);
-    setCompleted([]);
-    setSeconds(0);
-    setTimerRunning(false);
-    setNotice("");
-  }
+  useEffect(() => {
+    if (!timerEnd) return;
+    const id = window.setInterval(() => {
+      const time = Date.now();
+      setNow(time);
+      if (time >= timerEnd) setTimerEnd(null);
+    }, 500);
+    return () => window.clearInterval(id);
+  }, [timerEnd]);
 
-  function scaledAmount(amount: number) {
-    if (!selected) return amount;
-    return amount * servings / selected.servings;
+  function begin(prompt: string) {
+    const clean = prompt.trim();
+    if (!clean) return;
+    setTask(clean);
+    setMessages((current) => [...current, { role: "you", text: clean }]);
+    setStage("prepare");
+    setWorkspaceTab("plan");
+    setComposer("");
   }
 
   function sendMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!message.trim()) return;
-    setNotice("Ahuva's live conversational service is not connected yet. Your message has not been sent or stored.");
-    setMessage("");
+    begin(composer);
   }
 
   function startTimer() {
     const minutes = Number(timerMinutes);
-    if (!Number.isFinite(minutes) || minutes < 1 || minutes > 180) return;
-    setSeconds(Math.round(minutes * 60));
-    setTimerRunning(true);
+    if (!Number.isFinite(minutes) || minutes < 1 || minutes > 240) return;
+    setTimerPaused(null);
+    setTimerEnd(Date.now() + Math.round(minutes * 60000));
+    setNow(Date.now());
   }
 
-  const timerLabel = `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+  function pauseTimer() {
+    if (!timerEnd) return;
+    setTimerPaused(Math.max(0, timerEnd - Date.now()));
+    setTimerEnd(null);
+  }
+
+  function resumeTimer() {
+    if (timerPaused === null) return;
+    setTimerEnd(Date.now() + timerPaused);
+    setTimerPaused(null);
+    setNow(Date.now());
+  }
+
+  function resetTimer() {
+    setTimerEnd(null);
+    setTimerPaused(null);
+  }
+
+  function resetSession() {
+    setStage("discover");
+    setMessages([initialMessage]);
+    setTask("");
+    setMealName("");
+    setIngredientsText("");
+    setStepsText("");
+    setServings(2);
+    setCheckedIngredients([]);
+    setCompletedSteps([]);
+    setActiveStep(0);
+    setWorkspaceTab("plan");
+    resetTimer();
+  }
 
   return (
-    <main className="min-h-screen bg-alive-bg pb-28 text-sanctos-navy">
-      <header className="sticky top-0 z-30 border-b border-sanctos-navy/5 bg-alive-bg/90 px-5 py-4 backdrop-blur-xl sm:px-8">
-        <div className="mx-auto flex max-w-6xl items-center justify-between">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-sanctos-green">My Sanctos</p>
-            <h1 className="font-serif text-3xl tracking-tight">Ahuva<span className="ml-2 text-sm font-sans font-medium text-sanctos-green">Kitchen</span></h1>
+    <main className="min-h-screen bg-[#F8F6EF] pb-28 text-[#173B30]">
+      <header className="sticky top-0 z-40 border-b border-[#173B30]/10 bg-[#F8F6EF]/95 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-[1440px] items-center justify-between px-4 py-3 sm:px-7 lg:px-10">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#173B30] text-lg text-[#F8F6EF]">a</div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#527565]">Sanctos · Kitchen</p>
+              <h1 className="font-serif text-2xl leading-none tracking-tight">Ahuva</h1>
+            </div>
           </div>
-          <div className="flex items-center gap-2 rounded-full border border-sanctos-green/20 bg-white px-3 py-2 text-xs font-semibold">
-            <span className="h-2 w-2 rounded-full bg-sanctos-green" aria-hidden="true" />
-            Awake
+          <div className="flex items-center gap-2 rounded-full border border-[#173B30]/10 bg-white/70 px-3 py-2">
+            <span className="h-2 w-2 rounded-full bg-[#D4A66A]" />
+            <span className="text-[11px] font-medium text-[#527565]">Your Kitchen Guardian</span>
           </div>
         </div>
       </header>
 
-      <div className="mx-auto max-w-6xl px-5 pt-4 sm:px-8">
-        <section className="grid grid-cols-2 gap-3 rounded-2xl border border-sanctos-sand bg-white p-4 sm:grid-cols-4" aria-label="Existing daily food and activity summary">
-          <div><p className="text-[10px] font-bold uppercase tracking-wider text-sanctos-navy/45">Calories recorded</p><p className="mt-1 text-lg font-semibold tabular-nums">{dailySummary.loaded ? dailySummary.caloriesConsumed.toLocaleString() : "—"} <span className="text-xs font-normal text-sanctos-navy/50">kcal</span></p></div>
-          <div><p className="text-[10px] font-bold uppercase tracking-wider text-sanctos-navy/45">Daily target</p><p className="mt-1 text-lg font-semibold tabular-nums">{dailySummary.loaded ? (dailySummary.caloriesTarget + dailySummary.caloriesBurned).toLocaleString() : "—"} <span className="text-xs font-normal text-sanctos-navy/50">kcal</span></p></div>
-          <div><p className="text-[10px] font-bold uppercase tracking-wider text-sanctos-navy/45">Sodium recorded</p><p className="mt-1 text-lg font-semibold tabular-nums">{dailySummary.loaded ? dailySummary.sodiumConsumed.toLocaleString() : "—"} <span className="text-xs font-normal text-sanctos-navy/50">mg</span></p></div>
-          <div><p className="text-[10px] font-bold uppercase tracking-wider text-sanctos-navy/45">Activity calories</p><p className="mt-1 text-lg font-semibold tabular-nums">{dailySummary.loaded ? dailySummary.caloriesBurned.toLocaleString() : "—"} <span className="text-xs font-normal text-sanctos-navy/50">kcal</span></p></div>
-          <p className="col-span-2 text-[10px] leading-4 text-sanctos-navy/40 sm:col-span-4">Existing Sanctos log summary. Historical entries may contain estimates; these figures are not a verified nutritional analysis.</p>
-        </section>
-      </div>
+      <div className="mx-auto max-w-[1440px] px-4 pt-5 sm:px-7 lg:px-10">
+        <div className="mb-5 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#789080]">A more thoughtful way to cook</p>
+            <p className="mt-1 text-sm text-[#527565]">Better decisions, without losing yourself.</p>
+          </div>
+          {stage !== "discover" && (
+            <button onClick={resetSession} className="rounded-full border border-[#173B30]/15 px-3 py-2 text-xs font-semibold text-[#527565] transition hover:bg-white">
+              New kitchen session
+            </button>
+          )}
+        </div>
 
-      <div className="mx-auto grid max-w-6xl gap-8 px-5 py-7 sm:px-8 lg:grid-cols-[minmax(0,1fr)_340px] lg:py-10">
-        <section className="min-w-0">
-          <div className="mb-8 rounded-[2rem] bg-sanctos-navy p-6 text-white sm:p-8">
-            <div className="mb-5 flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-2xl" aria-hidden="true">✳</div>
-              <div>
-                <p className="font-serif text-xl">Your kitchen, your way.</p>
-                <p className="text-xs text-white/60">A thoughtful space for everyday food decisions.</p>
+        <div className="grid items-start gap-5 xl:grid-cols-[minmax(320px,0.82fr)_minmax(0,1.18fr)]">
+          <section className="overflow-hidden rounded-[28px] border border-[#173B30]/10 bg-white shadow-[0_12px_40px_rgba(23,59,48,0.045)]">
+            <div className="border-b border-[#173B30]/8 bg-[#E8EFE5] px-5 py-5 sm:px-7">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#527565]">Your companion</p>
+                  <h2 className="mt-1 font-serif text-2xl">Let’s figure it out together.</h2>
+                </div>
+                <div className="flex h-11 w-11 items-center justify-center rounded-full border border-[#527565]/20 bg-white/70 font-serif text-xl text-[#527565]">a</div>
               </div>
             </div>
-            <h2 className="max-w-xl font-serif text-3xl leading-tight sm:text-4xl">What sounds good today?</h2>
-            <p className="mt-3 max-w-xl text-sm leading-6 text-white/75">Start with what you love, what you have, or the time you can spare. Good food should still feel like yours.</p>
-            <form onSubmit={sendMessage} className="mt-6 flex gap-2 rounded-2xl bg-white p-2">
-              <label htmlFor="ahuva-prompt" className="sr-only">Tell Ahuva what you would like to cook</label>
-              <input id="ahuva-prompt" value={message} onChange={(event) => setMessage(event.target.value)} placeholder="e.g. I have tomatoes, rice and 30 minutes..." className="min-w-0 flex-1 bg-transparent px-3 text-sm text-sanctos-navy outline-none placeholder:text-sanctos-navy/40" />
-              <button type="submit" className="rounded-xl bg-sanctos-green px-4 py-3 text-sm font-semibold text-white transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">Send</button>
-            </form>
-            {notice && <p role="status" className="mt-3 rounded-xl bg-white/10 px-3 py-2 text-xs leading-5 text-white/80">{notice}</p>}
-          </div>
 
-          {selected ? (
-            <section aria-labelledby="recipe-title" className="rounded-[2rem] border border-sanctos-sand bg-white p-5 shadow-sm sm:p-7">
-              <button onClick={() => setSelected(null)} className="mb-5 text-sm font-semibold text-sanctos-green hover:underline">← Back to ideas</button>
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-sanctos-green">{selected.cuisine} · {selected.time} min</p>
-                  <h2 id="recipe-title" className="mt-2 font-serif text-3xl">{selected.name}</h2>
-                  <p className="mt-2 max-w-xl text-sm leading-6 text-sanctos-navy/65">{selected.description}</p>
-                </div>
-                <div className="text-5xl" aria-hidden="true">{selected.image}</div>
-              </div>
-
-              <div className="mt-7 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-alive-bg p-4">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-sanctos-navy/50">Servings</p>
-                  <p className="mt-1 text-sm font-semibold">{servings} portions</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button aria-label="Decrease servings" onClick={() => setServings((value) => Math.max(1, value - 1))} className="h-10 w-10 rounded-full border border-sanctos-sand bg-white text-lg">−</button>
-                  <span className="min-w-6 text-center font-semibold tabular-nums">{servings}</span>
-                  <button aria-label="Increase servings" onClick={() => setServings((value) => Math.min(20, value + 1))} className="h-10 w-10 rounded-full border border-sanctos-sand bg-white text-lg">+</button>
-                </div>
-              </div>
-
-              <div className="mt-7 grid gap-8 md:grid-cols-[0.85fr_1.15fr]">
-                <div>
-                  <h3 className="font-serif text-xl">Ingredients</h3>
-                  <p className="mt-1 text-xs text-sanctos-navy/50">Quantities adjust with servings.</p>
-                  <ul className="mt-4 space-y-3">
-                    {selected.ingredients.map((ingredient, index) => (
-                      <li key={ingredient.name} className="flex items-start gap-3 text-sm">
-                        <input id={`ingredient-${index}`} type="checkbox" checked={checked.includes(index)} onChange={(event) => setChecked((items) => event.target.checked ? [...items, index] : items.filter((item) => item !== index))} className="mt-0.5 h-4 w-4 accent-sanctos-green" />
-                        <label htmlFor={`ingredient-${index}`} className={checked.includes(index) ? "text-sanctos-navy/40 line-through" : ""}>{ingredient.name}<span className="ml-2 font-semibold text-sanctos-green">{formatAmount(scaledAmount(ingredient.amount))} {ingredient.unit}</span></label>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <div>
-                  <h3 className="font-serif text-xl">Cooking steps</h3>
-                  <p className="mt-1 text-xs text-sanctos-navy/50">Tick each step as you go.</p>
-                  <ol className="mt-4 space-y-4">
-                    {selected.steps.map((step, index) => (
-                      <li key={step} className="flex gap-3">
-                        <input id={`step-${index}`} type="checkbox" checked={completed.includes(index)} onChange={(event) => setCompleted((items) => event.target.checked ? [...items, index] : items.filter((item) => item !== index))} className="mt-1 h-4 w-4 accent-sanctos-green" />
-                        <label htmlFor={`step-${index}`} className="text-sm leading-6">{step}</label>
-                      </li>
-                    ))}
-                  </ol>
-                </div>
-              </div>
-
-              <div className="mt-7 rounded-2xl bg-sanctos-sand/50 p-4">
-                <p className="text-sm font-semibold">A little kitchen note</p>
-                <p className="mt-1 text-sm leading-6 text-sanctos-navy/70">{selected.note}</p>
-              </div>
-
-              <div className="mt-6 rounded-2xl border border-sanctos-sand p-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <h3 className="font-serif text-lg">Kitchen timer</h3>
-                    <p className="text-xs text-sanctos-navy/50">This preview timer runs while this page stays open.</p>
-                  </div>
-                  <p className="font-mono text-2xl tabular-nums" aria-live="off">{timerLabel}</p>
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <label htmlFor="timer-minutes" className="sr-only">Timer minutes</label>
-                  <input id="timer-minutes" type="number" min="1" max="180" value={timerMinutes} onChange={(event) => setTimerMinutes(event.target.value)} className="w-20 rounded-xl border border-sanctos-sand px-3 py-2 text-sm" />
-                  <button onClick={startTimer} className="rounded-xl bg-sanctos-green px-4 py-2 text-sm font-semibold text-white">Start timer</button>
-                  <button onClick={() => setTimerRunning(false)} className="rounded-xl border border-sanctos-sand px-4 py-2 text-sm font-semibold">Pause</button>
-                  <button onClick={() => { setTimerRunning(false); setSeconds(0); }} className="rounded-xl border border-sanctos-sand px-4 py-2 text-sm font-semibold">Reset</button>
-                </div>
-              </div>
-              <p className="mt-5 text-xs leading-5 text-sanctos-navy/45">Stage 1 interactive preview: progress and timer state are held in this page only. Persistent cooking sessions and background-safe timers are planned for a later implementation stage. Nutritional values are intentionally not estimated in this preview.</p>
-            </section>
-          ) : (
-            <>
-              <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-sanctos-green">A few places to begin</p>
-                  <h2 className="mt-1 font-serif text-2xl">Ideas for your table</h2>
-                </div>
-                <span className="text-xs text-sanctos-navy/45">Illustrative recipes</span>
-              </div>
-              <div className="mb-5 flex flex-wrap gap-2" aria-label="Filter recipes">
-                {filters.map((filter) => <button key={filter} onClick={() => setActiveFilter(filter)} aria-pressed={activeFilter === filter} className={`rounded-full px-4 py-2 text-xs font-semibold transition ${activeFilter === filter ? "bg-sanctos-navy text-white" : "border border-sanctos-sand bg-white text-sanctos-navy/65"}`}>{filter}</button>)}
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                {visibleRecipes.map((recipe) => (
-                  <article key={recipe.id} className="overflow-hidden rounded-[1.7rem] border border-sanctos-sand bg-white shadow-sm">
-                    <div className="flex h-32 items-center justify-center bg-sanctos-sand/45 text-6xl" aria-hidden="true">{recipe.image}</div>
-                    <div className="p-5">
-                      <div className="flex items-center justify-between gap-2 text-[11px] font-semibold text-sanctos-green"><span>{recipe.cuisine}</span><span>{recipe.time} min</span></div>
-                      <h3 className="mt-2 font-serif text-xl">{recipe.name}</h3>
-                      <p className="mt-2 min-h-12 text-sm leading-6 text-sanctos-navy/60">{recipe.description}</p>
-                      <button onClick={() => openRecipe(recipe)} className="mt-4 w-full rounded-full bg-sanctos-navy px-4 py-3 text-sm font-semibold text-white transition hover:bg-sanctos-green">Explore recipe</button>
+            <div className="flex min-h-[300px] flex-col gap-4 p-5 sm:min-h-[420px] sm:p-7">
+              <div className="space-y-4" aria-live="polite">
+                {messages.map((message, index) => (
+                  <div key={index} className={message.role === "you" ? "ml-auto max-w-[88%]" : "mr-auto max-w-[94%]"}>
+                    {message.role === "ahuva" && <p className="mb-1.5 pl-1 text-[10px] font-bold uppercase tracking-[0.16em] text-[#789080]">Ahuva</p>}
+                    <div className={message.role === "you"
+                      ? "rounded-2xl rounded-br-md bg-[#173B30] px-4 py-3 text-sm leading-6 text-white"
+                      : "rounded-2xl rounded-tl-md bg-[#F3F4EE] px-4 py-3 text-sm leading-6 text-[#29483B]"}>
+                      {message.text}
                     </div>
-                  </article>
+                  </div>
                 ))}
               </div>
-            </>
-          )}
-        </section>
 
-        <aside className="space-y-4">
-          <section className="rounded-[1.7rem] border border-sanctos-sand bg-white p-5">
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-sanctos-green">Ahuva's approach</p>
-            <h2 className="mt-2 font-serif text-2xl">Food first. You always.</h2>
-            <p className="mt-3 text-sm leading-6 text-sanctos-navy/65">Your culture, preferences and everyday life belong in the kitchen. Health context should guide support without taking over the conversation.</p>
+              {stage === "discover" && (
+                <div className="mt-auto pt-3">
+                  <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.16em] text-[#789080]">A place to begin</p>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {quickStarts.map((item) => (
+                      <button key={item.title} onClick={() => begin(item.prompt)} className="rounded-2xl border border-[#173B30]/10 bg-[#FCFCF8] p-3 text-left transition hover:border-[#527565]/40 hover:bg-[#E8EFE5]/50">
+                        <span className="block text-xs font-semibold text-[#173B30]">{item.title}</span>
+                        <span className="mt-1 block text-[11px] leading-5 text-[#789080]">{item.detail}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {stage !== "discover" && (
+                <div className="mt-auto rounded-2xl border border-[#DCE5D9] bg-[#F8FAF6] p-3">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#789080]">We’re working on</p>
+                  <p className="mt-1 text-sm font-medium text-[#173B30]">{task}</p>
+                  <p className="mt-1 text-[11px] leading-5 text-[#789080]">Your kitchen workspace is open alongside our conversation.</p>
+                </div>
+              )}
+            </div>
+
+            <form onSubmit={sendMessage} className="border-t border-[#173B30]/8 bg-[#FCFCF8] p-4 sm:p-5">
+              <label htmlFor="ahuva-composer" className="sr-only">Message Ahuva</label>
+              <div className="flex items-end gap-2 rounded-2xl border border-[#173B30]/12 bg-white p-2 focus-within:border-[#527565]/60">
+                <textarea id="ahuva-composer" rows={2} value={composer} onChange={(event) => setComposer(event.target.value)} placeholder="Tell me what’s on your mind…" className="max-h-28 min-h-12 flex-1 resize-y bg-transparent px-2 py-2 text-sm text-[#173B30] outline-none placeholder:text-[#9AA99D]" />
+                <button type="submit" disabled={!composer.trim()} aria-label="Send message" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#173B30] text-lg text-white transition hover:bg-[#315B49] disabled:cursor-not-allowed disabled:opacity-30">↑</button>
+              </div>
+              <p className="mt-2 px-1 text-[10px] text-[#9AA99D]">Ahuva’s live intelligence will be connected in a later stage.</p>
+            </form>
           </section>
-          <section className="rounded-[1.7rem] bg-sanctos-sand/55 p-5">
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-sanctos-navy/55">Designed for real life</p>
-            <ul className="mt-3 space-y-3 text-sm text-sanctos-navy/75">
-              <li className="flex gap-2"><span aria-hidden="true">✓</span> Different cuisines and food traditions</li>
-              <li className="flex gap-2"><span aria-hidden="true">✓</span> Flexible portions and ingredients</li>
-              <li className="flex gap-2"><span aria-hidden="true">✓</span> Clear, practical cooking steps</li>
-              <li className="flex gap-2"><span aria-hidden="true">✓</span> Nutrition information only when supported by data</li>
-            </ul>
+
+          <section className="min-w-0 overflow-hidden rounded-[28px] border border-[#173B30]/10 bg-white shadow-[0_12px_40px_rgba(23,59,48,0.045)]">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#173B30]/8 px-5 py-5 sm:px-7">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#789080]">Your active kitchen</p>
+                <h2 className="mt-1 font-serif text-2xl">Kitchen workspace</h2>
+              </div>
+              <span className="rounded-full bg-[#E8EFE5] px-3 py-1.5 text-[10px] font-semibold text-[#527565]">{stage === "discover" ? "Ready when you are" : stage === "complete" ? "Meal complete" : "In progress"}</span>
+            </div>
+
+            {stage === "discover" ? (
+              <div className="flex min-h-[440px] flex-col items-center justify-center px-6 py-12 text-center sm:min-h-[520px]">
+                <div className="flex h-16 w-16 items-center justify-center rounded-[22px] bg-[#E8EFE5] font-serif text-3xl text-[#527565]">✳</div>
+                <h3 className="mt-5 max-w-sm font-serif text-3xl leading-tight text-[#173B30]">Your kitchen takes shape here.</h3>
+                <p className="mt-3 max-w-md text-sm leading-6 text-[#789080]">As we work through your meal, this space becomes your preparation plan, ingredient checklist, portion guide and cooking companion.</p>
+                <div className="mt-8 grid w-full max-w-lg grid-cols-2 gap-3 text-left">
+                  {[
+                    ["01", "Food preparation", "A clear plan for the meal."],
+                    ["02", "Pot Math", "Adjust quantities with care."],
+                    ["03", "Plate Prep", "Get ingredients ready."],
+                    ["04", "Cooking workspace", "Follow each step and timer."],
+                  ].map(([number, title, detail]) => (
+                    <div key={number} className="rounded-2xl border border-[#173B30]/8 bg-[#FCFCF8] p-3">
+                      <span className="text-[10px] font-bold tracking-widest text-[#B58C59]">{number}</span>
+                      <p className="mt-2 text-xs font-semibold text-[#173B30]">{title}</p>
+                      <p className="mt-1 text-[11px] leading-5 text-[#789080]">{detail}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="flex gap-1 border-b border-[#173B30]/8 px-4 pt-3 sm:px-6">
+                  {(["plan", "prep", "cook"] as const).map((tab) => (
+                    <button key={tab} onClick={() => setWorkspaceTab(tab)} className={workspaceTab === tab ? "border-b-2 border-[#315B49] px-3 py-3 text-xs font-bold capitalize text-[#173B30]" : "border-b-2 border-transparent px-3 py-3 text-xs font-medium capitalize text-[#9AA99D] hover:text-[#527565]"}>
+                      {tab === "plan" ? "Meal plan" : tab === "prep" ? "Plate Prep" : "Cooking"}
+                    </button>
+                  ))}
+                </div>
+
+                {workspaceTab === "plan" && (
+                  <div className="space-y-5 p-5 sm:p-7">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#789080]">Food preparation plan</p>
+                      <h3 className="mt-1 font-serif text-2xl">Let’s get your meal organised.</h3>
+                    </div>
+                    <label className="block text-xs font-semibold text-[#527565]">What are we making?
+                      <input value={mealName} onChange={(event) => setMealName(event.target.value)} placeholder="e.g. Jollof rice" className="mt-2 w-full rounded-xl border border-[#173B30]/12 bg-[#FCFCF8] px-4 py-3 text-sm font-normal text-[#173B30] outline-none focus:border-[#527565]" />
+                    </label>
+                    <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
+                      <label className="block text-xs font-semibold text-[#527565]">Ingredients <span className="font-normal text-[#9AA99D]">· one per line</span>
+                        <textarea rows={5} value={ingredientsText} onChange={(event) => setIngredientsText(event.target.value)} placeholder={"Rice\nTomatoes\nPepper\nOnion"} className="mt-2 w-full rounded-xl border border-[#173B30]/12 bg-[#FCFCF8] px-4 py-3 text-sm font-normal leading-6 text-[#173B30] outline-none focus:border-[#527565]" />
+                      </label>
+                      <div className="sm:w-36">
+                        <label className="block text-xs font-semibold text-[#527565]">Servings
+                          <div className="mt-2 flex items-center justify-between rounded-xl border border-[#173B30]/12 bg-[#FCFCF8] p-2">
+                            <button type="button" onClick={() => setServings((value) => Math.max(1, value - 1))} aria-label="Decrease servings" className="h-8 w-8 rounded-lg bg-white text-lg">−</button>
+                            <span className="text-sm font-semibold tabular-nums">{servings}</span>
+                            <button type="button" onClick={() => setServings((value) => Math.min(30, value + 1))} aria-label="Increase servings" className="h-8 w-8 rounded-lg bg-white text-lg">+</button>
+                          </div>
+                        </label>
+                      </div>
+                    </div>
+                    <label className="block text-xs font-semibold text-[#527565]">Cooking steps <span className="font-normal text-[#9AA99D]">· one per line</span>
+                      <textarea rows={4} value={stepsText} onChange={(event) => setStepsText(event.target.value)} placeholder={"Prepare the ingredients\nCook the sauce\nAdd the rice and cook until tender"} className="mt-2 w-full rounded-xl border border-[#173B30]/12 bg-[#FCFCF8] px-4 py-3 text-sm font-normal leading-6 text-[#173B30] outline-none focus:border-[#527565]" />
+                    </label>
+                    <div className="flex flex-wrap gap-2 border-t border-[#173B30]/8 pt-4">
+                      <button onClick={() => setWorkspaceTab("prep")} disabled={!ingredients.length} className="rounded-full border border-[#527565]/40 px-4 py-2.5 text-xs font-semibold text-[#527565] disabled:opacity-30">Open Plate Prep</button>
+                      <button onClick={() => setWorkspaceTab("cook")} disabled={!mealName.trim() || !ingredients.length || !steps.length} className="rounded-full bg-[#173B30] px-5 py-2.5 text-xs font-semibold text-white transition hover:bg-[#315B49] disabled:opacity-30">Enter Cooking Workspace</button>
+                    </div>
+                    <p className="text-[10px] leading-5 text-[#9AA99D]">This is the workspace foundation. Ahuva is not yet generating or validating recipes, quantities or clinical adaptations.</p>
+                  </div>
+                )}
+
+                {workspaceTab === "prep" && (
+                  <div className="p-5 sm:p-7">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#789080]">Plate Prep</p>
+                    <h3 className="mt-1 font-serif text-2xl">Get everything ready.</h3>
+                    <p className="mt-2 text-sm leading-6 text-[#789080]">Tick ingredients as you prepare them. Your checklist stays alongside the conversation.</p>
+                    {ingredients.length ? (
+                      <div className="mt-5 space-y-2">
+                        {ingredients.map((item, index) => (
+                          <label key={index} className="flex cursor-pointer items-center gap-3 rounded-xl bg-[#F3F5EF] p-3 text-sm text-[#29483B]">
+                            <input type="checkbox" checked={checkedIngredients.includes(index)} onChange={(event) => setCheckedIngredients((current) => event.target.checked ? [...current, index] : current.filter((value) => value !== index))} className="h-4 w-4 accent-[#315B49]" />
+                            <span className={checkedIngredients.includes(index) ? "text-[#9AA99D] line-through" : ""}>{item}</span>
+                          </label>
+                        ))}
+                      </div>
+                    ) : <p className="mt-5 rounded-xl bg-[#FCFCF8] p-4 text-sm text-[#789080]">Add ingredients in your meal plan to build the checklist.</p>}
+                    <p className="mt-4 text-xs text-[#789080]">{checkedIngredients.length} of {ingredients.length} ingredients prepared</p>
+                  </div>
+                )}
+
+                {workspaceTab === "cook" && (
+                  <div className="p-5 sm:p-7">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#789080]">Cooking workspace</p>
+                        <h3 className="mt-1 font-serif text-2xl">{mealName || "Your meal"}</h3>
+                        <p className="mt-1 text-xs text-[#789080]">{servings} servings · Cook at your own pace</p>
+                      </div>
+                      <span className="rounded-full bg-[#E8EFE5] px-3 py-1.5 text-xs font-semibold text-[#527565]">{progress}% complete</span>
+                    </div>
+                    <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-[#E8EFE5]"><div className="h-full rounded-full bg-[#527565] transition-all" style={{ width: progress + "%" }} /></div>
+                    <div className="mt-6 grid gap-6 lg:grid-cols-[0.8fr_1.2fr]">
+                      <div>
+                        <h4 className="font-serif text-lg">Ingredients</h4>
+                        <ul className="mt-3 space-y-2">
+                          {ingredients.map((item, index) => <li key={index} className="flex items-start gap-2 text-xs leading-5 text-[#527565]"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-[#D4A66A]" />{item}</li>)}
+                        </ul>
+                      </div>
+                      <div>
+                        <h4 className="font-serif text-lg">Your cooking steps</h4>
+                        {steps.length ? (
+                          <ol className="mt-3 space-y-2">
+                            {steps.map((step, index) => (
+                              <li key={index} className={activeStep === index ? "rounded-xl border border-[#B9CBBB] bg-[#F3F6F0] p-3" : "rounded-xl border border-[#173B30]/8 p-3"}>
+                                <div className="flex items-start gap-2">
+                                  <input type="checkbox" checked={completedSteps.includes(index)} onChange={(event) => setCompletedSteps((current) => event.target.checked ? [...current, index] : current.filter((value) => value !== index))} className="mt-1 h-4 w-4 accent-[#315B49]" />
+                                  <button onClick={() => setActiveStep(index)} className="text-left text-xs leading-5 text-[#29483B]"><span className="mr-2 font-bold text-[#B58C59]">{String(index + 1).padStart(2, "0")}</span>{step}</button>
+                                </div>
+                              </li>
+                            ))}
+                          </ol>
+                        ) : <p className="mt-3 text-xs text-[#789080]">Add your cooking steps in the meal plan.</p>}
+                      </div>
+                    </div>
+                    <div className="mt-6 rounded-2xl border border-[#173B30]/10 bg-[#FCFCF8] p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#789080]">Kitchen timer</p><p className="mt-1 font-mono text-3xl tabular-nums text-[#173B30]">{timerLabel}</p></div>
+                        <div className="flex flex-wrap gap-2">
+                          {timerEnd || timerPaused !== null ? (
+                            <button onClick={timerEnd ? pauseTimer : resumeTimer} className="rounded-full bg-[#173B30] px-4 py-2 text-xs font-semibold text-white">{timerEnd ? "Pause" : "Resume"}</button>
+                          ) : (
+                            <><input aria-label="Timer minutes" type="number" min="1" max="240" value={timerMinutes} onChange={(event) => setTimerMinutes(event.target.value)} className="w-16 rounded-full border border-[#173B30]/15 px-3 py-2 text-xs" /><button onClick={startTimer} className="rounded-full bg-[#173B30] px-4 py-2 text-xs font-semibold text-white">Start timer</button></>
+                          )}
+                          <button onClick={resetTimer} className="rounded-full border border-[#173B30]/15 px-4 py-2 text-xs font-semibold text-[#527565]">Reset</button>
+                        </div>
+                      </div>
+                      {remaining === 0 && !timerEnd && timerPaused === null && <p className="mt-2 text-xs font-semibold text-[#527565]" role="status">Timer ready.</p>}
+                    </div>
+                    <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+                      <button onClick={() => setActiveStep((value) => Math.max(0, value - 1))} disabled={activeStep === 0} className="rounded-full border border-[#173B30]/15 px-4 py-2 text-xs font-semibold text-[#527565] disabled:opacity-30">Previous step</button>
+                      <button onClick={() => setActiveStep((value) => Math.min(Math.max(steps.length - 1, 0), value + 1))} disabled={!steps.length || activeStep >= steps.length - 1} className="rounded-full border border-[#173B30]/15 px-4 py-2 text-xs font-semibold text-[#527565] disabled:opacity-30">Next step</button>
+                    </div>
+                    {steps.length > 0 && completedSteps.length === steps.length && <button onClick={() => setStage("complete")} className="mt-5 w-full rounded-full bg-[#315B49] py-3 text-sm font-semibold text-white">Complete meal</button>}
+                  </div>
+                )}
+              </>
+            )}
           </section>
-          <section className="rounded-[1.7rem] border border-sanctos-sand bg-white p-5">
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-sanctos-green">Stage 1 preview</p>
-            <p className="mt-2 text-sm leading-6 text-sanctos-navy/65">This interface demonstrates the companion and cooking workspace direction. Live AI, saved preferences, persistent sessions and verified nutrition calculations are not active in this preview.</p>
-          </section>
-        </aside>
+        </div>
       </div>
     </main>
   );
