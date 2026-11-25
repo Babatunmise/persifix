@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",
-    "build": "npm run test:ingredients && next build --webpack",
+    "build": "npm run test:ingredients && npm run lint -- src/app/api/kitchen/route.ts src/lib/ingredient-confirmation.mjs tests/ingredient-confirmation.test.mjs && next build --webpack",
     "start": "next start",
     "lint": "eslint",
     "test:ingredients": "node --test tests/ingredient-confirmation.test.mjs"
