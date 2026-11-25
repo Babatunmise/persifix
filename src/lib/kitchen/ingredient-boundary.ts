@@ -18,7 +18,7 @@ function normalizeIngredientName(value: string): string {
     .normalize("NFKC")
     .trim()
     .toLocaleLowerCase("en")
-    .replace(/\\s+/g, " ");
+    .replace(/\s+/g, " ");
 }
 
 /**
@@ -40,7 +40,7 @@ export function classifyIngredientsAgainstInventory(
 
   for (const rawName of proposedIngredients) {
     if (typeof rawName !== "string") continue;
-    const name = rawName.trim().replace(/\\s+/g, " ");
+    const name = rawName.trim().replace(/\s+/g, " ");
     const normalized = normalizeIngredientName(name);
     if (!normalized || seen.has(normalized)) continue;
 
