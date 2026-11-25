@@ -6,6 +6,7 @@ export type CookingRequestV1 = {
   intent: CookingIntent;
   mode: CookingMode;
   description: string;
+  availableIngredients?: string[];
   servings: number;
   context?: {
     budget?: { amount: number; currency: string };
@@ -54,6 +55,14 @@ export function validateCookingRequestV1(input: unknown): CookingRequestValidati
   }
   if (!Number.isInteger(input.servings) || (input.servings as number) < 1 || (input.servings as number) > 20) {
     return { ok: false, error: "Servings must be a whole number between 1 and 20." };
+  }
+
+  let availableIngredients: string[] | undefined;
+  if (input.availableIngredients !== undefined) {
+    if (!boundedStringArray(input.availableIngredients, 40, 100)) {
+      return { ok: false, error: "Available ingredients must contain no more than 40 short entries." };
+    }
+    availableIngredients = input.availableIngredients.map((item) => item.trim());
   }
 
   let context: CookingRequestV1["context"];
@@ -109,6 +118,7 @@ export function validateCookingRequestV1(input: unknown): CookingRequestValidati
       intent: input.intent,
       mode: input.mode,
       description: input.description.trim(),
+      ...(availableIngredients ? { availableIngredients } : {}),
       servings: input.servings as number,
       ...(context && Object.keys(context).length > 0 ? { context } : {}),
     },
