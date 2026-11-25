@@ -47,7 +47,7 @@ const entryOptions: {
 export default function AhuvaKitchen() {
   const [intent, setIntent] = useState<EntryIntent | null>("ingredients");
   const [details, setDetails] = useState("");
-  const [mode, setMode] = useState<CookingMode>("your-way");
+  const mode: CookingMode = "your-way";
   const [servings, setServings] = useState("2");
   const [conversation, setConversation] = useState<Turn[]>([]);
   const [result, setResult] = useState<CookingResult | null>(null);
@@ -56,9 +56,8 @@ export default function AhuvaKitchen() {
   const [error, setError] = useState<string | null>(null);
 
   function reset() {
-    setIntent(null);
+    setIntent("ingredients");
     setDetails("");
-    setMode("your-way");
     setServings("2");
     setConversation([]);
     setResult(null);
@@ -106,12 +105,6 @@ export default function AhuvaKitchen() {
     } finally {
       setLoading(false);
     }
-  }
-
-  async function switchMode(nextMode: CookingMode) {
-    if (nextMode === mode || loading || conversation.length === 0) return;
-    setMode(nextMode);
-    await askAhuva(conversation, nextMode);
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
