@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { supabase } from "@/supabase";
 
 type EntryIntent = "meal" | "ingredients";
+type CookingMode = "your-way" | "ahuvas-way";
 type Turn = { role: "user" | "assistant"; content: string };
 type CookingResult = {
   status: "ready" | "needs_clarification" | "unavailable";
