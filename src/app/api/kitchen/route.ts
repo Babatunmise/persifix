@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { extractConfirmedIngredientText, isIngredientConfirmed } from "@/lib/ingredient-confirmation.mjs";
+import { extractConfirmedIngredientText, extractStructuredConfirmedIngredients, isIngredientConfirmed } from "@/lib/ingredient-confirmation.mjs";
 import {
   authenticateRequest,
   enforceRateLimit,
@@ -144,7 +144,7 @@ export async function POST(req: NextRequest) {
     ...conversation.filter((turn, index) => turn.role === "user" && index > 0).map((turn) => turn.content),
   ].filter(Boolean).join("\n");
   const confirmedIngredientText =
-    extractConfirmedIngredients(body.details) ??
+    extractStructuredConfirmedIngredients(body.details) ??
     extractConfirmedIngredientText(body.intent, body.details, conversation);
   const context = [
     "Task: help the user prepare the meal they asked for, with practical DASH-aligned adjustments.",
