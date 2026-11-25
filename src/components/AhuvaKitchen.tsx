@@ -45,8 +45,12 @@ const entryOptions: {
 ];
 
 export default function AhuvaKitchen() {
-  const [intent, setIntent] = useState<EntryIntent | null>("ingredients");
+  const intent: EntryIntent = "meal";
   const [details, setDetails] = useState("");
+  const [stage, setStage] = useState<1 | 2 | 3>(1);
+  const [mealIdea, setMealIdea] = useState("");
+  const [ingredients, setIngredients] = useState("");
+  const [seasonings, setSeasonings] = useState("");
   const mode: CookingMode = "your-way";
   const [servings, setServings] = useState("2");
   const [conversation, setConversation] = useState<Turn[]>([]);
@@ -56,7 +60,10 @@ export default function AhuvaKitchen() {
   const [error, setError] = useState<string | null>(null);
 
   function reset() {
-    setIntent("ingredients");
+    setStage(1);
+    setMealIdea("");
+    setIngredients("");
+    setSeasonings("");
     setDetails("");
     setServings("2");
     setConversation([]);
@@ -66,8 +73,9 @@ export default function AhuvaKitchen() {
     setError(null);
   }
 
-  async function askAhuva(turns: Turn[], modeOverride: CookingMode = mode) {
-    if (!intent || !details.trim()) return;
+  async function askAhuva(turns: Turn[], modeOverride: CookingMode = mode, detailsOverride?: string) {
+    const brief = detailsOverride ?? details;
+    if (!brief.trim()) return;
     setLoading(true);
     setError(null);
     try {
@@ -85,7 +93,7 @@ export default function AhuvaKitchen() {
         body: JSON.stringify({
           intent,
           mode: modeOverride,
-          details: details.trim(),
+          details: brief.trim(),
           servings,
           conversation: turns,
         }),
@@ -107,12 +115,29 @@ export default function AhuvaKitchen() {
     }
   }
 
+  function continueStep(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (stage === 1 && mealIdea.trim()) {
+      setStage(2);
+      return;
+    }
+    if (stage === 2 && ingredients.trim()) {
+      setStage(3);
+    }
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!details.trim() || !intent || loading) return;
-    const turns: Turn[] = [{ role: "user", content: details.trim() }];
+    if (!mealIdea.trim() || !ingredients.trim() || !servings || loading) return;
+    const brief = [
+      `Meal the user wants to eat: ${mealIdea.trim()}`,
+      `Ingredients the user confirms having: I have ${ingredients.trim()}`,
+      `Salt-based seasonings, sauces, herbs and spices the user uses or has: ${seasonings.trim() || "Not specified"}`,
+    ].join("\\n");
+    setDetails(brief);
+    const turns: Turn[] = [{ role: "user", content: brief }];
     setConversation(turns);
-    await askAhuva(turns);
+    await askAhuva(turns, mode, brief);
   }
 
   async function chooseMeal(title: string) {
@@ -153,8 +178,8 @@ export default function AhuvaKitchen() {
       <div className="relative z-10 mx-auto max-w-4xl px-5 pb-16 pt-12 sm:px-8 sm:pt-20">
         <div className="max-w-2xl">
           <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#718477]">DASH-guided everyday cooking</p>
-          <h2 className="mt-4 font-serif text-[2.7rem] leading-[1.06] tracking-tight text-[#183D30] sm:text-6xl">Let’s make a nourishing meal from what you have.</h2>
-          <p className="mt-5 max-w-xl text-base leading-7 text-[#68796E] sm:text-lg">Tell Ahuva what ingredients you have. She’ll suggest practical meals guided by DASH principles, then help you prepare the one you choose.</p>
+          <h2 className="mt-4 font-serif text-[2.7rem] leading-[1.06] tracking-tight text-[#183D30] sm:text-6xl">Let’s make the meal you want work better for you.</h2>
+          <p className="mt-5 max-w-xl text-base leading-7 text-[#68796E] sm:text-lg">Tell Ahuva what you feel like eating. She’ll work with your ingredients and seasonings to help make it more DASH-friendly.</p>
         </div>
 
         {!intent && (
@@ -170,35 +195,57 @@ export default function AhuvaKitchen() {
           </section>
         )}
 
-        {intent && !hasResult && (
+        {!hasResult && (
           <section className="mt-10 max-w-2xl rounded-[1.75rem] border border-[#183D30]/10 bg-white/90 p-5 shadow-[0_16px_44px_rgba(24,61,48,0.06)] sm:p-7">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#718477]">Start with what you have</p>
-                <h3 className="mt-2 font-serif text-2xl text-[#183D30]">What ingredients do you have?</h3>
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#718477]">Let’s begin · Step {stage} of 3</p>
+                <h3 className="mt-2 font-serif text-2xl text-[#183D30]">{stage === 1 ? "What would you like to eat?" : stage === 2 ? "What ingredients and seasonings do you have?" : "How many people are eating?"}</h3>
               </div>
-              <button type="button" onClick={reset} className="shrink-0 rounded-full px-3 py-2 text-xs font-semibold text-[#718477] transition hover:bg-[#F1F4EE] hover:text-[#183D30]">Change</button>
+              {stage > 1 && <button type="button" onClick={() => setStage((stage - 1) as 1 | 2 | 3)} className="shrink-0 rounded-full px-3 py-2 text-xs font-semibold text-[#718477] hover:bg-[#F1F4EE]">Back</button>}
             </div>
 
-            <form onSubmit={submit} className="mt-6">
-              <label htmlFor="ahuva-meal-details" className="mb-2 block text-sm font-semibold text-[#29483B]">What ingredients do you have available?</label>
-              <textarea id="ahuva-meal-details" autoFocus rows={4} maxLength={2000} value={details} onChange={(event) => setDetails(event.target.value)} placeholder={selectedEntry?.placeholder} className="w-full resize-y rounded-2xl border border-[#DCE4DA] bg-[#FBFCF9] px-4 py-4 text-[15px] leading-7 text-[#183D30] outline-none transition placeholder:text-[#9AA89D] focus:border-[#789780] focus:ring-4 focus:ring-[#789780]/10" />
+            {stage === 1 && (
+              <form onSubmit={continueStep} className="mt-6">
+                <label htmlFor="ahuva-meal-idea" className="mb-2 block text-sm font-semibold text-[#29483B]">Tell Ahuva what you feel like eating</label>
+                <textarea id="ahuva-meal-idea" autoFocus rows={3} maxLength={1000} value={mealIdea} onChange={(event) => setMealIdea(event.target.value)} placeholder="A meal, dish or food you’re craving…" className="w-full resize-y rounded-2xl border border-[#DCE4DA] bg-[#FBFCF9] px-4 py-4 text-[15px] leading-7 text-[#183D30] outline-none placeholder:text-[#9AA89D] focus:border-[#789780] focus:ring-4 focus:ring-[#789780]/10" />
+                <div className="mt-5 flex justify-end"><button type="submit" disabled={!mealIdea.trim()} className="rounded-full bg-[#183D30] px-6 py-3 text-sm font-semibold text-white disabled:opacity-45">Continue →</button></div>
+              </form>
+            )}
 
-              <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
-                <label className="text-sm text-[#718477]" htmlFor="ahuva-servings">How many people are you cooking for?
-                  <select id="ahuva-servings" value={servings} onChange={(event) => setServings(event.target.value)} className="ml-3 rounded-xl border border-[#DCE4DA] bg-[#FBFCF9] px-3 py-2 text-sm font-semibold text-[#29483B] outline-none focus:border-[#789780]">
-                    {["1", "2", "3", "4", "5", "6", "7", "8+"].map((number) => <option key={number} value={number}>{number}</option>)}
-                  </select>
-                </label>
-                <button type="submit" disabled={!details.trim() || loading} className="inline-flex items-center gap-3 rounded-full bg-[#183D30] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#315B49] disabled:cursor-not-allowed disabled:opacity-45">
-                  {loading ? "Ahuva is thinking…" : "Find a meal"} <span aria-hidden="true">→</span>
-                </button>
-              </div>
-            </form>
+            {stage === 2 && (
+              <form onSubmit={continueStep} className="mt-6 space-y-6">
+                <div>
+                  <label htmlFor="ahuva-ingredients" className="mb-2 block text-sm font-semibold text-[#29483B]">Which ingredients do you have available?</label>
+                  <textarea id="ahuva-ingredients" autoFocus rows={3} maxLength={1500} value={ingredients} onChange={(event) => setIngredients(event.target.value)} placeholder="List the ingredients you have. Add quantities if you know them…" className="w-full resize-y rounded-2xl border border-[#DCE4DA] bg-[#FBFCF9] px-4 py-4 text-[15px] leading-7 text-[#183D30] outline-none placeholder:text-[#9AA89D] focus:border-[#789780] focus:ring-4 focus:ring-[#789780]/10" />
+                </div>
+                <div className="rounded-2xl border border-[#E6EBE3] bg-[#F8FAF6] p-4">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#718477]">Seasonings & flavour</p>
+                  <label htmlFor="ahuva-seasonings" className="mt-2 mb-2 block text-sm font-semibold text-[#29483B]">What do you use to season your food?</label>
+                  <p className="mb-3 text-xs leading-5 text-[#718477]">Include salt, stock cubes, seasoning blends, sauces, herbs and spices. This helps Ahuva consider hidden sources of sodium.</p>
+                  <textarea id="ahuva-seasonings" rows={2} maxLength={1000} value={seasonings} onChange={(event) => setSeasonings(event.target.value)} placeholder="For example: salt, stock, spice blends, sauces, garlic, herbs…" className="w-full resize-y rounded-xl border border-[#DCE4DA] bg-white px-4 py-3 text-sm leading-6 text-[#183D30] outline-none placeholder:text-[#9AA89D] focus:border-[#789780]" />
+                </div>
+                <div className="flex justify-end"><button type="submit" disabled={!ingredients.trim()} className="rounded-full bg-[#183D30] px-6 py-3 text-sm font-semibold text-white disabled:opacity-45">Continue →</button></div>
+              </form>
+            )}
+
+            {stage === 3 && (
+              <form onSubmit={submit} className="mt-6">
+                <label className="block text-sm font-semibold text-[#29483B]" htmlFor="ahuva-servings">How many people are eating?</label>
+                <select id="ahuva-servings" value={servings} onChange={(event) => setServings(event.target.value)} className="mt-3 w-full rounded-xl border border-[#DCE4DA] bg-[#FBFCF9] px-4 py-3 text-sm font-semibold text-[#29483B] outline-none focus:border-[#789780]">
+                  {["1", "2", "3", "4", "5", "6", "7", "8+"].map((number) => <option key={number} value={number}>{number}</option>)}
+                </select>
+                <div className="mt-6 rounded-2xl bg-[#F6F8F3] p-4 text-sm leading-6 text-[#405C4D]">
+                  <p><strong>Meal:</strong> {mealIdea}</p>
+                  <p className="mt-1"><strong>Ingredients:</strong> {ingredients}</p>
+                  <p className="mt-1"><strong>Seasonings:</strong> {seasonings.trim() || "Not specified"}</p>
+                </div>
+                <div className="mt-6 flex justify-end"><button type="submit" disabled={loading} className="inline-flex items-center gap-3 rounded-full bg-[#183D30] px-6 py-3 text-sm font-semibold text-white disabled:opacity-45">{loading ? "Ahuva is thinking…" : "Ask Ahuva"} <span aria-hidden="true">→</span></button></div>
+              </form>
+            )}
             {error && <p role="alert" className="mt-4 rounded-xl bg-[#FFF1E9] px-4 py-3 text-sm text-[#8B4229]">{error}</p>}
           </section>
         )}
-
         {loading && hasResult && <p role="status" className="mt-8 text-sm text-[#718477]">Ahuva is working on your follow-up…</p>}
 
         {hasResult && (
@@ -244,7 +291,7 @@ export default function AhuvaKitchen() {
           </section>
         )}
 
-        <div className="mt-12 flex items-center gap-3 text-xs text-[#8B9A8E]"><span className="h-px w-8 bg-[#C8D3C7]" />Ahuva helps you make DASH-aligned choices with the food you have.</div>
+        <div className="mt-12 flex items-center gap-3 text-xs text-[#8B9A8E]"><span className="h-px w-8 bg-[#C8D3C7]" />Ahuva helps you make DASH-aligned choices without taking the joy out of food.</div>
       </div>
     </main>
   );
