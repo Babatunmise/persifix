@@ -82,24 +82,43 @@ function hasExplicitIngredientConfirmation(
   inventoryListWasExplicitlyProvided: boolean,
 ): boolean {
   const normalizedIngredient = normalizeIngredientText(ingredient);
-  if (!normalizedIngredient) return false;
-  const escapedIngredient = normalizedIngredient.split(" ").map((part) =>
-    part.replace(/[.*+?^${}()|[\]\\]/g, "\\function hasExplicitIngredientConfirmation(ingredient: string, userText: string): boolean {
-  const normalizedIngredient = normalizeIngredientText(ingredient);
   const normalizedUserText = normalizeIngredientText(userText);
-  return normalizedIngredient.length > 0 && (` ${normalizedUserText} `).includes(` ${normalizedIngredient} `);
-}"),
-  ).join("\\s+");
-  const negative = new RegExp(`\\b(?:no|not|without|out of|ran out of|do not have|don't have|doesn't have)\\s+(?:any\\s+)?${escapedIngredient}\\b`, "i");
-  if (negative.test(userText)) return false;
-  if (inventoryListWasExplicitlyProvided) {
-    const normalizedUserText = normalizeIngredientText(userText);
-    return (` ${normalizedUserText} `).includes(` ${normalizedIngredient} `);
-  }
-  const positive = new RegExp(`\\b(?:i have|i've got|i got|we have|we've got|available|in my kitchen|in my fridge|at home|just bought)\\s+(?:some\\s+)?${escapedIngredient}\\b`, "i");
-  return positive.test(userText);
-}
+  if (!normalizedIngredient) return false;
 
+  const paddedText = " " + normalizedUserText + " ";
+  const negativeMarkers = [
+    " no " + normalizedIngredient,
+    " not " + normalizedIngredient,
+    " without " + normalizedIngredient,
+    " out of " + normalizedIngredient,
+    " ran out of " + normalizedIngredient,
+    " do not have " + normalizedIngredient,
+    " don t have " + normalizedIngredient,
+    " doesn t have " + normalizedIngredient,
+  ];
+  if (negativeMarkers.some((marker) => paddedText.includes(marker + " "))) return false;
+
+  if (inventoryListWasExplicitlyProvided) {
+    return paddedText.includes(" " + normalizedIngredient + " ");
+  }
+
+  const positiveMarkers = [
+    " i have " + normalizedIngredient,
+    " i have some " + normalizedIngredient,
+    " i ve got " + normalizedIngredient,
+    " i ve got some " + normalizedIngredient,
+    " i got " + normalizedIngredient,
+    " we have " + normalizedIngredient,
+    " we have some " + normalizedIngredient,
+    " we ve got " + normalizedIngredient,
+    " available " + normalizedIngredient,
+    " in my kitchen " + normalizedIngredient,
+    " in my fridge " + normalizedIngredient,
+    " at home " + normalizedIngredient,
+    " just bought " + normalizedIngredient,
+  ];
+  return positiveMarkers.some((marker) => paddedText.includes(marker + " "));
+}
 export async function POST(req: NextRequest) {
   const auth = await authenticateRequest(req);
   if (auth instanceof Response) return auth;
