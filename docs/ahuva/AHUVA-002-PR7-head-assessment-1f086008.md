@@ -1,6 +1,6 @@
 # AHUVA-002 — PR #7 Head Gap Assessment
 
-**Assessment version:** 1.0.0  
+**Assessment version:** 1.1.0  
 **Repository:** Babatunmise/persifix  
 **PR:** #7 — open, draft, unmerged  
 **Branch:** feature/ahuva-definitive-realignment  
@@ -8,9 +8,13 @@
 **Base:** `main` at `4330dfbb852caca29a4b01bbb4c2f6b8fe048229`  
 **Comparison:** 39 commits ahead, 0 behind; 16 changed files  
 **Review method:** Fresh PR metadata, changed-file list, commit diff, source-file reads, combined status and workflow-run reads.  
-**Scope:** Read-only assessment. No application runtime code was changed for this review.
+**Authoritative architecture submission:** `docs/ahuva/AHUVA-002-corrected-architecture-v1.1.0.md`  
+**Authoritative SQL submission:** `docs/ahuva/AHUVA-002-schema-v1.1.0.sql`  
+**Assessment scope:** Read-only runtime gap assessment plus documentation-package status. No application runtime code was changed for this review.
 
-> Subsequent commits adding this corrected architecture package and this assessment are documentation-only. The code findings below are tied to the exact code head above and remain applicable unless runtime source changes.
+**Architecture status:** Argus has accepted the v1.1.0 architecture in principle. Final Gate A approval remains pending correction and review of the PostgreSQL function delimiters in the authoritative v1.1.0 SQL. The architecture and SQL are review artifacts, not deployed runtime capabilities.
+
+> Subsequent commits adding and correcting the v1.1.0 architecture/SQL package and this assessment are documentation-only. The code findings below are tied to the exact code head above and remain applicable unless runtime source changes.
 
 ---
 
@@ -18,7 +22,7 @@
 
 PR #7 is still a **prototype, not an end-to-end Ahuva implementation**. The current branch contains the companion-led UI, local same-device recovery, deterministic Pot Math module, and a fail-closed API route. It does not yet contain server-authoritative cooking-session persistence, cross-device synchronisation, structured ingredient persistence, consent-enforced persistent restrictions/preferences, deterministic Clinical Guard, or verified deletion/retention behaviour.
 
-The architecture documents are proposals only. No Ahuva migration exists in the branch's executable migration path, and no Ahuva schema or RLS validation has been run against a disposable database.
+The v1.1.0 architecture and SQL are the authoritative review submission; architecture acceptance in principle does not mean the schema has been implemented. No Ahuva migration exists in the branch's executable migration path. **No SQL has been executed, no database operation has been initiated, and no schema, migration or RLS validation has been performed against either a disposable or production database.**
 
 ### Current status summary
 
@@ -108,13 +112,13 @@ Manual authenticated browser journey, screenshots at mobile/tablet/desktop sizes
 
 ### A. Persistent core
 - Add authenticated server-side session create/read/update/complete/abandon/delete operations.
-- Use the corrected schema and only after Gates A and B.
+- Use the authoritative AHUVA-002 architecture v1.1.0 and SQL v1.1.0 only after final Gate A approval and separate Gate B authorisation.
 - Implement structured ingredients, steps, quantities, units, preparation status and stable child IDs.
 - Persist timer state using server timestamps.
 - Add cross-device recovery and explicit saved/pending/conflict/deleted UI states.
 
 ### B. Privacy and consent
-- Implement append-only consent events and separate scopes for personalisation, health restrictions, religious restrictions and feedback learning.
+- Implement append-only consent events and separate scopes for personalisation, health restrictions, religious restrictions, feedback learning and pantry storage, with monotonic revisions and compare-and-set ordering as specified in architecture/SQL v1.1.0.
 - Apply the six-category consent matrix in the corrected architecture.
 - Route all persistent writes through trusted server operations that verify current scope consent.
 - Keep session-only restrictions effective without persistent-consent opt-in.
@@ -145,11 +149,28 @@ Manual authenticated browser journey, screenshots at mobile/tablet/desktop sizes
 
 | Gate | Current disposition |
 |---|---|
-| A — Argus architecture approval | Pending corrected v1.0.0 package review |
+| A — Argus architecture approval | Architecture v1.1.0 accepted in principle; final approval pending PostgreSQL delimiter correction and review of SQL v1.1.0 |
 | B — Disposable-environment migration validation | Not authorised |
 | C — Reproducible migration/RLS/security evidence | Not started |
 | D — Controlled implementation stage | Not authorised |
 
-No database changes, migration creation/application, disposable migration execution, production modification, external AI activation, HEP-002 change, PR merge or production deployment is authorised by this assessment.
+No SQL execution, database operation, migration creation/application, disposable migration execution or database validation has occurred. No production modification, external AI activation, HEP-002 change, PR merge or production deployment is authorised by this assessment.
 
 — **Hephaestus Engineering Office**
+
+
+## 6. AHUVA-002 v1.1.0 submission status and syntax correction
+
+The authoritative package for final Argus review is:
+
+- Architecture: `docs/ahuva/AHUVA-002-corrected-architecture-v1.1.0.md`.
+- SQL: `docs/ahuva/AHUVA-002-schema-v1.1.0.sql`.
+
+The three PL/pgSQL function bodies in the SQL file use valid paired PostgreSQL dollar-quoted delimiters (`AS $$ ... $$;`). This is a source-text correction only. No SQL parser, database connection, migration runner or database validation was invoked. The architecture acceptance in principle is not represented as runtime implementation or final Gate A approval. Gate A remains pending final review of the corrected SQL; Gate B remains unauthorised.
+
+### Documentation change log
+
+- Identified architecture v1.1.0 and SQL v1.1.0 as the authoritative submission.
+- Updated Gate A from the obsolete v1.0.0 reference to architecture accepted in principle, with final approval pending SQL syntax review.
+- Preserved the distinction between accepted design and missing runtime persistence, consent enforcement, Clinical Guard, deletion and synchronisation capabilities.
+- Explicitly confirmed that no SQL execution, database operation, migration or database validation has occurred.
