@@ -181,6 +181,9 @@ create table public.ahuva_unit_conversions (
   unique (from_unit, to_unit),
   check (from_unit <> to_unit)
 );
+alter table public.ahuva_food_portions
+  add constraint ahuva_food_portions_unit_fk
+  foreign key (unit_code) references public.ahuva_unit_definitions(unit_code);
 
 -- ---------------------------------------------------------------------------
 -- Consent ledger. Events are append-only; active consent is the latest event
@@ -431,6 +434,9 @@ create table public.ahuva_session_mutations (
   unique (session_id, result_revision)
 );
 create index ahuva_session_mutations_owner_idx on public.ahuva_session_mutations(user_id, session_id, accepted_at desc);
+alter table public.ahuva_cooking_sessions
+  add constraint ahuva_sessions_last_mutation_fk
+  foreign key (last_mutation_id) references public.ahuva_session_mutations(id) on delete set null;
 
 create table public.ahuva_session_tombstones (
   id uuid primary key default gen_random_uuid(),
