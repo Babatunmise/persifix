@@ -232,6 +232,8 @@ export async function POST(req: NextRequest) {
 
     // Never label an ingredient as available unless the user explicitly named it.
     if (parsed.plan) {
+      // The selected serving count is authoritative; do not let the model drift.
+      parsed.plan.servings = String(body.servings);
       parsed.plan.ingredients = parsed.plan.ingredients.map((ingredient) =>
         ingredient.availability === "available" && !hasExplicitIngredientConfirmation(ingredient.name, userProvidedText, body.intent === "ingredients")
           ? { ...ingredient, availability: "missing" as const }
