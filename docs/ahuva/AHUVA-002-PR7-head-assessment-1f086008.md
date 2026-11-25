@@ -167,7 +167,7 @@ The authoritative package for final Argus review is:
 - Architecture: `docs/ahuva/AHUVA-002-corrected-architecture-v1.1.0.md`.
 - SQL: `docs/ahuva/AHUVA-002-schema-v1.1.0.sql`.
 
-The three PL/pgSQL function bodies in the SQL file have been corrected to use valid paired PostgreSQL dollar-quoted delimiters (`AS $ ... $;`). Source inspection confirmed all three openings and closings are correctly paired and no malformed single-dollar function delimiters remain. This is a source-text correction only: no SQL parser, database connection, migration runner or database validation was invoked. The architecture acceptance in principle is not represented as runtime implementation or final Gate A approval. Final Gate A approval is pending Argus’s review of the corrected architecture and SQL package; Gate B remains unauthorised.
+The three PL/pgSQL function bodies in the SQL file have been corrected to use valid, paired PostgreSQL empty-tag dollar-quoted delimiters. Source inspection confirmed all three opening and closing delimiters are correctly paired and no malformed single-dollar function delimiters remain. This is a source-text correction only: no SQL parser, database connection, migration runner or database validation was invoked. The architecture acceptance in principle is not represented as runtime implementation or final Gate A approval. Final Gate A approval is pending Argus’s review of the corrected architecture and SQL package; Gate B remains unauthorised.
 
 ### Documentation change log
 
