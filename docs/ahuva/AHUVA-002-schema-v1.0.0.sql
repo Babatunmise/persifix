@@ -1,5 +1,5 @@
 -- AHUVA-002 AUTHORITATIVE SCHEMA DEFINITION
--- Version: 1.0.0
+-- Version: 1.1.0
 -- Status: REVIEW ARTIFACT ONLY — NOT A MIGRATION; DO NOT EXECUTE.
 -- Baseline reconciled: docs/ahuva/AHUVA-001-schema-proposal.sql
 -- Canonical saved-recipe entity: public.ahuva_saved_recipes
@@ -25,7 +25,7 @@ create table public.ahuva_schema_versions (
   recorded_at timestamptz not null default now()
 );
 insert into public.ahuva_schema_versions(version, description)
-values ('1.0.0', 'AHUVA-002 authoritative consolidated schema definition');
+values ('1.1.0', 'AHUVA-002 authoritative consolidated schema definition');
 
 -- ---------------------------------------------------------------------------
 -- Platform-owned food, allergen, nutrition and unit reference catalogue
@@ -194,15 +194,60 @@ create table public.ahuva_consent_events (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   scope text not null
-    check (scope in ('personalisation','health_restrictions','religious_restrictions','feedback_learning')),
+    check (scope in ('personalisation','health_restrictions','religious_restrictions','feedback_learning','pantry_storage')),
+  scope_revision bigint not null check (scope_revision > 0),
   action text not null check (action in ('granted','withdrawn')),
   policy_version text not null,
   purpose text not null,
   recorded_at timestamptz not null default now(),
-  unique (id, user_id)
+  unique (id, user_id),
+  unique (user_id, scope, scope_revision)
 );
 create index ahuva_consent_events_latest_idx
-  on public.ahuva_consent_events(user_id, scope, recorded_at desc, id desc);
+  on public.ahuva_consent_events(user_id, scope, scope_revision desc);
+
+-- A single transaction-scoped lock serializes consent changes and all writes
+-- that depend on a user's scope. Revision, not wall-clock time, is authoritative.
+create function public.ahuva_assign_consent_revision()
+returns trigger language plpgsql security definer
+set search_path = pg_catalog, public
+as $
+begin
+  perform pg_advisory_xact_lock(hashtextextended(new.user_id::text || ':' || new.scope, 0));
+  select coalesce(max(scope_revision), 0) + 1 into new.scope_revision
+    from public.ahuva_consent_events
+    where user_id = new.user_id and scope = new.scope;
+  return new;
+end;
+$;
+create trigger ahuva_consent_revision_before_insert
+before insert on public.ahuva_consent_events
+for each row execute function public.ahuva_assign_consent_revision();
+
+-- Call within the same transaction as the protected persistent write and hold
+-- the lock through commit. Withdrawal acquires the identical lock.
+create function public.ahuva_require_consent(
+  p_user_id uuid, p_scope text, p_expected_revision bigint
+)
+returns bigint language plpgsql security definer
+set search_path = pg_catalog, public
+as $
+declare v_revision bigint; v_action text;
+begin
+  perform pg_advisory_xact_lock(hashtextextended(p_user_id::text || ':' || p_scope, 0));
+  select scope_revision, action into v_revision, v_action
+    from public.ahuva_consent_events
+    where user_id = p_user_id and scope = p_scope
+    order by scope_revision desc limit 1;
+  if v_revision is null or v_action <> 'granted' or v_revision <> p_expected_revision then
+    raise exception 'consent_missing_withdrawn_or_stale' using errcode = '42501';
+  end if;
+  return v_revision;
+end;
+$;
+revoke all on function public.ahuva_assign_consent_revision() from public, anon, authenticated;
+revoke all on function public.ahuva_require_consent(uuid, text, bigint) from public, anon, authenticated;
+grant execute on function public.ahuva_require_consent(uuid, text, bigint) to service_role;
 
 -- ---------------------------------------------------------------------------
 -- User-owned profile, preference and restriction data
@@ -215,7 +260,7 @@ create table public.ahuva_user_preferences (
   region_code text,
   measurement_system text not null default 'metric'
     check (measurement_system in ('metric','us_customary','imperial')),
-  household_size integer check (household_size between 1 and 100),
+  household_size integer check (household_size between 1 and 100), -- optional personalisation; write requires personalisation consent
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (id, user_id)
@@ -431,12 +476,15 @@ create table public.ahuva_session_mutations (
   foreign key (session_id, user_id)
     references public.ahuva_cooking_sessions(id, user_id) on delete cascade,
   unique (user_id, session_id, idempotency_key),
-  unique (session_id, result_revision)
+  unique (session_id, result_revision),
+  unique (id, session_id, user_id)
 );
 create index ahuva_session_mutations_owner_idx on public.ahuva_session_mutations(user_id, session_id, accepted_at desc);
 alter table public.ahuva_cooking_sessions
   add constraint ahuva_sessions_last_mutation_fk
-  foreign key (last_mutation_id) references public.ahuva_session_mutations(id) on delete set null;
+  foreign key (last_mutation_id, id, user_id)
+  references public.ahuva_session_mutations(id, session_id, user_id)
+  on delete set null (last_mutation_id);
 
 create table public.ahuva_session_tombstones (
   id uuid primary key default gen_random_uuid(),
@@ -748,3 +796,16 @@ revoke update, delete, truncate on table public.ahuva_consent_events from servic
 revoke update, delete, truncate on table public.ahuva_session_mutations from service_role;
 
 commit;
+
+
+-- CONCURRENCY ACCEPTANCE TEST CONTRACT (NOT EXECUTED IN THIS REVIEW)
+-- 1. Grant n, then a write obtains the scope lock and validates n. A withdrawal
+--    waits, commits n+1, and deletes scoped rows. The write may precede it, but
+--    after withdrawal commits no scoped data remains.
+-- 2. Withdrawal obtains the lock first. A stale write waits, sees withdrawn
+--    revision n+1, raises 42501, and writes no data.
+-- 3. Simultaneous grant/withdraw operations serialize; each gets a distinct
+--    increasing revision. The last lock holder's committed event is latest.
+-- 4. A stale queued write with expected revision n is rejected after n+1 exists.
+-- Run these as two-connection PostgreSQL integration tests only after Gate B.
+-- This review defines expected outcomes and does not claim execution.
