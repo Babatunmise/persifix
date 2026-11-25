@@ -11,7 +11,7 @@ import {
 
 type Turn = { role: "user" | "assistant"; content: string };
 
-const SENSITIVE_CONTEXT = /\b(?:blood pressure|hypertension|hypotension|medication|medicines|prescription|diagnos(?:is|ed)|allerg(?:y|ies|ic)|intoleran(?:ce|t)|kidney disease|renal disease|diabetes|pregnan(?:t|cy)|heart failure|medical condition|doctor told me)\b/i;
+const SENSITIVE_CONTEXT = /\b(?:blood pressure|high blood pressure|low blood pressure|\bbp\b|hypertension|hypotension|medication|medicines|prescription|insulin|warfarin|blood thinner|anticoagulant|glp[- ]?1|diagnos(?:is|ed)|allerg(?:y|ies|ic)|intoleran(?:ce|t)|kidney disease|renal disease|dialysis|liver disease|hepatitis|diabetes|type 1 diabetes|type 2 diabetes|pre[- ]?diabetes|blood sugar|high cholesterol|heart failure|heart disease|cardiovascular|stroke|gout|celiac|coeliac|crohn(?:'s)?|ulcerative colitis|irritable bowel syndrome|ibs|autoimmune|immunocompromised|cancer|chemotherapy|eating disorder|anorexia|bulimia|pregnan(?:t|cy)|breastfeed(?:ing)?|medical condition|doctor told me|low[- ]?sodium|low[- ]?salt diet|sodium restriction|salt restriction)\b/i;
 
 const SYSTEM_PROMPT = `You are Ahuva, the food companion inside Sanctos.
 Your job is to help people make practical food decisions, not teach experienced cooks by default.
