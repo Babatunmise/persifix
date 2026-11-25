@@ -6,7 +6,7 @@
 **Repository:** Babatunmise/persifix  
 **Branch:** feature/ahuva-definitive-realignment  
 **PR:** #7 — open, draft, unmerged  
-**Current PR head assessed:** 1f0860085f1795b0ea7ed163c55af45afcbea682  
+**Runtime code head assessed:** 1f0860085f1795b0ea7ed163c55af45afcbea682  
 **Schema definition:** [AHUVA-002-schema-v1.0.0.sql](./AHUVA-002-schema-v1.0.0.sql)  
 **Supersedes:** AHUVA-001 schema proposal and the initial AHUVA-002 submission where they conflict.
 
