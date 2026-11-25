@@ -78,8 +78,8 @@ function normalizeIngredientText(value: string): string {
 }
 
 function extractConfirmedIngredients(details: string): string | null {
-  // The client may send either real newlines or the literal "\\n" separator.
-  const lines = details.replace(/\\\\n/g, "\n").split(/\\r?\\n/);
+  // The client may send either real newlines or the literal "\n" separator.
+  const lines = details.replace(/\\n/g, "\n").split(/\r?\n/);
   const inventoryLine = lines.find((line) =>
     /^Ingredients the user confirms having:/i.test(line.trim()),
   );
@@ -87,8 +87,8 @@ function extractConfirmedIngredients(details: string): string | null {
 
   const ingredients = inventoryLine
     .trim()
-    .replace(/^Ingredients the user confirms having:\\s*/i, "")
-    .replace(/^I have\\s+/i, "")
+    .replace(/^Ingredients the user confirms having:\s*/i, "")
+    .replace(/^I have\s+/i, "")
     .trim();
 
   return ingredients || null;
