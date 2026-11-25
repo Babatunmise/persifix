@@ -4,7 +4,8 @@
 **Repository:** Babatunmise/persifix  
 **PR:** #7 — open, draft, unmerged  
 **Branch:** feature/ahuva-definitive-realignment  
-**Code head reviewed:** `1f0860085f1795b0ea7ed163c55af45afcbea682`  
+**Runtime code head reviewed:** `1f0860085f1795b0ea7ed163c55af45afcbea682`  
+**Documentation head:** this assessment and the AHUVA-002 v1.1.0 architecture/SQL are documentation-only commits on the PR branch; the latest documentation head is the PR head reported in GitHub metadata. It is distinct from the runtime code head above.  
 **Base:** `main` at `4330dfbb852caca29a4b01bbb4c2f6b8fe048229`  
 **Comparison:** 39 commits ahead, 0 behind; 16 changed files  
 **Review method:** Fresh PR metadata, changed-file list, commit diff, source-file reads, combined status and workflow-run reads.  
@@ -12,7 +13,7 @@
 **Authoritative SQL submission:** `docs/ahuva/AHUVA-002-schema-v1.1.0.sql`  
 **Assessment scope:** Read-only runtime gap assessment plus documentation-package status. No application runtime code was changed for this review.
 
-**Architecture status:** Argus has accepted the v1.1.0 architecture in principle. Final Gate A approval remains pending correction and review of the PostgreSQL function delimiters in the authoritative v1.1.0 SQL. The architecture and SQL are review artifacts, not deployed runtime capabilities.
+**Architecture status:** Argus has accepted the v1.1.0 architecture in principle. The three PostgreSQL function delimiter corrections in the authoritative SQL v1.1.0 are complete and have been source-inspected. Final Gate A approval is pending Argus’s review of the corrected architecture and SQL package. The architecture and SQL are review artifacts, not deployed runtime capabilities.
 
 > Subsequent commits adding and correcting the v1.1.0 architecture/SQL package and this assessment are documentation-only. The code findings below are tied to the exact code head above and remain applicable unless runtime source changes.
 
@@ -149,7 +150,7 @@ Manual authenticated browser journey, screenshots at mobile/tablet/desktop sizes
 
 | Gate | Current disposition |
 |---|---|
-| A — Argus architecture approval | Architecture v1.1.0 accepted in principle; final approval pending PostgreSQL delimiter correction and review of SQL v1.1.0 |
+| A — Argus architecture approval | Architecture v1.1.0 accepted in principle; SQL delimiter correction completed and source-inspected; final approval pending Argus review of the corrected package |
 | B — Disposable-environment migration validation | Not authorised |
 | C — Reproducible migration/RLS/security evidence | Not started |
 | D — Controlled implementation stage | Not authorised |
@@ -166,11 +167,12 @@ The authoritative package for final Argus review is:
 - Architecture: `docs/ahuva/AHUVA-002-corrected-architecture-v1.1.0.md`.
 - SQL: `docs/ahuva/AHUVA-002-schema-v1.1.0.sql`.
 
-The three PL/pgSQL function bodies in the SQL file use valid paired PostgreSQL dollar-quoted delimiters (`AS $$ ... $$;`). This is a source-text correction only. No SQL parser, database connection, migration runner or database validation was invoked. The architecture acceptance in principle is not represented as runtime implementation or final Gate A approval. Gate A remains pending final review of the corrected SQL; Gate B remains unauthorised.
+The three PL/pgSQL function bodies in the SQL file have been corrected to use valid paired PostgreSQL dollar-quoted delimiters (`AS $ ... $;`). Source inspection confirmed all three openings and closings are correctly paired and no malformed single-dollar function delimiters remain. This is a source-text correction only: no SQL parser, database connection, migration runner or database validation was invoked. The architecture acceptance in principle is not represented as runtime implementation or final Gate A approval. Final Gate A approval is pending Argus’s review of the corrected architecture and SQL package; Gate B remains unauthorised.
 
 ### Documentation change log
 
 - Identified architecture v1.1.0 and SQL v1.1.0 as the authoritative submission.
-- Updated Gate A from the obsolete v1.0.0 reference to architecture accepted in principle, with final approval pending SQL syntax review.
+- Recorded completion and source inspection of the three SQL delimiter corrections; final Gate A approval remains pending Argus review of the corrected package.
+- Explicitly distinguished the runtime code head reviewed from the latest documentation-only PR head.
 - Preserved the distinction between accepted design and missing runtime persistence, consent enforcement, Clinical Guard, deletion and synchronisation capabilities.
 - Explicitly confirmed that no SQL execution, database operation, migration or database validation has occurred.
