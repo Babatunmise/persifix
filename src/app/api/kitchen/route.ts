@@ -12,7 +12,7 @@ import {
 
 type Turn = { role: "user" | "assistant"; content: string };
 
-const SENSITIVE_CONTEXT = /\b(?:blood pressure|high blood pressure|low blood pressure|\bbp\b|hypertension|hypotension|medication|medicines|prescription|insulin|warfarin|blood thinner|anticoagulant|glp[- ]?1|diagnos(?:is|ed)|allerg(?:y|ies|ic)|intoleran(?:ce|t)|kidney disease|renal disease|dialysis|liver disease|hepatitis|diabetes|type 1 diabetes|type 2 diabetes|pre[- ]?diabetes|blood sugar|high cholesterol|heart failure|heart disease|cardiovascular|stroke|gout|celiac|coeliac|crohn(?:'s)?|ulcerative colitis|irritable bowel syndrome|ibs|autoimmune|immunocompromised|cancer|chemotherapy|eating disorder|anorexia|bulimia|pregnan(?:t|cy)|breastfeed(?:ing)?|medical condition|doctor told me|low[- ]?sodium|low[- ]?salt diet|sodium restriction|salt restriction)\b/i;
+const SENSITIVE_CONTEXT = /\b(?:blood pressure|high blood pressure|low blood pressure|\bbp\b|hypertension|hypertensive|hypotension|hypotensive|medication|medicines|prescription|insulin|warfarin|blood thinner|anticoagulant|glp[- ]?1|diagnos(?:is|ed)|allerg(?:y|ies|ic)|intoleran(?:ce|t)|kidney disease|renal disease|dialysis|liver disease|hepatitis|diabetes|type 1 diabetes|type 2 diabetes|pre[- ]?diabetes|blood sugar|high cholesterol|heart failure|heart disease|cardiovascular|stroke|gout|celiac|coeliac|crohn(?:'s)?|ulcerative colitis|irritable bowel syndrome|ibs|autoimmune|immunocompromised|cancer|chemotherapy|eating disorder|anorexia|bulimia|pregnan(?:t|cy)|breastfeed(?:ing)?|medical condition|medical history|health condition|symptom(?:s)?|disease|disorder|doctor|physician|clinician|dietitian|nurse|hospital|clinic|prescribed|treatment|therapy|surgery|chronic|acute|doctor told me|low[- ]?sodium|low[- ]?salt diet|sodium restriction|salt restriction)\b/i;
 
 const SYSTEM_PROMPT = `You are Ahuva, the food companion inside Sanctos.
 Your role is to help users enjoy the meal they want while making practical choices that better align with the DASH (Dietary Approaches to Stop Hypertension) eating pattern.
@@ -104,6 +104,8 @@ export async function POST(req: NextRequest) {
     conversation.push({ role: item.role, content: redactDirectIdentifiers(item.content.trim()) });
   }
 
+  const safeDetails = redactDirectIdentifiers(body.details.trim());
+
   const latestUserTurn = conversation.filter((turn) => turn.role === "user").at(-1);
   if (!latestUserTurn) return jsonError("A user message is required", 400);
 
@@ -140,15 +142,15 @@ export async function POST(req: NextRequest) {
   if (!apiKey) return jsonError("Ahuva is temporarily unavailable. Please try again later.", 503);
 
   const userProvidedText = [
-    body.details,
+    safeDetails,
     ...conversation.filter((turn, index) => turn.role === "user" && index > 0).map((turn) => turn.content),
   ].filter(Boolean).join("\n");
   const confirmedIngredientText =
-    extractStructuredConfirmedIngredients(body.details) ??
-    extractConfirmedIngredientText(body.intent, body.details, conversation);
+    extractStructuredConfirmedIngredients(safeDetails) ??
+    extractConfirmedIngredientText(body.intent, safeDetails, conversation);
   const context = [
     "Task: help the user prepare the meal they asked for, with practical DASH-aligned adjustments.",
-    `User's meal, confirmed ingredients, seasonings and serving count: ${body.details}`,
+    `User's meal, confirmed ingredients, seasonings and serving count: ${safeDetails}`,
     "Pay particular attention to salt, stock cubes, seasoning blends and sauces as potential sodium sources. Preserve the chosen meal where practical.",
   ].join("\n");
 
