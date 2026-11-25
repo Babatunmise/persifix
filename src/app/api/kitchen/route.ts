@@ -77,6 +77,23 @@ function normalizeIngredientText(value: string): string {
   return value.toLocaleLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
 }
 
+function extractConfirmedIngredients(details: string): string | null {
+  // The client may send either real newlines or the literal "\\n" separator.
+  const lines = details.replace(/\\\\n/g, "\n").split(/\\r?\\n/);
+  const inventoryLine = lines.find((line) =>
+    /^Ingredients the user confirms having:/i.test(line.trim()),
+  );
+  if (!inventoryLine) return null;
+
+  const ingredients = inventoryLine
+    .trim()
+    .replace(/^Ingredients the user confirms having:\\s*/i, "")
+    .replace(/^I have\\s+/i, "")
+    .trim();
+
+  return ingredients || null;
+}
+
 function hasExplicitIngredientConfirmation(
   ingredient: string,
   userText: string,
@@ -189,6 +206,9 @@ export async function POST(req: NextRequest) {
     body.details,
     ...conversation.filter((turn, index) => turn.role === "user" && index > 0).map((turn) => turn.content),
   ].filter(Boolean).join("\n");
+  const confirmedIngredientText =
+    extractConfirmedIngredients(body.details) ??
+    (body.intent === "ingredients" ? userProvidedText : null);
   const context = [
     "Task: help the user prepare the meal they asked for, with practical DASH-aligned adjustments.",
     `User's meal, confirmed ingredients, seasonings and serving count: ${body.details}`,
@@ -234,7 +254,11 @@ export async function POST(req: NextRequest) {
       // The selected serving count is authoritative; do not let the model drift.
       parsed.plan.servings = String(body.servings);
       parsed.plan.ingredients = parsed.plan.ingredients.map((ingredient) =>
-        ingredient.availability === "available" && !hasExplicitIngredientConfirmation(ingredient.name, userProvidedText, body.intent === "ingredients")
+        ingredient.availability === "available" && !hasExplicitIngredientConfirmation(
+          ingredient.name,
+          confirmedIngredientText ?? userProvidedText,
+          confirmedIngredientText !== null || body.intent === "ingredients",
+        )
           ? { ...ingredient, availability: "missing" as const }
           : ingredient,
       );
