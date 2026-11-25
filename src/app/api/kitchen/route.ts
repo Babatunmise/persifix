@@ -11,7 +11,7 @@ import {
 
 type Turn = { role: "user" | "assistant"; content: string };
 
-const SENSITIVE_CONTEXT = /\\b(?:blood pressure|hypertension|hypotension|medication|medicines|prescription|diagnos(?:is|ed)|allerg(?:y|ies|ic)|intoleran(?:ce|t)|kidney disease|renal disease|diabetes|pregnan(?:t|cy)|heart failure|medical condition|doctor told me)\\b/i;
+const SENSITIVE_CONTEXT = /\b(?:blood pressure|hypertension|hypotension|medication|medicines|prescription|diagnos(?:is|ed)|allerg(?:y|ies|ic)|intoleran(?:ce|t)|kidney disease|renal disease|diabetes|pregnan(?:t|cy)|heart failure|medical condition|doctor told me)\b/i;
 
 const SYSTEM_PROMPT = `You are Ahuva, the food companion inside Sanctos.
 Your job is to help people make practical food decisions, not teach experienced cooks by default.
