@@ -8,7 +8,7 @@ const isTextArray = (value, maxItems, maxLength) =>
  * Missing optional fields receive safe defaults; malformed supplied values fail closed.
  * The caller must still apply serving-count and confirmed-inventory safeguards.
  */
-export function normalizeAhuvaResult(value) {
+export function normalizeAhuvaResult(value, options = {}) {
   if (!isRecord(value)) return { ok: false, reason: "root_not_object" };
   if (value.status !== "ready" && value.status !== "needs_clarification") {
     return { ok: false, reason: "invalid_status" };
@@ -88,6 +88,9 @@ export function normalizeAhuvaResult(value) {
   }
   if (value.status === "needs_clarification" && plan !== null) {
     return { ok: false, reason: "clarification_response_has_plan" };
+  }
+  if (value.status === "ready" && options.requirePlan === true && plan === null) {
+    return { ok: false, reason: "guided_cooking_plan_missing" };
   }
 
   return {
