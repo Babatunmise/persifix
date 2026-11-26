@@ -318,7 +318,7 @@ export default function AhuvaKitchen() {
 
             {result?.recommendations && result.recommendations.length > 0 && <div className="mt-6 space-y-3">{result.recommendations.map((item, index) => <button key={index} type="button" disabled={loading} onClick={() => chooseMeal(item.title)} className="w-full rounded-2xl border border-[#E6EBE3] p-4 text-left transition hover:border-[#789780] hover:bg-[#F8FAF6] disabled:opacity-50"><p className="font-semibold text-[#29483B]">{item.title}</p><p className="mt-1 text-sm leading-6 text-[#718477]">{item.detail}</p><span className="mt-3 inline-block text-xs font-semibold text-[#315B49]">Choose this meal →</span></button>)}</div>}
             {result?.questions && result.questions.length > 0 && <div className="mt-5 rounded-2xl border border-[#DCE7D9] bg-[#F6F8F3] p-4"><div className="flex items-center gap-2"><span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#E4EFE2] text-xs font-bold text-[#315B49]">a</span><p className="text-xs font-semibold text-[#315B49]">One thing to decide together</p></div><p className="mt-3 text-sm leading-6 text-[#29483B]">{result.questions[0]}</p></div>}
-            {result?.safetyNotes && result.safetyNotes.length > 0 && <div className="mt-5 rounded-xl border border-[#E8E1D5] bg-[#FBF8F1] p-4 text-sm leading-6 text-[#6F604B]">{result.safetyNotes.map((note, index) => <p key={index}>{note}</p>)}
+            {result?.safetyNotes && result.safetyNotes.length > 0 && <div className="mt-5 rounded-xl border border-[#E8E1D5] bg-[#FBF8F1] p-4 text-sm leading-6 text-[#6F604B]">{result.safetyNotes.map((note, index) => <p key={index}>{note}</p>)}</div>}
             </>
             )}
 
