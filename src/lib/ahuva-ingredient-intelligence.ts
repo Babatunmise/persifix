@@ -30,7 +30,7 @@ const sources = {
 
 const profiles: { match: RegExp; insight: IngredientInsight }[] = [
   {
-    match: /\\b(?:salt|table salt|sea salt|rock salt|kosher salt)\\b/i,
+    match: /\b(?:salt|table salt|sea salt|rock salt|kosher salt)\b/i,
     insight: {
       id: "salt",
       title: "Salt",
@@ -43,7 +43,7 @@ const profiles: { match: RegExp; insight: IngredientInsight }[] = [
     },
   },
   {
-    match: /\\b(?:beef|steak|ground beef|minced beef|beef mince)\\b/i,
+    match: /\b(?:beef|steak|ground beef|minced beef|beef mince)\b/i,
     insight: {
       id: "beef",
       title: "Beef",
@@ -56,7 +56,7 @@ const profiles: { match: RegExp; insight: IngredientInsight }[] = [
     },
   },
   {
-    match: /\\b(?:fish|salmon|sardine|sardines|mackerel|trout|tuna|tilapia|catfish|cod|hake|herring)\\b/i,
+    match: /\b(?:fish|salmon|sardine|sardines|mackerel|trout|tuna|tilapia|catfish|cod|hake|herring)\b/i,
     insight: {
       id: "fish",
       title: "Fish",
@@ -69,7 +69,7 @@ const profiles: { match: RegExp; insight: IngredientInsight }[] = [
     },
   },
   {
-    match: /\\b(?:oil|olive oil|canola oil|rapeseed oil|sunflower oil|corn oil|soybean oil|palm oil|palm kernel oil|coconut oil)\\b/i,
+    match: /\b(?:oil|olive oil|canola oil|rapeseed oil|sunflower oil|corn oil|soybean oil|palm oil|palm kernel oil|coconut oil)\b/i,
     insight: {
       id: "oil",
       title: "Cooking oil",
@@ -82,7 +82,7 @@ const profiles: { match: RegExp; insight: IngredientInsight }[] = [
     },
   },
   {
-    match: /\\b(?:suya spice|suya seasoning|curry|curry powder|seasoning blend|spice blend|mixed seasoning|stock cube|bouillon|seasoning cube)\\b/i,
+    match: /\b(?:suya spice|suya seasoning|curry|curry powder|seasoning blend|spice blend|mixed seasoning|stock cube|bouillon|seasoning cube)\b/i,
     insight: {
       id: "seasoning-blend",
       title: "Seasoning blends and spice mixes",
