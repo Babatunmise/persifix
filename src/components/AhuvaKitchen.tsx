@@ -167,7 +167,8 @@ export default function AhuvaKitchen() {
     setShowGuidedCooking(true);
     const request = "Please show optional guided cooking steps for this meal. Preserve my usual cooking method and do not invent ingredient quantities or assume equipment.";
     const turns = [...conversation, { role: "assistant" as const, content: result?.assistantMessage ?? "" }, { role: "user" as const, content: request }];
-    await askAhuva(turns);
+    const sent = await askAhuva(turns);
+    if (sent) setResultScreen(3);
   }
 
   async function submitFollowUp(event: FormEvent<HTMLFormElement>) {
