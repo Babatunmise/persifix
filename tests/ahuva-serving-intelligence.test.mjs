@@ -45,3 +45,23 @@ test("records zero added table salt when the user confirms none was used", () =>
   assert.equal(result.knownAddedSodiumMg, 0);
   assert.equal(result.knownAddedSodiumPerShareMg, 0);
 });
+
+test("divides a pot into practical household measures", async () => {
+  const { calculateHouseholdPotShares } = await import("../src/lib/ahuva-serving-intelligence.mjs");
+  const result = calculateHouseholdPotShares({ totalUnits: 8, unit: "ladles", people: 4 });
+  assert.equal(result.ok, true);
+  assert.equal(result.status, "measured");
+  assert.equal(result.unitsPerPerson, 2);
+});
+
+test("supports fractional household measures without converting to grams", async () => {
+  const { calculateHouseholdPotShares } = await import("../src/lib/ahuva-serving-intelligence.mjs");
+  const result = calculateHouseholdPotShares({ totalUnits: 7, unit: "bowls", people: 4 });
+  assert.equal(result.unitsPerPerson, 1.75);
+});
+
+test("leaves household distribution unmeasured rather than guessing", async () => {
+  const { calculateHouseholdPotShares } = await import("../src/lib/ahuva-serving-intelligence.mjs");
+  const result = calculateHouseholdPotShares({ unit: "cups", people: 3 });
+  assert.deepEqual(result, { ok: true, status: "not_measured", people: 3 });
+});
