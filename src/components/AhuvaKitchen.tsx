@@ -33,6 +33,7 @@ export default function AhuvaKitchen() {
   const [conversation, setConversation] = useState<Turn[]>([]);
   const [result, setResult] = useState<CookingResult | null>(null);
   const [followUp, setFollowUp] = useState("");
+  const [activeStep, setActiveStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,6 +47,7 @@ export default function AhuvaKitchen() {
     setConversation([]);
     setResult(null);
     setFollowUp("");
+    setActiveStep(0);
     setLoading(false);
     setError(null);
   }
@@ -79,6 +81,7 @@ export default function AhuvaKitchen() {
       if (data && typeof data === "object" && "assistantMessage" in data &&
           typeof data.assistantMessage === "string") {
         setResult(data as CookingResult);
+        setActiveStep(0);
         setConversation(turns);
       } else if (!response.ok) {
         setError("Ahuva could not respond just now. Please try again.");
@@ -225,18 +228,18 @@ export default function AhuvaKitchen() {
             </div>
             <p className="mt-5 whitespace-pre-wrap text-[15px] leading-7 text-[#29483B]">{result?.assistantMessage}</p>
 
-            {result?.interpretation && <div className="mt-5 rounded-2xl bg-[#F6F8F3] p-4"><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#718477]">What I understood</p><p className="mt-2 text-sm leading-6 text-[#29483B]">{result.interpretation}</p></div>}
+            {result?.interpretation && <div className="mt-5 rounded-2xl bg-[#F6F8F3] p-4"><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#718477]">Our meal</p><p className="mt-2 text-sm leading-6 text-[#29483B]">{result.interpretation}</p></div>}
 
             {result?.plan && (
               <div className="mt-6 space-y-5">
                 <div><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#718477]">For {result.plan.servings}</p><h4 className="mt-1 font-serif text-xl text-[#183D30]">Your preparation</h4></div>
-                {result.plan.ingredients.length > 0 && <div className="space-y-2">{result.plan.ingredients.map((item, index) => <div key={`${item.name}-${index}`} className="flex items-center justify-between gap-3 rounded-xl bg-[#F8F9F5] px-3 py-3 text-sm"><span className="text-[#29483B]">{item.name} <span className="text-[#87958A]">· {item.amount}</span></span><span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold ${item.availability === "available" ? "bg-[#E4EFE2] text-[#315B49]" : item.availability === "missing" ? "bg-[#FFF0E6] text-[#92532F]" : "bg-[#F1F0E9] text-[#68796E]"}`}>{item.availability}</span></div>)}</div>}
-                {result.plan.preparation.length > 0 && <ol className="space-y-3">{result.plan.preparation.map((step, index) => <li key={index} className="flex gap-3 text-sm leading-6 text-[#405C4D]"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#E8EFE5] text-[11px] font-bold text-[#315B49]">{index + 1}</span><span>{step}</span></li>)}</ol>}
+                {result.plan.ingredients.length > 0 && <div className="rounded-2xl bg-[#F8F9F5] p-4"><p className="mb-3 text-[10px] font-bold uppercase tracking-[0.16em] text-[#718477]">What we're working with</p><div className="flex flex-wrap gap-2">{result.plan.ingredients.map((item, index) => <span key={`${item.name}-${index}`} className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs ${item.availability === "available" ? "bg-[#E4EFE2] text-[#315B49]" : item.availability === "missing" ? "bg-[#FFF0E6] text-[#92532F]" : "bg-[#F1F0E9] text-[#68796E]"}`}>{item.name}{item.amount ? <span className="opacity-70">· {item.amount}</span> : null}</span>)}</div></div>}
+                {result.plan.preparation.length > 0 && <div className="rounded-2xl border border-[#E6EBE3] bg-white p-4"><div className="flex items-center justify-between"><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#718477]">Let's cook · Step {Math.min(activeStep + 1, result.plan.preparation.length)} of {result.plan.preparation.length}</p><span className="text-xs text-[#87958A]">{Math.round(((activeStep + 1) / result.plan.preparation.length) * 100)}%</span></div><p className="mt-4 text-base leading-7 text-[#29483B]">{result.plan.preparation[Math.min(activeStep, result.plan.preparation.length - 1)]}</p><div className="mt-5 flex items-center justify-between"><button type="button" onClick={() => setActiveStep((step) => Math.max(0, step - 1))} disabled={activeStep === 0} className="rounded-full border border-[#DCE4DA] px-4 py-2 text-xs font-semibold text-[#315B49] disabled:opacity-35">Previous</button><button type="button" onClick={() => setActiveStep((step) => Math.min(result.plan!.preparation.length - 1, step + 1))} disabled={activeStep >= result.plan.preparation.length - 1} className="rounded-full bg-[#183D30] px-4 py-2 text-xs font-semibold text-white disabled:opacity-35">Next step →</button></div></div>}
               </div>
             )}
 
             {result?.recommendations && result.recommendations.length > 0 && <div className="mt-6 space-y-3">{result.recommendations.map((item, index) => <button key={index} type="button" disabled={loading} onClick={() => chooseMeal(item.title)} className="w-full rounded-2xl border border-[#E6EBE3] p-4 text-left transition hover:border-[#789780] hover:bg-[#F8FAF6] disabled:opacity-50"><p className="font-semibold text-[#29483B]">{item.title}</p><p className="mt-1 text-sm leading-6 text-[#718477]">{item.detail}</p><span className="mt-3 inline-block text-xs font-semibold text-[#315B49]">Choose this meal →</span></button>)}</div>}
-            {result?.questions && result.questions.length > 0 && <div className="mt-5 rounded-2xl bg-[#F6F8F3] p-4"><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#718477]">Ahuva needs to know</p><ul className="mt-2 list-disc space-y-1 pl-5 text-sm leading-6 text-[#405C4D]">{result.questions.map((question, index) => <li key={index}>{question}</li>)}</ul></div>}
+            {result?.questions && result.questions.length > 0 && <div className="mt-5 rounded-2xl border border-[#DCE7D9] bg-[#F6F8F3] p-4"><div className="flex items-center gap-2"><span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#E4EFE2] text-xs font-bold text-[#315B49]">a</span><p className="text-xs font-semibold text-[#315B49]">One thing to decide together</p></div><p className="mt-3 text-sm leading-6 text-[#29483B]">{result.questions[0]}</p></div>}
             {result?.safetyNotes && result.safetyNotes.length > 0 && <div className="mt-5 rounded-xl border border-[#E8E1D5] bg-[#FBF8F1] p-4 text-sm leading-6 text-[#6F604B]">{result.safetyNotes.map((note, index) => <p key={index}>{note}</p>)}</div>}
 
             {result?.status !== "unavailable" && (
