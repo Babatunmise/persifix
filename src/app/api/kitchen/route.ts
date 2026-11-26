@@ -246,7 +246,12 @@ export async function POST(req: NextRequest) {
       console.error("[ahuva] response contract rejected", { category: "invalid_json_body" });
       return jsonError("Ahuva returned an unreadable response. Please try again.", 502);
     }
-    const normalized = normalizeAhuvaResult(parsed);
+    const latestUserMessage = conversation.filter((turn) => turn.role === "user").at(-1)?.content ?? "";
+    const explicitlyRequestedSteps =
+      /(?:show|give|provide|walk me through|guide me through).{0,80}\\b(?:steps|instructions|recipe|preparation)\\b/i.test(latestUserMessage);
+    const normalized = normalizeAhuvaResult(parsed, {
+      requirePlan: body.mode === "ahuvas-way" || explicitlyRequestedSteps,
+    });
     if (!normalized.ok) {
       // Diagnostic reason is a fixed enum from the normalizer. Never log model
       // output, user meal details, or health-related content.
@@ -257,9 +262,6 @@ export async function POST(req: NextRequest) {
       return jsonError("Ahuva could not organise its cooking response. Please try again.", 502);
     }
     const result = normalized.value;
-    const latestUserMessage = conversation.filter((turn) => turn.role === "user").at(-1)?.content ?? "";
-    const explicitlyRequestedSteps =
-      /(?:show|give|provide|walk me through|guide me through).{0,80}\\b(?:steps|instructions|recipe|preparation)\\b/i.test(latestUserMessage);
     if (body.mode === "your-way" && !explicitlyRequestedSteps) {
       result.plan = null;
     }
