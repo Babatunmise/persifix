@@ -2,12 +2,14 @@ const isFiniteNonNegative = (value) =>
   typeof value === "number" && Number.isFinite(value) && value >= 0;
 
 /**
+ * @typedef {{ok: false, reason: string} | {ok: true, status: "estimate" | "insufficient_data", people: number, sources: {name: string, sodiumMg: number, basis: string}[], knownAddedSodiumMg: number | null, knownAddedSodiumPerShareMg: number | null}} SodiumEstimateResult
+ *
  * Estimates only the added sodium sources explicitly entered by the user.
  * Fine table salt is approximated at 2,300 mg sodium per level teaspoon.
  * Packaged sources require label sodium per serving and servings used.
  * This is not a complete meal-sodium or clinical assessment.
  */
-export function calculateKnownAddedSodium({
+/** @param {{tableSaltTeaspoons?: number | null, labelSodiumMgPerServing?: number | null, labelServingsUsed?: number | null, people: number}} input\n * @returns {SodiumEstimateResult}\n */\nexport function calculateKnownAddedSodium({
   tableSaltTeaspoons = null,
   labelSodiumMgPerServing = null,
   labelServingsUsed = null,
