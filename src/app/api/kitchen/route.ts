@@ -249,7 +249,10 @@ export async function POST(req: NextRequest) {
     const latestUserMessage = conversation.filter((turn) => turn.role === "user").at(-1)?.content ?? "";
     const explicitlyRequestedSteps =
       /(?:show|give|provide|walk me through|guide me through).{0,80}\b(?:steps|instructions|recipe|preparation)\b/i.test(latestUserMessage);
-    const normalized = normalizeAhuvaResult(parsed, {
+    const contractInput = body.mode === "your-way" && !explicitlyRequestedSteps && isRecord(parsed)
+      ? { ...parsed, plan: null }
+      : parsed;
+    const normalized = normalizeAhuvaResult(contractInput, {
       requirePlan: body.mode === "ahuvas-way" || explicitlyRequestedSteps,
     });
     if (!normalized.ok) {
@@ -262,9 +265,6 @@ export async function POST(req: NextRequest) {
       return jsonError("Ahuva could not organise its cooking response. Please try again.", 502);
     }
     const result = normalized.value;
-    if (body.mode === "your-way" && !explicitlyRequestedSteps) {
-      result.plan = null;
-    }
 
     // Never label an ingredient as available unless the user explicitly named it.
     if (result.plan) {
