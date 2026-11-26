@@ -234,6 +234,55 @@ const guides: IngredientVariantGuide[] = [
       { name: "Soy, fish, oyster or other savoury sauce", bestFor: "Small measured amounts for umami and seasoning.", practicalUse: "Compare regular and reduced-sodium versions and account for the quantity used.", healthContext: "Sodium varies widely by sauce and brand; the product label is needed." },
     ],
   },
+
+  {
+    familyId: "rice",
+    familyName: "Rice varieties and forms",
+    sources: [{ label: "NHLBI · DASH eating plan", url: "https://www.nhlbi.nih.gov/health/dash-eating-plan" }],
+    variants: [
+      { name: "Brown / wholegrain rice", bestFor: "Meals where a nuttier flavour and firmer texture work well.", practicalUse: "Rinse if desired and allow for a longer cooking time than many white-rice varieties. Use the same household bowl or ladle to portion the cooked pot.", healthContext: "Retains the bran and germ, so it generally provides more fibre than white rice. Whole grains are encouraged in DASH-style eating." },
+      { name: "White rice", bestFor: "Soft-textured dishes, quick cooking and meals where white rice is the familiar staple.", practicalUse: "Use the water ratio and timing for the specific variety. Pair with vegetables, beans or other fibre-rich foods to build a balanced plate.", healthContext: "Milling removes the bran and germ, so it generally has less fibre than brown rice. It can still be part of an overall balanced meal." },
+      { name: "Parboiled rice", bestFor: "Separate grains in pilafs, jollof-style dishes and batch cooking.", practicalUse: "Follow the pack instructions; parboiled rice can need a different water ratio and cooking time from regular white rice.", healthContext: "Parboiling changes starch structure and can retain some nutrients from the grain layers. The exact product and enrichment vary." },
+      { name: "Basmati or jasmine rice", bestFor: "Aromatic rice dishes where fragrance and grain texture matter.", practicalUse: "Choose based on the flavour and texture you want. Both can be sold as white or wholegrain, so check the package rather than assuming the fibre content.", healthContext: "The variety name alone does not establish whether the rice is wholegrain or its full nutritional profile." },
+      { name: "Instant / ready-to-heat rice", bestFor: "Convenience meals and quick preparation.", practicalUse: "Check the ingredient list and sodium per serving, especially for flavoured microwave pouches or seasoned rice.", healthContext: "Plain products may be similar to their base rice; flavoured products can add sodium, sauces or fats." },
+    ],
+  },
+  {
+    familyId: "chicken",
+    familyName: "Chicken cuts and forms",
+    sources: [{ label: "NHLBI · DASH eating plan", url: "https://www.nhlbi.nih.gov/health/dash-eating-plan" }, heartAssociationSodium],
+    variants: [
+      { name: "Skinless breast", bestFor: "Grilling, poaching, baking, stewing and quick pan-cooking.", practicalUse: "Because it is relatively lean, avoid overcooking; use aromatics, herbs and a little sauce for moisture.", healthContext: "A lean, unprocessed poultry option that can fit a DASH-style eating pattern." },
+      { name: "Thigh or drumstick", bestFor: "Stews, roasting and slower cooking where a richer texture is wanted.", practicalUse: "Removing the skin reduces some of the fat; cook thoroughly and use the cut the user actually has.", healthContext: "Dark meat and skin-on portions generally contain more fat than skinless breast; exact amounts depend on cut and preparation." },
+      { name: "Wings / skin-on chicken", bestFor: "Roasting or grilling when the skin and texture are part of the dish.", practicalUse: "Use a measured amount of oil and avoid relying on salty bottled marinades or seasoning mixes.", healthContext: "Skin adds fat, and sauces or marinades may add sodium. Neither should be assumed without checking the product." },
+      { name: "Minced / ground chicken", bestFor: "Patties, meatballs, fillings and sauces.", practicalUse: "Check whether the mince includes skin or added ingredients; products vary in fat and sodium.", healthContext: "The label and lean percentage are needed for a more specific comparison." },
+      { name: "Processed, brined or pre-seasoned chicken", bestFor: "Convenience use when the product is chosen deliberately.", practicalUse: "Check sodium per serving and the ingredient list; brining and seasoning can add sodium before cooking.", healthContext: "Processed forms may contribute more sodium than plain fresh chicken." },
+    ],
+  },
+  {
+    familyId: "tomato",
+    familyName: "Tomatoes and tomato products",
+    sources: [heartAssociationSodium, { label: "NHLBI · DASH eating plan", url: "https://www.nhlbi.nih.gov/health/dash-eating-plan" }],
+    variants: [
+      { name: "Fresh tomatoes", bestFor: "Salads, sauces, stews and fresh salsas.", practicalUse: "Use chopped for texture or cook down for a lighter sauce base. Add gradually to control the liquid in the pot.", healthContext: "A vegetable-rich ingredient; it does not independently treat high blood pressure." },
+      { name: "Plain canned tomatoes", bestFor: "Soups, stews, sauces and dishes where consistent texture is useful.", practicalUse: "Choose no-added-salt versions when sodium control matters and compare the label between brands.", healthContext: "Canned products vary in added sodium; the label determines the contribution." },
+      { name: "Tomato paste / puree", bestFor: "Concentrated tomato flavour, colour and body in sauces, rice dishes and stews.", practicalUse: "Because it is concentrated, a small spoonful adds strong flavour. Check whether salt has been added; tomato paste and passata are not the same concentration.", healthContext: "Plain paste is concentrated tomato; salted or seasoned products can add sodium." },
+      { name: "Passata / tomato puree (pourable)", bestFor: "Smooth sauces, soups and stews.", practicalUse: "Use as a liquid tomato base; check whether the product is plain or seasoned.", healthContext: "Sodium varies by brand and added ingredients." },
+      { name: "Sun-dried tomatoes", bestFor: "Small flavour-intense additions, salads, sauces and fillings.", practicalUse: "Oil-packed and dry-packed versions differ. Check added salt and oil in the product label.", healthContext: "Can be more concentrated in sodium per portion, especially when salted." },
+    ],
+  },
+  {
+    familyId: "onion",
+    familyName: "Onion varieties and alliums",
+    sources: [{ label: "NHLBI · DASH eating plan", url: "https://www.nhlbi.nih.gov/health/dash-eating-plan" }],
+    variants: [
+      { name: "Yellow / brown onion", bestFor: "Slow-cooked bases, stews, soups and caramelising.", practicalUse: "Its balanced flavour becomes sweeter as it cooks; use early in the cooking process for a flavour base.", healthContext: "A useful vegetable and flavour builder; no special blood-pressure effect should be claimed." },
+      { name: "Red onion", bestFor: "Salads, quick pickles, salsas and lightly cooked dishes.", practicalUse: "Use raw for a sharper crunch or cook briefly for a milder flavour.", healthContext: "Colour does not make it a treatment or guarantee a clinically meaningful advantage over other onions." },
+      { name: "White onion", bestFor: "Salsas, sauces and dishes where a sharper onion flavour is wanted.", practicalUse: "Use raw or cooked according to the dish's flavour profile.", healthContext: "Nutritional differences between common onion colours should not be overstated." },
+      { name: "Spring onion / scallion", bestFor: "Garnishes, stir-fries, soups and quick-cooking dishes.", practicalUse: "Use the white portion early for flavour and the green tops near the end for freshness.", healthContext: "Adds flavour and vegetable variety; it is not a substitute for a measured sodium assessment." },
+      { name: "Shallot", bestFor: "Dressings, delicate sauces and dishes where a milder, sweeter allium flavour is wanted.", practicalUse: "Use finely chopped and cook gently to avoid burning.", healthContext: "A culinary alternative to onion, not a blood-pressure intervention." },
+    ],
+  },
 ];
 
 export function getIngredientVariantGuide(familyId: string): IngredientVariantGuide | null {
