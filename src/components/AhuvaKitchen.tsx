@@ -28,6 +28,7 @@ export default function AhuvaKitchen() {
   const intent: EntryIntent = "meal";
   const [details, setDetails] = useState("");
   const [stage, setStage] = useState<1 | 2 | 3>(1);
+  const [resultScreen, setResultScreen] = useState<1 | 2 | 3 | 4>(1);
   const [mealIdea, setMealIdea] = useState("");
   const [ingredients, setIngredients] = useState("");
   const [seasonings, setSeasonings] = useState("");
@@ -45,6 +46,7 @@ export default function AhuvaKitchen() {
   function reset() {
     if (requestLock.current.isLocked()) return;
     setStage(1);
+    setResultScreen(1);
     setMealIdea("");
     setIngredients("");
     setSeasonings("");
@@ -100,6 +102,7 @@ export default function AhuvaKitchen() {
       if (data && typeof data === "object" &&
           "assistantMessage" in data && typeof data.assistantMessage === "string") {
         setResult(data as CookingResult);
+        setResultScreen(1);
         setActiveStep(0);
         setConversation(turns);
         return true;
@@ -282,18 +285,26 @@ export default function AhuvaKitchen() {
                 <button type="button" onClick={reset} className="text-xs font-semibold text-[#718477] underline underline-offset-4">New meal</button>
               </div>
             </div>
-            <p className="mt-5 whitespace-pre-wrap text-[15px] leading-7 text-[#29483B]">{result?.assistantMessage}</p>
-
-            {result?.interpretation && <div className="mt-5 rounded-2xl bg-[#F6F8F3] p-4"><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#718477]">Our meal</p><p className="mt-2 text-sm leading-6 text-[#29483B]">{result.interpretation}</p></div>}
+            {resultScreen === 1 && (
+              <>
+                <p className="mt-5 whitespace-pre-wrap text-[15px] leading-7 text-[#29483B]">{result?.assistantMessage}</p>
+                {result?.interpretation && <div className="mt-5 rounded-2xl bg-[#F6F8F3] p-4"><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#718477]">Our meal</p><p className="mt-2 text-sm leading-6 text-[#29483B]">{result.interpretation}</p></div>}
+                {result?.status === "unavailable" && <div className="mt-5 rounded-2xl border border-[#E5E9E1] bg-[#FBFCF9] p-4"><p className="text-xs leading-5 text-[#718477]">{result.reason === "sensitive_context" ? "Ahuva cannot assess medical conditions, allergies or medication-related dietary needs in this experience. The reviewed ingredient information remains general and is not a personal medical assessment." : "Ahuva’s guided cooking conversation is not connected yet. You can still explore the source-linked ingredient notes."}</p></div>}
+              </>
+            )}
+            {resultScreen === 2 && (
             <section className="mt-6 rounded-2xl border border-[#DCE7D9] bg-[#F7FAF5] p-4 sm:p-5">
               <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#718477]">Ingredient intelligence · Evidence-linked starter notes</p>
               <h4 className="mt-1 font-serif text-xl text-[#183D30]">Understand what is in your meal</h4>
               <p className="mt-2 text-sm leading-6 text-[#68796E]">Explore what each identified ingredient contains, what it does in the body and what is actually known about its relationship with blood pressure.</p><p className="mt-2 text-xs leading-5 text-[#87958A]">General educational information linked to authoritative sources. These starter notes still require formal clinical review before production release.</p>
               {ingredientInsights.length > 0 ? <div className="mt-4 space-y-3">{ingredientInsights.map((insight) => <details key={insight.id} className="rounded-xl border border-[#E2E9DF] bg-white p-4"><summary className="cursor-pointer list-none"><div className="flex flex-wrap items-center justify-between gap-2"><span className="font-semibold text-[#29483B]">{insight.title}</span><span className="rounded-full bg-[#F1F4EE] px-2.5 py-1 text-[10px] font-semibold text-[#68796E]">{insight.evidence}</span></div><p className="mt-1 text-xs text-[#718477]">Composition · Biology · Blood-pressure relevance</p></summary><div className="mt-4 space-y-3 text-sm leading-6 text-[#405C4D]"><div><p className="font-semibold text-[#29483B]">What it contains</p><p className="mt-1">{insight.constituents}</p></div><div><p className="font-semibold text-[#29483B]">What happens in the body</p><p className="mt-1">{insight.biology}</p></div><div><p className="font-semibold text-[#29483B]">How it relates to blood pressure</p><p className="mt-1">{insight.bloodPressure}</p></div><div><p className="font-semibold text-[#29483B]">What this means for your meal</p><p className="mt-1">{insight.mealMeaning}</p></div><div className="border-t border-[#E8ECE5] pt-3"><p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#718477]">Sources</p>{insight.sources.map((source) => <a key={source.url} href={source.url} target="_blank" rel="noreferrer" className="mt-2 block text-xs font-semibold text-[#315B49] underline underline-offset-2">{source.label}</a>)}</div></div></details>)}</div> : <p className="mt-4 rounded-xl bg-white p-4 text-sm leading-6 text-[#68796E]">An evidence-linked ingredient profile is not yet available for the ingredients identified. Ahuva will not invent their composition or blood-pressure effects.</p>}
               <div className="mt-4 rounded-xl border border-[#E2E9DF] bg-white p-4"><p className="font-semibold text-[#29483B]">How the ingredients come together</p><div className="mt-2 space-y-2 text-sm leading-6 text-[#405C4D]">{combinedMealInsights.map((note, index) => <p key={index}>{note}</p>)}</div></div>
-              {mode === "your-way" && result?.status !== "unavailable" && <div className="mt-4 border-t border-[#E2E9DF] pt-4"><p className="text-sm leading-6 text-[#68796E]">Your usual cooking method stays yours. Guided steps are available only if you ask for them.</p><button type="button" onClick={requestGuidedCooking} disabled={loading} className="mt-3 rounded-full border border-[#315B49] px-4 py-2.5 text-xs font-semibold text-[#315B49] disabled:opacity-40">{loading ? "Ahuva is thinking…" : "Show optional cooking steps"}</button></div>}
             </section>
+            )}
 
+            {resultScreen === 3 && (
+            <>
+            {mode === "your-way" && result?.status !== "unavailable" && !showGuidedCooking && <div className="mt-4 rounded-2xl border border-[#E6EBE3] bg-white p-4"><p className="text-sm leading-6 text-[#68796E]">Your usual cooking method stays yours. Would you like Ahuva to walk you through it?</p><button type="button" onClick={requestGuidedCooking} disabled={loading} className="mt-3 rounded-full border border-[#315B49] px-4 py-2.5 text-xs font-semibold text-[#315B49] disabled:opacity-40">{loading ? "Ahuva is thinking…" : "Show optional cooking steps"}</button></div>}
             {result?.plan && (mode === "ahuvas-way" || showGuidedCooking) && (
               <div className="mt-6 space-y-5">
                 <div><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#718477]">For {result.plan.servings}</p><h4 className="mt-1 font-serif text-xl text-[#183D30]">Your preparation</h4></div>
@@ -306,9 +317,13 @@ export default function AhuvaKitchen() {
 
             {result?.recommendations && result.recommendations.length > 0 && <div className="mt-6 space-y-3">{result.recommendations.map((item, index) => <button key={index} type="button" disabled={loading} onClick={() => chooseMeal(item.title)} className="w-full rounded-2xl border border-[#E6EBE3] p-4 text-left transition hover:border-[#789780] hover:bg-[#F8FAF6] disabled:opacity-50"><p className="font-semibold text-[#29483B]">{item.title}</p><p className="mt-1 text-sm leading-6 text-[#718477]">{item.detail}</p><span className="mt-3 inline-block text-xs font-semibold text-[#315B49]">Choose this meal →</span></button>)}</div>}
             {result?.questions && result.questions.length > 0 && <div className="mt-5 rounded-2xl border border-[#DCE7D9] bg-[#F6F8F3] p-4"><div className="flex items-center gap-2"><span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#E4EFE2] text-xs font-bold text-[#315B49]">a</span><p className="text-xs font-semibold text-[#315B49]">One thing to decide together</p></div><p className="mt-3 text-sm leading-6 text-[#29483B]">{result.questions[0]}</p></div>}
-            {result?.safetyNotes && result.safetyNotes.length > 0 && <div className="mt-5 rounded-xl border border-[#E8E1D5] bg-[#FBF8F1] p-4 text-sm leading-6 text-[#6F604B]">{result.safetyNotes.map((note, index) => <p key={index}>{note}</p>)}</div>}
+            {result?.safetyNotes && result.safetyNotes.length > 0 && <div className="mt-5 rounded-xl border border-[#E8E1D5] bg-[#FBF8F1] p-4 text-sm leading-6 text-[#6F604B]">{result.safetyNotes.map((note, index) => <p key={index}>{note}</p>)}
+            </>
+            )}
 
-            {result?.status !== "unavailable" && <AhuvaServingReview initialPeople={servings} mealName={mealIdea} ingredients={ingredients} />}
+            {resultScreen === 4 && (
+              <>
+              {result?.status !== "unavailable" && <AhuvaServingReview initialPeople={servings} mealName={mealIdea} ingredients={ingredients} />}
 
             {result?.status !== "unavailable" && (
               <form onSubmit={submitFollowUp} className="mt-7 border-t border-[#E8ECE5] pt-5">
@@ -319,9 +334,22 @@ export default function AhuvaKitchen() {
                 </div>
               </form>
             )}
-            {result?.status === "unavailable" && <div className="mt-5 rounded-2xl border border-[#E5E9E1] bg-[#FBFCF9] p-4"><p className="text-xs leading-5 text-[#718477]">{result.reason === "sensitive_context" ? "Ahuva cannot assess medical conditions, allergies or medication-related dietary needs in this experience. The reviewed ingredient information above remains general and is not a personal medical assessment." : "Ahuva’s guided cooking conversation is not connected yet. You can still explore the source-linked ingredient notes above."}</p></div>}
+              </>
+            )}
+
             {error && <p role="alert" className="mt-4 rounded-xl bg-[#FFF1E9] px-4 py-3 text-sm text-[#8B4229]">{error}</p>}
-            <div className="mt-6 flex justify-end"><button type="button" onClick={reset} className="rounded-full border border-[#DCE4DA] px-5 py-3 text-sm font-semibold text-[#315B49]">Start a new meal</button></div>
+            <div className="mt-8 border-t border-[#E8ECE5] pt-5">
+              <div className="mb-4 flex items-center justify-between text-xs text-[#718477]"><span>Step {resultScreen} of 4</span><span>{["Your meal", "Ingredients", "Cooking", "Serving"][resultScreen - 1]}</span></div>
+              <div className="mb-5 grid grid-cols-4 gap-2" role="group" aria-label="Cooking experience steps">
+                {(["Your meal", "Ingredients", "Cooking", "Serving"] as const).map((label, index) => (
+                  <button key={label} type="button" aria-current={resultScreen === index + 1 ? "step" : undefined} onClick={() => setResultScreen((index + 1) as 1 | 2 | 3 | 4)} className={`h-1.5 rounded-full transition ${resultScreen >= index + 1 ? "bg-[#315B49]" : "bg-[#E3E9E1]"}`} aria-label={`Go to step ${index + 1}: ${label}`} />
+                ))}
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <button type="button" onClick={() => setResultScreen((screen) => Math.max(1, screen - 1) as 1 | 2 | 3 | 4)} disabled={resultScreen === 1} className="rounded-full border border-[#DCE4DA] px-5 py-3 text-sm font-semibold text-[#315B49] disabled:opacity-35">Back</button>
+                {resultScreen < 4 ? <button type="button" onClick={() => setResultScreen((screen) => Math.min(4, screen + 1) as 1 | 2 | 3 | 4)} className="rounded-full bg-[#183D30] px-5 py-3 text-sm font-semibold text-white">Continue →</button> : <button type="button" onClick={reset} className="rounded-full bg-[#183D30] px-5 py-3 text-sm font-semibold text-white">Start a new meal</button>}
+              </div>
+            </div>
           </section>
         )}
 
