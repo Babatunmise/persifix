@@ -140,7 +140,7 @@ export default function AhuvaServingReview({ initialPeople, mealName, ingredient
                 <p className="mt-3 text-xs leading-5 text-[#87958A]">These are practical visual starting points, not a personalised calorie prescription. The right amount also depends on body size, appetite, activity, age and individual dietary needs. If the pot is saltier than planned, don’t skip food or make your serving too small; consider an unsalted vegetable side and keep the rest of the day’s sodium in mind.</p>
               </div>
               <div className="mt-4 flex flex-wrap gap-3 text-xs font-semibold text-[#315B49]">
-                <a href="https://www.cdc.gov/salt/about/" target="_blank" rel="noreferrer" className="underline underline-offset-2">CDC · Salt and sodium</a>
+                <a href="https://www.heart.org/en/health-topics/high-blood-pressure/changes-you-can-make-to-manage-high-blood-pressure/shaking-the-salt-habit-to-lower-high-blood-pressure" target="_blank" rel="noreferrer" className="underline underline-offset-2">AHA · Salt and sodium</a>
                 <a href="https://www.nhlbi.nih.gov/health/dash/following-dash" target="_blank" rel="noreferrer" className="underline underline-offset-2">NHLBI · DASH serving examples</a>
               </div>
               {ingredientChange === "changed" && changeNote.trim() && <p className="mt-3 text-xs leading-5 text-[#718477]">You noted these changes: {changeNote.trim()}. This first version records them but does not recalculate the meal’s energy or nutrient content.</p>}
