@@ -174,6 +174,7 @@ export async function POST(req: NextRequest) {
   const context = [
     "Task: help the user prepare the meal they asked for, with practical DASH-aligned adjustments.",
     `User's meal, confirmed ingredients, seasonings and serving count: ${safeDetails}`,
+    `Cooking preference selected by the user: ${body.mode === "ahuvas-way" ? "Ahuva’s way — propose a more DASH-aligned approach" : "Your way — preserve the familiar method and offer optional adjustments"}.`,
     "Pay particular attention to salt, stock cubes, seasoning blends and sauces as potential sodium sources. Preserve the chosen meal where practical.",
   ].join("\n");
 
