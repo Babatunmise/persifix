@@ -39,7 +39,7 @@ const profiles: { match: RegExp; insight: IngredientInsight }[] = [
       bloodPressure: "A higher sodium intake can raise blood pressure, and reducing sodium lowers it on average. The effect is supported by controlled dietary studies; it is not possible to calculate this meal's effect without knowing the amount and the rest of the day's intake.",
       mealMeaning: "Salt is a confirmed sodium source in this meal. Its contribution adds to sodium that may also come from stock cubes, sauces or seasoning blends. Ahuva should not estimate the amount when none was supplied.",
       evidence: "Well established",
-      sources: [sources.dashSodium, sources.sodium],
+      sources: [sources.dashSodium, sources.sodium, sources.potassium],
     },
   },
   {
@@ -122,6 +122,15 @@ export function getCombinedMealInsight(text: string): string[] {
   }
   if (insights.some((item) => item.id === "oil")) {
     notes.push("The oil type is unknown. Its fatty-acid profile cannot be assessed from 'oil' alone.");
+  }
+  if (
+    insights.some((item) => item.id === "salt" || item.id === "seasoning-blend") &&
+    insights.some((item) => item.id === "fish" || item.id === "beef")
+  ) {
+    notes.push("Fish and beef naturally contain some potassium, but their amounts vary. That potassium does not cancel the sodium in added salt or a seasoning blend. Sodium and potassium affect fluid balance and blood-vessel function through complementary pathways; the total dietary pattern matters.");
+  }
+  if (insights.some((item) => item.id === "beef") && insights.some((item) => item.id === "oil")) {
+    notes.push("The beef cut and oil type together determine much of the meal's fat profile. Without those details, Ahuva cannot tell whether this combination is high in saturated fat or quantify it.");
   }
   notes.push("These ingredients do not let us predict an individual's blood-pressure response to this meal. The overall pattern, quantities, preparation and individual health context matter.");
   return notes;
