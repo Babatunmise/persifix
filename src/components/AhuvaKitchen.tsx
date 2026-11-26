@@ -248,6 +248,33 @@ export default function AhuvaKitchen() {
               <div className="mt-6 space-y-5">
                 <div><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#718477]">For {result.plan.servings}</p><h4 className="mt-1 font-serif text-xl text-[#183D30]">Your preparation</h4></div>
                 {result.plan.ingredients.length > 0 && <div className="rounded-2xl bg-[#F8F9F5] p-4"><p className="mb-3 text-[10px] font-bold uppercase tracking-[0.16em] text-[#718477]">What we're working with</p><div className="flex flex-wrap gap-2">{result.plan.ingredients.map((item, index) => <span key={`${item.name}-${index}`} className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs ${item.availability === "available" ? "bg-[#E4EFE2] text-[#315B49]" : item.availability === "missing" ? "bg-[#FFF0E6] text-[#92532F]" : "bg-[#F1F0E9] text-[#68796E]"}`}>{item.name}{item.amount ? <span className="opacity-70">· {item.amount}</span> : null}</span>)}</div></div>}
+
+                <details className="rounded-2xl border border-[#DCE7D9] bg-[#F7FAF5] p-4">
+                  <summary className="cursor-pointer list-none">
+                    <span className="block text-[10px] font-bold uppercase tracking-[0.16em] text-[#718477]">Ingredient intelligence · First reviewed interaction</span>
+                    <span className="mt-1 block font-serif text-lg text-[#183D30]">How sodium and potassium work together</span>
+                    <span className="mt-1 block text-xs leading-5 text-[#718477]">Explore the biology behind an important DASH relationship</span>
+                  </summary>
+                  <div className="mt-4 space-y-4 text-sm leading-6 text-[#405C4D]">
+                    <div>
+                      <p className="font-semibold text-[#29483B]">The constituents</p>
+                      <p className="mt-1">Sodium is found in added salt and many seasoning blends, sauces and packaged foods. Potassium occurs naturally in foods such as vegetables, beans, fruit and some dairy products.</p>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-[#29483B]">What happens in the body</p>
+                      <p className="mt-1">Higher sodium intake can increase blood pressure in many people. Potassium supports blood-vessel relaxation and helps the kidneys excrete sodium. These are complementary physiological pathways, not a simple cancellation where potassium makes a salty meal harmless.</p>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-[#29483B]">What this means for this meal</p>
+                      <p className="mt-1">Ahuva should look at both the sodium sources in the seasonings and whether potassium-rich foods are actually part of the meal. Adding a potassium-rich food does not erase excess sodium. People with kidney disease or taking medicines that raise potassium may need individual clinical guidance.</p>
+                    </div>
+                    <div className="border-t border-[#DCE7D9] pt-3">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#718477]">Reviewed reference material</p>
+                      <a href="https://ods.od.nih.gov/factsheets/Potassium-HealthProfessional/" target="_blank" rel="noreferrer" className="mt-2 block text-xs font-semibold text-[#315B49] underline underline-offset-2">NIH Office of Dietary Supplements · Potassium</a>
+                      <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9257466/" target="_blank" rel="noreferrer" className="mt-1 block text-xs font-semibold text-[#315B49] underline underline-offset-2">INTERMAP study · DASH, sodium, potassium and blood pressure</a>
+                    </div>
+                  </div>
+                </details>
                 {result.plan.preparation.length > 0 && <div className="rounded-2xl border border-[#E6EBE3] bg-white p-4"><div className="flex items-center justify-between"><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#718477]">Let's cook · Step {Math.min(activeStep + 1, result.plan.preparation.length)} of {result.plan.preparation.length}</p><span className="text-xs text-[#87958A]">{Math.round(((activeStep + 1) / result.plan.preparation.length) * 100)}%</span></div><p className="mt-4 text-base leading-7 text-[#29483B]">{result.plan.preparation[Math.min(activeStep, result.plan.preparation.length - 1)]}</p><div className="mt-5 flex items-center justify-between"><button type="button" onClick={() => setActiveStep((step) => Math.max(0, step - 1))} disabled={activeStep === 0} className="rounded-full border border-[#DCE4DA] px-4 py-2 text-xs font-semibold text-[#315B49] disabled:opacity-35">Previous</button><button type="button" onClick={() => setActiveStep((step) => Math.min(result.plan!.preparation.length - 1, step + 1))} disabled={activeStep >= result.plan.preparation.length - 1} className="rounded-full bg-[#183D30] px-4 py-2 text-xs font-semibold text-white disabled:opacity-35">Next step →</button></div></div>}
               </div>
             )}
