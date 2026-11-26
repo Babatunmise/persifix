@@ -103,7 +103,7 @@ export default function AhuvaKitchen() {
       if (data && typeof data === "object" &&
           "assistantMessage" in data && typeof data.assistantMessage === "string") {
         setResult(data as CookingResult);
-        setResultScreen(1);
+        setResultScreen((data as CookingResult).status === "needs_clarification" ? 3 : 1);
         setActiveStep(0);
         setConversation(turns);
         return true;
