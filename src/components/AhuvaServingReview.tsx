@@ -15,6 +15,7 @@ export default function AhuvaServingReview({ initialPeople, mealName, ingredient
   const [saltType, setSaltType] = useState("table");
   const [saltAmount, setSaltAmount] = useState("");
   const [otherSource, setOtherSource] = useState("unknown");
+  const [seasoningMatch, setSeasoningMatch] = useState("about_the_same");
   const [labelSodium, setLabelSodium] = useState("");
   const [labelServings, setLabelServings] = useState("");
   const [ingredientChange, setIngredientChange] = useState("about_the_same");
@@ -54,7 +55,11 @@ export default function AhuvaServingReview({ initialPeople, mealName, ingredient
           </div>
 
           <div className="rounded-2xl border border-[#E2E9DF] bg-white p-4">
-            <p className="text-sm font-semibold text-[#29483B]">How much fine table salt went into the whole pot?</p>
+            <p className="text-sm font-semibold text-[#29483B]">Did you use the salt and seasoning amounts we discussed?</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {[{ value: "about_the_same", label: "About the same" }, { value: "less", label: "I used less" }, { value: "more", label: "I used more" }, { value: "unsure", label: "I’m not sure" }].map((option) => <button key={option.value} type="button" aria-pressed={seasoningMatch === option.value} onClick={() => { setSeasoningMatch(option.value); setReview(null); }} className={`rounded-full border px-3 py-2 text-xs font-semibold ${seasoningMatch === option.value ? "border-[#315B49] bg-[#EAF1E8] text-[#315B49]" : "border-[#DCE4DA] bg-white text-[#718477]"}`}>{option.label}</button>)}
+            </div>
+            <p className="mt-4 text-sm font-semibold text-[#29483B]">How much fine table salt went into the whole pot?</p>
             <p className="mt-1 text-xs leading-5 text-[#718477]">Use the amount for the entire pot, not just your plate. If you used coarse, sea or a salt substitute, choose the option below; teaspoon estimates vary by type.</p>
             <div className="mt-3 grid grid-cols-2 gap-3">
               <select aria-label="Salt type" value={saltType} onChange={(event) => { setSaltType(event.target.value); setReview(null); }} className="min-w-0 rounded-xl border border-[#DCE4DA] bg-[#FBFCF9] px-3 py-3 text-sm text-[#29483B]">
