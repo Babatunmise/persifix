@@ -83,6 +83,13 @@ export function normalizeAhuvaResult(value) {
     plan = { servings, preparation: preparation.map((step) => step.trim()), ingredients };
   }
 
+  if (value.status === "ready" && questions.length > 0) {
+    return { ok: false, reason: "ready_response_has_questions" };
+  }
+  if (value.status === "needs_clarification" && plan !== null) {
+    return { ok: false, reason: "clarification_response_has_plan" };
+  }
+
   return {
     ok: true,
     value: {
