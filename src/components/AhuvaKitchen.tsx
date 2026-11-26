@@ -293,7 +293,7 @@ export default function AhuvaKitchen() {
                 </div>
               </form>
             )}
-            {result?.status === "unavailable" && <div className="mt-5 rounded-2xl border border-[#E5E9E1] bg-[#FBFCF9] p-4"><p className="text-xs leading-5 text-[#718477]">Your brief has reached the Cooking service. The AI provider remains disabled until its data safeguards are approved.</p></div>}
+            {result?.status === "unavailable" && <div className="mt-5 rounded-2xl border border-[#E5E9E1] bg-[#FBFCF9] p-4"><p className="text-xs leading-5 text-[#718477]">{result.reason === "sensitive_context" ? "Ahuva cannot assess medical conditions, allergies or medication-related dietary needs in this experience. The reviewed ingredient information above remains general and is not a personal medical assessment." : "Ahuva’s guided cooking conversation is not connected yet. You can still explore the reviewed ingredient information above."}</p></div>}
             {error && <p role="alert" className="mt-4 text-sm text-[#8B4229]">{error}</p>}
             <div className="mt-6 flex justify-end"><button type="button" onClick={reset} className="rounded-full border border-[#DCE4DA] px-5 py-3 text-sm font-semibold text-[#315B49]">Start a new meal</button></div>
           </section>
