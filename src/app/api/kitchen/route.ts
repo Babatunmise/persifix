@@ -156,7 +156,7 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         model: "deepseek-flash",
         thinking: { type: "disabled" },
-        max_tokens: 2200,
+        max_tokens: 2600,
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: context },
@@ -233,10 +233,61 @@ export async function POST(req: NextRequest) {
       return jsonError("Ahuva’s response was incomplete. Please try again.", 502);
     }
     if (!safeString(data.choices[0].message.content, 8_000)) {
-      console.error("[ahuva] provider returned empty completion content", {
+      const firstChoice = data.choices[0];
+      const firstMessage = firstChoice.message;
+      const contentType = firstMessage.content === null ? "null" : typeof firstMessage.content;
+      const finishReason = typeof firstChoice.finish_reason === "string" ? firstChoice.finish_reason : "unknown";
+      const refusalPresent = typeof firstMessage.refusal === "string" && firstMessage.refusal.length > 0;
+      const reasoningLength = typeof firstMessage.reasoning_content === "string" ? firstMessage.reasoning_content.length : 0;
+      console.warn("[ahuva] provider returned an empty completion; retrying once", {
         category: "provider_empty_completion",
+        finishReason,
+        contentType,
+        refusalPresent,
+        reasoningLength,
       });
-      return jsonError("Ahuva could not complete the cooking response.", 502);
+
+      // A successful HTTP response can still contain an empty model completion.
+      // Retry that case once, without exposing provider content or user data.
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      try {
+        const retryResponse = await fetch("https://api.deepseek.com/chat/completions", {
+          ...providerRequest,
+          signal: AbortSignal.timeout(25_000),
+        });
+        if (retryResponse.ok) {
+          const retryData: unknown = await retryResponse.json();
+          if (isRecord(retryData) && Array.isArray(retryData.choices) &&
+              isRecord(retryData.choices[0]) && isRecord(retryData.choices[0].message) &&
+              safeString(retryData.choices[0].message.content, 8_000)) {
+            data = retryData;
+          } else {
+            console.error("[ahuva] provider retry also returned no usable completion", {
+              category: "provider_empty_completion_retry_exhausted",
+            });
+          }
+        } else {
+          console.error("[ahuva] provider retry was not successful", {
+            category: "provider_retry_http_error",
+            status: retryResponse.status,
+          });
+        }
+      } catch (retryError) {
+        console.error("[ahuva] provider retry failed", {
+          category: retryError instanceof Error && retryError.name === "TimeoutError"
+            ? "provider_retry_timeout"
+            : "provider_retry_transport_error",
+        });
+      }
+    }
+
+    if (!isRecord(data) || !Array.isArray(data.choices) ||
+        !isRecord(data.choices[0]) || !isRecord(data.choices[0].message) ||
+        !safeString(data.choices[0].message.content, 8_000)) {
+      console.error("[ahuva] provider returned no usable completion after retry", {
+        category: "provider_empty_completion_final",
+      });
+      return jsonError("Ahuva couldn’t finish that response. Your meal is still here—please try once more.", 502);
     }
 
     let parsed: unknown;
