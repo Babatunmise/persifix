@@ -73,3 +73,34 @@ export function calculateKnownAddedSodium({
     knownAddedSodiumPerShareMg: Math.round(knownAddedSodiumMg / people),
   };
 }
+
+
+/**
+ * Converts a user's own household measure into an equal share of the pot.
+ * The unit is intentionally user-defined (same bowl, ladle or cup throughout).
+ */
+/** @param {{totalUnits?: number | null, unit: "ladles" | "bowls" | "cups", people: number}} input
+ * @returns {{ok: false, reason: string} | {ok: true, status: "not_measured", people: number} | {ok: true, status: "measured", people: number, totalUnits: number, unit: string, unitsPerPerson: number}}
+ */
+export function calculateHouseholdPotShares({ totalUnits = null, unit, people }) {
+  if (!Number.isInteger(people) || people < 1 || people > 100) {
+    return { ok: false, reason: "invalid_people_count" };
+  }
+  if (!["ladles", "bowls", "cups"].includes(unit)) {
+    return { ok: false, reason: "invalid_household_unit" };
+  }
+  if (totalUnits === null || totalUnits === undefined || totalUnits === "") {
+    return { ok: true, status: "not_measured", people };
+  }
+  if (typeof totalUnits !== "number" || !Number.isFinite(totalUnits) || totalUnits <= 0 || totalUnits > 1000) {
+    return { ok: false, reason: "invalid_pot_quantity" };
+  }
+  return {
+    ok: true,
+    status: "measured",
+    people,
+    totalUnits,
+    unit,
+    unitsPerPerson: Math.round((totalUnits / people) * 100) / 100,
+  };
+}
