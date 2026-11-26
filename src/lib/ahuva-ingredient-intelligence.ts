@@ -65,7 +65,7 @@ const profiles: { match: RegExp; insight: IngredientInsight }[] = [
       bloodPressure: "Fish is included in heart-healthy and DASH-style eating patterns, but the blood-pressure relevance of this particular fish cannot be inferred without knowing the species and portion. Evidence about omega-3 intake should not be presented as a guaranteed effect from one fish meal.",
       mealMeaning: "The fish species is unspecified. Ahuva can confidently describe it as a protein source, but should not assume it is oily or assign an omega-3 amount. Grilling, baking or frying also changes the meal's overall fat profile.",
       evidence: "Depends on the exact ingredient",
-      sources: [sources.dash],
+      sources: [sources.dash, { label: "NIH Office of Dietary Supplements · Omega-3 fatty acids", url: "https://ods.od.nih.gov/factsheets/omega3fattyacids-healthprofessional/" }],
     },
   },
   {
