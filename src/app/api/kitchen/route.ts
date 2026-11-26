@@ -248,7 +248,7 @@ export async function POST(req: NextRequest) {
     }
     const latestUserMessage = conversation.filter((turn) => turn.role === "user").at(-1)?.content ?? "";
     const explicitlyRequestedSteps =
-      /(?:show|give|provide|walk me through|guide me through).{0,80}\\b(?:steps|instructions|recipe|preparation)\\b/i.test(latestUserMessage);
+      /(?:show|give|provide|walk me through|guide me through).{0,80}\b(?:steps|instructions|recipe|preparation)\b/i.test(latestUserMessage);
     const normalized = normalizeAhuvaResult(parsed, {
       requirePlan: body.mode === "ahuvas-way" || explicitlyRequestedSteps,
     });
