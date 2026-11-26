@@ -240,8 +240,8 @@ export async function POST(req: NextRequest) {
       return jsonError("Ahuva’s response was incomplete. Please try again.", 502);
     }
     if (!safeString(data.choices[0].message.content, 8_000)) {
-      const firstChoice = data.choices[0];
-      const firstMessage = firstChoice.message;
+      const firstChoice = data.choices[0] as Record<string, unknown>;
+      const firstMessage = firstChoice.message as Record<string, unknown>;
       const contentType = firstMessage.content === null ? "null" : typeof firstMessage.content;
       const finishReason = typeof firstChoice.finish_reason === "string" ? firstChoice.finish_reason : "unknown";
       const refusalPresent = typeof firstMessage.refusal === "string" && firstMessage.refusal.length > 0;
