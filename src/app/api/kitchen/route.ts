@@ -152,7 +152,7 @@ export async function POST(req: NextRequest) {
   if (process.env.SANCTOS_EXTERNAL_AI_APPROVED !== "true") {
     return Response.json({
       status: "unavailable",
-      assistantMessage: "Ahuva’s cooking intelligence is not available yet. Your cooking brief is ready, but the assistant connection is still being prepared.",
+      assistantMessage: "Ahuva’s guided cooking conversation is not connected yet. You can still explore the reviewed ingredient information below.",
       interpretation: "",
       questions: [],
       recommendations: [],
