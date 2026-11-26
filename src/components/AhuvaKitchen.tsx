@@ -64,7 +64,6 @@ export default function AhuvaKitchen() {
     if (!brief.trim() || !requestLock.current.acquire()) return false;
 
     // Lock synchronously before React re-renders, preventing rapid-tap duplicates.
-    
     setLoading(true);
     setError(null);
 
@@ -105,12 +104,14 @@ export default function AhuvaKitchen() {
         return true;
       }
 
+      const serverError = data && typeof data === "object" &&
+        "error" in data && typeof data.error === "string" ? data.error : null;
       if (response.status === 401) {
-        setError("Your session has expired. Sign in again, then retry. Your meal details are saved here.");
+        setError("Your session has expired. Sign in again. Your meal details are still here.");
       } else if (response.status === 429) {
-        setError("Ahuva is receiving too many requests right now. Your meal is saved; wait a moment and retry.");
+        setError("Ahuva is receiving too many requests right now. Please wait briefly before continuing.");
       } else {
-        setError("Ahuva couldn’t complete that response. Your meal details are saved; retry without starting again.");
+        setError(serverError ?? "Ahuva couldn’t complete the cooking response. Please try again later.");
       }
       return false;
     } catch {
