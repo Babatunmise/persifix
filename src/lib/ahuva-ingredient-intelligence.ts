@@ -82,14 +82,53 @@ const profiles: { match: RegExp; insight: IngredientInsight }[] = [
     },
   },
   {
-    match: /\b(?:suya spice|suya seasoning|curry|curry powder|seasoning blend|spice blend|mixed seasoning|stock cube|bouillon|seasoning cube)\b/i,
+    match: /\\b(?:suya spice|suya seasoning)\\b/i,
+    insight: {
+      id: "suya-spice",
+      title: "Suya spice",
+      constituents: "Suya seasoning is a blend, and formulations vary between homemade mixes and commercial products. Ingredients may include several spices and other flavouring components; the name alone does not establish the exact composition.",
+      biology: "The individual spices contribute different aromatic compounds. If the blend also contains salt or sodium-based additives, those contribute to total sodium intake. The spices do not neutralise that sodium.",
+      bloodPressure: "There is no reliable way to infer this blend's sodium content or a direct blood-pressure effect from its name. The product label or recipe is needed before making a composition-specific claim.",
+      mealMeaning: "Suya spice is present, but its ingredients and sodium content are unconfirmed. Ahuva should keep it as an unknown seasoning component rather than assume it is either high-sodium or salt-free.",
+      evidence: "Composition not confirmed",
+      sources: [sources.dashSodium, sources.sodium],
+    },
+  },
+  {
+    match: /\\b(?:curry powder|curry blend|curry seasoning|curry)\\b/i,
+    insight: {
+      id: "curry",
+      title: "Curry",
+      constituents: "Curry powders and pastes differ widely. They may contain combinations of turmeric, coriander, cumin, chilli and other spices, but salt and other additives depend on the specific product.",
+      biology: "The spices contain varied plant compounds, but their presence does not establish a clinically meaningful blood-pressure effect at ordinary cooking quantities. Added sodium, if present, contributes to total intake.",
+      bloodPressure: "Curry itself should not be described as a blood-pressure treatment or as a sodium source without checking the formulation. The blood-pressure relevance depends on the actual ingredients and amount used.",
+      mealMeaning: "The type of curry product is unknown. Ahuva should not assume its spice composition or sodium content; a label is useful only if the user wants a more precise assessment.",
+      evidence: "Composition not confirmed",
+      sources: [sources.dashSodium, sources.dash],
+    },
+  },
+  {
+    match: /\\b(?:stock cube|bouillon|seasoning cube)\\b/i,
+    insight: {
+      id: "stock-cube",
+      title: "Stock cube or bouillon",
+      constituents: "Stock cubes and bouillon are concentrated flavouring products. Many contain salt or sodium-based flavour enhancers, but sodium levels vary by brand and product.",
+      biology: "Sodium contributes to fluid balance. When the overall diet supplies more sodium than the body needs, blood pressure can rise in many people.",
+      bloodPressure: "A stock cube can be a meaningful sodium source, but its contribution depends on the label and how much is used. The product name alone cannot provide a reliable sodium estimate.",
+      mealMeaning: "If a stock cube is used in this meal, its label and quantity matter alongside added salt and other seasonings. Ahuva should not invent a sodium value.",
+      evidence: "Depends on the exact ingredient",
+      sources: [sources.dashSodium, sources.sodium],
+    },
+  },
+  {
+    match: /\\b(?:seasoning blend|spice blend|mixed seasoning)\\b/i,
     insight: {
       id: "seasoning-blend",
-      title: "Seasoning blends and spice mixes",
-      constituents: "A blend may contain spices and herbs, but some products also include salt, sodium-containing flavour enhancers or other additives. Recipes and commercial formulations vary.",
-      biology: "If a blend contains added sodium, it contributes to total sodium intake. The non-sodium spices cannot be assumed to neutralise that sodium or cancel its effects.",
-      bloodPressure: "The blood-pressure relevance depends on the product's actual sodium content and how much is used. The name of a blend is not enough to estimate its sodium contribution.",
-      mealMeaning: "The composition of this seasoning is unconfirmed. Ahuva should treat it as an unknown possible sodium source, not label it high-sodium without its ingredient list or nutrition label.",
+      title: "Other seasoning blends",
+      constituents: "Seasoning blends vary. Some contain only herbs and spices; others include salt, sodium-based flavour enhancers or other additives.",
+      biology: "If sodium is present, it contributes to total sodium intake. The other flavouring ingredients do not cancel its physiological effects.",
+      bloodPressure: "The blood-pressure relevance depends on the product's actual sodium content and how much is used. A blend's name is not enough to estimate its contribution.",
+      mealMeaning: "The composition is unconfirmed. Ahuva should not label the product high-sodium or salt-free without its ingredient list or nutrition label.",
       evidence: "Composition not confirmed",
       sources: [sources.dashSodium, sources.sodium],
     },
@@ -111,7 +150,7 @@ export function getIngredientInsights(text: string): IngredientInsight[] {
 export function getCombinedMealInsight(text: string): string[] {
   const insights = getIngredientInsights(text);
   const notes: string[] = [];
-  if (insights.some((item) => item.id === "salt" || item.id === "seasoning-blend")) {
+  if (insights.some((item) => item.id === "salt" || ["seasoning-blend", "suya-spice", "curry", "stock-cube"].includes(item.id))) {
     notes.push("The most direct blood-pressure factor identified in this ingredient list is possible sodium from added salt and any sodium-containing seasoning products. Their combined amount is unknown, so no sodium total should be estimated.");
   }
   if (insights.some((item) => item.id === "beef")) {
