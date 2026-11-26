@@ -2,7 +2,7 @@ const isFiniteNonNegative = (value) =>
   typeof value === "number" && Number.isFinite(value) && value >= 0;
 
 /**
- * @typedef {{ok: false, reason: string} | {ok: true, status: "estimate" | "insufficient_data", people: number, sources: {name: string, sodiumMg: number, basis: string}[], knownAddedSodiumMg: number | null, knownAddedSodiumPerShareMg: number | null}} SodiumEstimateResult
+ * @typedef {{ok: false, reason: string} | {ok: true, status: "insufficient_data", people: number, sources: {name: string, sodiumMg: number, basis: string}[], knownAddedSodiumMg: null, knownAddedSodiumPerShareMg: null} | {ok: true, status: "estimate", people: number, sources: {name: string, sodiumMg: number, basis: string}[], knownAddedSodiumMg: number, knownAddedSodiumPerShareMg: number}} SodiumEstimateResult
  *
  * Estimates only the added sodium sources explicitly entered by the user.
  * Fine table salt is approximated at 2,300 mg sodium per level teaspoon.
