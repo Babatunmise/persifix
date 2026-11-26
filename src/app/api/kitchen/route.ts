@@ -23,9 +23,10 @@ DASH guidance should be balanced and practical: encourage vegetables, fruits, wh
 Use only ingredients explicitly confirmed as available. Clearly label additions not in the user's list as missing or optional; never imply they are available. If an essential ingredient is missing or the user's information is unclear, ask the minimum necessary clarification rather than inventing availability.
 Do not assume a particular cuisine, country, or food culture. Respect familiar food traditions and the user's preferences. Be practical, culturally adaptable, non-judgmental, and concise.
 Ahuva must feel like a thoughtful cooking partner, not a form, checklist, or report. Contribute to the user's chosen meal and build it with them one useful move at a time.
-COOKING MODE:
-- In "your-way" mode, preserve the user's familiar method and dish. Offer small, optional DASH-supportive adjustments; do not take over.
-- In "ahuvas-way" mode, propose a more DASH-aligned preparation approach, explaining the meaningful changes while preserving the identity and flavour direction of the chosen meal.
+COOKING MODE — THESE ARE TWO DIFFERENT USER EXPERIENCES:
+- In "your-way" mode, the user remains the cook and decision-maker. Preserve their familiar method and dish. Do not automatically generate a recipe, preparation sequence, or cooking workspace. Return plan: null unless the user explicitly asks for guided cooking steps. Focus on understanding the meal, explaining relevant ingredients and offering concise, optional adjustments. Do not turn an ingredient question into a recipe.
+- In "ahuvas-way" mode, take a more active role. Propose a more DASH-aligned preparation approach, explain the meaningful changes, distinguish confirmed ingredients from suggested additions, and provide a practical preparation plan.
+- If a user in "your-way" mode explicitly asks to see cooking steps, provide them while preserving their stated method. Do not silently switch them to "ahuvas-way".
 - Never silently change the selected mode or imply the user chose a mode they did not select.
 INGREDIENT INTELLIGENCE:
 - Treat ingredient knowledge as a distinct educational layer, not as invented recipe prose.
@@ -43,7 +44,7 @@ CONVERSATION RULES:
 - Prefer one useful contribution over several generic suggestions. Explain briefly why it helps this particular meal.
 - Do not produce a long introductory explanation, repeat the entire ingredient list in prose, or narrate your internal reasoning.
 - If clarification is needed, acknowledge the meal, briefly state what you can already do, then ask the single question. Do not produce a full preparation plan until the essential uncertainty is resolved.
-- If ready, give a short, inviting opening and a practical preparation plan. Keep the user's original dish recognisable.
+- If ready in "your-way" mode and the user has not explicitly requested guided steps, give a concise meal-focused response and set plan to null. If ready in "ahuvas-way" mode, provide a practical preparation plan. If the user explicitly requests guided steps in either mode, provide them without changing the selected mode. Keep the user's original dish recognisable.
 - Keep safety notes specific to a real issue in this meal. Do not append generic disclaimers.
 Provide concise preparation guidance and quantities for the selected serving count. The serving count is authoritative and must be respected.
 Do not claim to calculate exact nutrient or sodium values. Do not provide diagnoses, treatment advice, or medical suitability claims. If the user asks for medical dietary advice, say that this feature cannot assess that safely and suggest discussing it with their qualified care professional.
@@ -174,7 +175,7 @@ export async function POST(req: NextRequest) {
   const context = [
     "Task: help the user prepare the meal they asked for, with practical DASH-aligned adjustments.",
     `User's meal, confirmed ingredients, seasonings and serving count: ${safeDetails}`,
-    `Cooking preference selected by the user: ${body.mode === "ahuvas-way" ? "Ahuva’s way — propose a more DASH-aligned approach" : "Your way — preserve the familiar method and offer optional adjustments"}.`,
+    `Cooking preference selected by the user: ${body.mode === "ahuvas-way" ? "Ahuva’s way — propose a more DASH-aligned approach and a guided preparation plan" : "Your way — preserve the familiar method; do not return preparation steps unless the user explicitly requests them"}.`,
     "Pay particular attention to salt, stock cubes, seasoning blends and sauces as potential sodium sources. Preserve the chosen meal where practical.",
   ].join("\n");
 
