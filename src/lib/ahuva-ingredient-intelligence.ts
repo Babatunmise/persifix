@@ -132,6 +132,59 @@ const profiles: { match: RegExp; insight: IngredientInsight }[] = [
       evidence: "Composition not confirmed",
       sources: [sources.dashSodium, sources.sodium],
     },
+  },,
+
+  {
+    match: /\\b(?:rice|white rice|brown rice|wholegrain rice|parboiled rice|basmati rice|jasmine rice)\\b/i,
+    insight: {
+      id: "rice",
+      title: "Rice",
+      constituents: "Rice is mainly a starchy carbohydrate. Wholegrain brown rice retains more of the bran and germ, including fibre; white rice has had these layers milled away. Enrichment varies by country and product.",
+      biology: "Starch is digested into glucose and supplies energy. Fibre contributes to digestive health and can affect how quickly a meal is digested; the full meal composition also matters.",
+      bloodPressure: "Rice is not a blood-pressure treatment. Whole grains are encouraged within DASH-style eating patterns, but the choice between rice varieties does not predict an individual's response to one meal.",
+      mealMeaning: "The rice variety is not confirmed. Ahuva should distinguish wholegrain, white, parboiled and instant products when discussing fibre, texture, cooking time or packaged sodium.",
+      evidence: "Depends on the exact ingredient",
+      sources: [sources.dash],
+    },
+  },
+  {
+    match: /\\b(?:chicken|chicken breast|chicken thigh|chicken drumstick|chicken wing|ground chicken|minced chicken)\\b/i,
+    insight: {
+      id: "chicken",
+      title: "Chicken",
+      constituents: "Chicken supplies complete protein and several B vitamins and minerals. Fat content varies by cut, skin and preparation.",
+      biology: "Protein supplies amino acids for tissue maintenance. The skin and visible fat contribute additional fat; marinades, brines and processed forms can add sodium.",
+      bloodPressure: "Fresh chicken is not a direct blood-pressure treatment. In a DASH-style pattern, skinless, unprocessed poultry can be a practical protein choice; processed or heavily salted products need separate consideration.",
+      mealMeaning: "The cut, skin and whether the chicken is fresh, brined or processed are not confirmed. Ahuva should not assume breast meat or skinless preparation.",
+      evidence: "Depends on the exact ingredient",
+      sources: [sources.dash, sources.sodium],
+    },
+  },
+  {
+    match: /\\b(?:tomato|tomatoes|tomato paste|tomato puree|passata|canned tomatoes|sun dried tomatoes)\\b/i,
+    insight: {
+      id: "tomato",
+      title: "Tomatoes and tomato products",
+      constituents: "Tomatoes provide water, fibre and carotenoids including lycopene. Concentrated products such as tomato paste contain less water and more tomato solids per spoonful. Packaged products differ in added salt.",
+      biology: "Lycopene is a carotenoid with antioxidant activity. Its presence does not mean a tomato product treats high blood pressure.",
+      bloodPressure: "Fresh tomatoes are not a treatment for hypertension. The practical blood-pressure distinction is often the sodium added to canned, bottled, dried or seasoned products.",
+      mealMeaning: "Fresh tomato, plain paste, salted paste, passata and sun-dried tomatoes are not interchangeable for concentration or sodium. Check the product label where sodium matters.",
+      evidence: "Depends on the exact ingredient",
+      sources: [sources.dash, sources.sodium],
+    },
+  },
+  {
+    match: /\\b(?:onion|onions|red onion|white onion|yellow onion|spring onion|scallion|shallot)\\b/i,
+    insight: {
+      id: "onion",
+      title: "Onions and alliums",
+      constituents: "Onions provide flavour compounds, small amounts of fibre and micronutrients. Red, white, yellow and spring onions differ in flavour and culinary use.",
+      biology: "Cutting and cooking onions changes their flavour compounds and texture. Ordinary culinary amounts should not be presented as a medication-like effect.",
+      bloodPressure: "Onions can contribute to a varied vegetable-rich eating pattern, but a particular onion type should not be described as lowering an individual's blood pressure.",
+      mealMeaning: "Choose the type based on the flavour and texture wanted. Ahuva should not claim a special blood-pressure benefit for red, white or yellow onions without strong evidence.",
+      evidence: "Well established",
+      sources: [sources.dash],
+    },
   },
 ];
 
