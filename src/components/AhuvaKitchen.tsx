@@ -3,6 +3,7 @@
 import { useRef, useState, type FormEvent } from "react";
 import { supabase } from "@/supabase";
 import { getCombinedMealInsight, getIngredientInsights } from "@/lib/ahuva-ingredient-intelligence";
+import { createAhuvaRequestLock } from "@/lib/ahuva-request-lock.mjs";
 
 type EntryIntent = "meal" | "ingredients";
 type CookingMode = "your-way" | "ahuvas-way";
@@ -39,10 +40,10 @@ export default function AhuvaKitchen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pendingRequest, setPendingRequest] = useState<{ turns: Turn[]; mode: CookingMode; details: string } | null>(null);
-  const requestLock = useRef(false);
+  const requestLock = useRef(createAhuvaRequestLock());
 
   function reset() {
-    if (requestLock.current) return;
+    if (requestLock.current.isLocked()) return;
     setPendingRequest(null);
     setStage(1);
     setMealIdea("");
@@ -62,10 +63,10 @@ export default function AhuvaKitchen() {
 
   async function askAhuva(turns: Turn[], modeOverride: CookingMode = mode, detailsOverride?: string): Promise<boolean> {
     const brief = detailsOverride ?? details;
-    if (!brief.trim() || requestLock.current) return false;
+    if (!brief.trim() || !requestLock.current.acquire()) return false;
 
     // Lock synchronously before React re-renders, preventing rapid-tap duplicates.
-    requestLock.current = true;
+    
     setLoading(true);
     setError(null);
     setPendingRequest({ turns, mode: modeOverride, details: brief });
@@ -120,13 +121,13 @@ export default function AhuvaKitchen() {
       setError("We couldn’t reach Ahuva. Your meal details are saved; check your connection and retry.");
       return false;
     } finally {
-      requestLock.current = false;
+      requestLock.current.release();
       setLoading(false);
     }
   }
 
   async function retryAhuva() {
-    if (!pendingRequest || requestLock.current) return;
+    if (!pendingRequest || requestLock.current.isLocked()) return;
     await askAhuva(pendingRequest.turns, pendingRequest.mode, pendingRequest.details);
   }
 
