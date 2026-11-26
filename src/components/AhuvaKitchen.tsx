@@ -28,7 +28,7 @@ export default function AhuvaKitchen() {
   const [mealIdea, setMealIdea] = useState("");
   const [ingredients, setIngredients] = useState("");
   const [seasonings, setSeasonings] = useState("");
-  const mode: CookingMode = "your-way";
+  const [mode, setMode] = useState<CookingMode>("your-way");
   const [servings, setServings] = useState("2");
   const [conversation, setConversation] = useState<Turn[]>([]);
   const [result, setResult] = useState<CookingResult | null>(null);
@@ -44,6 +44,7 @@ export default function AhuvaKitchen() {
     setSeasonings("");
     setDetails("");
     setServings("2");
+    setMode("your-way");
     setConversation([]);
     setResult(null);
     setFollowUp("");
@@ -201,6 +202,19 @@ export default function AhuvaKitchen() {
                 <select id="ahuva-servings" value={servings} onChange={(event) => setServings(event.target.value)} className="mt-3 w-full rounded-xl border border-[#DCE4DA] bg-[#FBFCF9] px-4 py-3 text-sm font-semibold text-[#29483B] outline-none focus:border-[#789780]">
                   {["1", "2", "3", "4", "5", "6", "7", "8+"].map((number) => <option key={number} value={number}>{number}</option>)}
                 </select>
+                <div className="mt-6">
+                  <p className="text-sm font-semibold text-[#29483B]">How would you like to cook?</p>
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <button type="button" aria-pressed={mode === "your-way"} onClick={() => setMode("your-way")} className={`rounded-2xl border p-4 text-left transition ${mode === "your-way" ? "border-[#315B49] bg-[#EAF1E8] ring-2 ring-[#315B49]/10" : "border-[#DCE4DA] bg-white"}`}>
+                      <span className="block text-sm font-semibold text-[#29483B]">Your way</span>
+                      <span className="mt-1 block text-xs leading-5 text-[#718477]">Keep your usual approach. Ahuva helps you make thoughtful adjustments.</span>
+                    </button>
+                    <button type="button" aria-pressed={mode === "ahuvas-way"} onClick={() => setMode("ahuvas-way")} className={`rounded-2xl border p-4 text-left transition ${mode === "ahuvas-way" ? "border-[#315B49] bg-[#EAF1E8] ring-2 ring-[#315B49]/10" : "border-[#DCE4DA] bg-white"}`}>
+                      <span className="block text-sm font-semibold text-[#29483B]">Ahuva’s way</span>
+                      <span className="mt-1 block text-xs leading-5 text-[#718477]">Let Ahuva suggest a more DASH-aligned approach while keeping the meal recognisable.</span>
+                    </button>
+                  </div>
+                </div>
                 <div className="mt-6 rounded-2xl bg-[#F6F8F3] p-4 text-sm leading-6 text-[#405C4D]">
                   <p><strong>Meal:</strong> {mealIdea}</p>
                   <p className="mt-1"><strong>Ingredients:</strong> {ingredients}</p>
