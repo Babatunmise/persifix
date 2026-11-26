@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { supabase } from "@/supabase";
 import { getCombinedMealInsight, getIngredientInsights } from "@/lib/ahuva-ingredient-intelligence";
 
@@ -38,8 +38,12 @@ export default function AhuvaKitchen() {
   const [showGuidedCooking, setShowGuidedCooking] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingRequest, setPendingRequest] = useState<{ turns: Turn[]; mode: CookingMode; details: string } | null>(null);
+  const requestLock = useRef(false);
 
   function reset() {
+    if (requestLock.current) return;
+    setPendingRequest(null);
     setStage(1);
     setMealIdea("");
     setIngredients("");
@@ -56,17 +60,23 @@ export default function AhuvaKitchen() {
     setError(null);
   }
 
-  async function askAhuva(turns: Turn[], modeOverride: CookingMode = mode, detailsOverride?: string) {
+  async function askAhuva(turns: Turn[], modeOverride: CookingMode = mode, detailsOverride?: string): Promise<boolean> {
     const brief = detailsOverride ?? details;
-    if (!brief.trim()) return;
+    if (!brief.trim() || requestLock.current) return false;
+
+    // Lock synchronously before React re-renders, preventing rapid-tap duplicates.
+    requestLock.current = true;
     setLoading(true);
     setError(null);
+    setPendingRequest({ turns, mode: modeOverride, details: brief });
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
-        setError("Your session has expired. Sign in again to continue.");
-        return;
+        setError("Your session has expired. Sign in again. Your meal details are still here.");
+        return false;
       }
+
       const response = await fetch("/api/kitchen", {
         method: "POST",
         headers: {
@@ -81,22 +91,43 @@ export default function AhuvaKitchen() {
           conversation: turns,
         }),
       });
-      const data: unknown = await response.json();
-      if (data && typeof data === "object" && "assistantMessage" in data &&
-          typeof data.assistantMessage === "string") {
+
+      let data: unknown = null;
+      try {
+        data = await response.json();
+      } catch {
+        // A proxy or provider failure may return a non-JSON response.
+      }
+
+      if (response.ok && data && typeof data === "object" &&
+          "assistantMessage" in data && typeof data.assistantMessage === "string") {
         setResult(data as CookingResult);
         setActiveStep(0);
         setConversation(turns);
-      } else if (!response.ok) {
-        setError("Ahuva could not respond just now. Please try again.");
-      } else {
-        setError("Ahuva returned an incomplete response. Please try again.");
+        setPendingRequest(null);
+        return true;
       }
+
+      if (response.status === 401) {
+        setError("Your session has expired. Sign in again, then retry. Your meal details are saved here.");
+      } else if (response.status === 429) {
+        setError("Ahuva is receiving too many requests right now. Your meal is saved; wait a moment and retry.");
+      } else {
+        setError("Ahuva couldn’t complete that response. Your meal details are saved; retry without starting again.");
+      }
+      return false;
     } catch {
-      setError("We couldn’t reach Ahuva. Check your connection and try again.");
+      setError("We couldn’t reach Ahuva. Your meal details are saved; check your connection and retry.");
+      return false;
     } finally {
+      requestLock.current = false;
       setLoading(false);
     }
+  }
+
+  async function retryAhuva() {
+    if (!pendingRequest || requestLock.current) return;
+    await askAhuva(pendingRequest.turns, pendingRequest.mode, pendingRequest.details);
   }
 
   function continueStep(event: FormEvent<HTMLFormElement>) {
@@ -120,7 +151,6 @@ export default function AhuvaKitchen() {
     ].join("\\n");
     setDetails(brief);
     const turns: Turn[] = [{ role: "user", content: brief }];
-    setConversation(turns);
     await askAhuva(turns, mode, brief);
   }
 
@@ -146,8 +176,8 @@ export default function AhuvaKitchen() {
     event.preventDefault();
     if (!followUp.trim() || loading) return;
     const turns = [...conversation, { role: "assistant" as const, content: result?.assistantMessage ?? "" }, { role: "user" as const, content: followUp.trim() }];
-    setFollowUp("");
-    await askAhuva(turns);
+    const sent = await askAhuva(turns);
+    if (sent) setFollowUp("");
   }
 
   const hasResult = result !== null;
@@ -241,7 +271,7 @@ export default function AhuvaKitchen() {
                 <div className="mt-6 flex justify-end"><button type="submit" disabled={loading} className="inline-flex items-center gap-3 rounded-full bg-[#183D30] px-6 py-3 text-sm font-semibold text-white disabled:opacity-45">{loading ? "Ahuva is thinking…" : "Ask Ahuva"} <span aria-hidden="true">→</span></button></div>
               </form>
             )}
-            {error && <p role="alert" className="mt-4 rounded-xl bg-[#FFF1E9] px-4 py-3 text-sm text-[#8B4229]">{error}</p>}
+            {error && <div role="alert" className="mt-4 rounded-xl bg-[#FFF1E9] px-4 py-3 text-sm text-[#8B4229]"><p>{error}</p>{pendingRequest && <button type="button" onClick={retryAhuva} disabled={loading} className="mt-3 rounded-full border border-[#B96B4C] px-4 py-2 text-xs font-semibold disabled:opacity-50">{loading ? "Retrying…" : "Retry Ahuva"}</button>}</div>}
           </section>
         )}
         {loading && hasResult && <p role="status" className="mt-8 text-sm text-[#718477]">Ahuva is working on your follow-up…</p>}
@@ -294,7 +324,7 @@ export default function AhuvaKitchen() {
               </form>
             )}
             {result?.status === "unavailable" && <div className="mt-5 rounded-2xl border border-[#E5E9E1] bg-[#FBFCF9] p-4"><p className="text-xs leading-5 text-[#718477]">{result.reason === "sensitive_context" ? "Ahuva cannot assess medical conditions, allergies or medication-related dietary needs in this experience. The reviewed ingredient information above remains general and is not a personal medical assessment." : "Ahuva’s guided cooking conversation is not connected yet. You can still explore the source-linked ingredient notes above."}</p></div>}
-            {error && <p role="alert" className="mt-4 text-sm text-[#8B4229]">{error}</p>}
+            {error && <div role="alert" className="mt-4 rounded-xl bg-[#FFF1E9] px-4 py-3 text-sm text-[#8B4229]"><p>{error}</p>{pendingRequest && <button type="button" onClick={retryAhuva} disabled={loading} className="mt-3 rounded-full border border-[#B96B4C] px-4 py-2 text-xs font-semibold disabled:opacity-50">{loading ? "Retrying…" : "Retry Ahuva"}</button>}</div>}
             <div className="mt-6 flex justify-end"><button type="button" onClick={reset} className="rounded-full border border-[#DCE4DA] px-5 py-3 text-sm font-semibold text-[#315B49]">Start a new meal</button></div>
           </section>
         )}
