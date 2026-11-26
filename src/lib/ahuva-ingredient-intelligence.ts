@@ -132,7 +132,7 @@ const profiles: { match: RegExp; insight: IngredientInsight }[] = [
       evidence: "Composition not confirmed",
       sources: [sources.dashSodium, sources.sodium],
     },
-  },,
+  },
 
   {
     match: /\\b(?:rice|white rice|brown rice|wholegrain rice|parboiled rice|basmati rice|jasmine rice)\\b/i,
