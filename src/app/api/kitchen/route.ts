@@ -257,6 +257,12 @@ export async function POST(req: NextRequest) {
       return jsonError("Ahuva could not organise its cooking response. Please try again.", 502);
     }
     const result = normalized.value;
+    const latestUserMessage = conversation.filter((turn) => turn.role === "user").at(-1)?.content ?? "";
+    const explicitlyRequestedSteps =
+      /(?:show|give|provide|walk me through|guide me through).{0,80}\\b(?:steps|instructions|recipe|preparation)\\b/i.test(latestUserMessage);
+    if (body.mode === "your-way" && !explicitlyRequestedSteps) {
+      result.plan = null;
+    }
 
     // Never label an ingredient as available unless the user explicitly named it.
     if (result.plan) {
