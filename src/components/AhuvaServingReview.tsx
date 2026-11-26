@@ -28,7 +28,7 @@ export default function AhuvaServingReview({ initialPeople, mealName, ingredient
     event.preventDefault();
     if (!people) return;
     const result = calculateKnownAddedSodium({
-      tableSaltTeaspoons: saltType === "table" && saltAmount !== "" ? Number(saltAmount) : null,
+      tableSaltTeaspoons: saltType === "none" ? 0 : saltType === "table" && saltAmount !== "" ? Number(saltAmount) : null,
       labelSodiumMgPerServing: otherSource === "label" && labelSodium !== "" ? Number(labelSodium) : null,
       labelServingsUsed: otherSource === "label" && labelServings !== "" ? Number(labelServings) : null,
       people: Number(people),
