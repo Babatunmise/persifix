@@ -4,9 +4,15 @@ const isTextArray = (value, maxItems, maxLength) =>
   Array.isArray(value) && value.length <= maxItems && value.every((item) => isText(item, maxLength));
 
 /**
+ * @typedef {{status: "ready" | "needs_clarification", assistantMessage: string, interpretation: string, questions: string[], recommendations: {title: string, detail: string}[], plan: null | {servings: string, preparation: string[], ingredients: {name: string, amount: string, availability: "available" | "missing" | "optional"}[]}, safetyNotes: string[]}} NormalizedAhuvaResult
+ *
  * Converts a provider response into Ahuva's stable UI contract.
  * Missing optional fields receive safe defaults; malformed supplied values fail closed.
  * The caller must still apply serving-count and confirmed-inventory safeguards.
+ *
+ * @param {unknown} value
+ * @param {{requirePlan?: boolean}} [options]
+ * @returns {{ok: true, value: NormalizedAhuvaResult} | {ok: false, reason: string}}
  */
 export function normalizeAhuvaResult(value, options = {}) {
   if (!isRecord(value)) return { ok: false, reason: "root_not_object" };
