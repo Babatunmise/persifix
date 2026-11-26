@@ -82,7 +82,7 @@ const profiles: { match: RegExp; insight: IngredientInsight }[] = [
     },
   },
   {
-    match: /\\b(?:suya spice|suya seasoning)\\b/i,
+    match: /\b(?:suya spice|suya seasoning)\b/i,
     insight: {
       id: "suya-spice",
       title: "Suya spice",
@@ -95,7 +95,7 @@ const profiles: { match: RegExp; insight: IngredientInsight }[] = [
     },
   },
   {
-    match: /\\b(?:curry powder|curry blend|curry seasoning|curry)\\b/i,
+    match: /\b(?:curry powder|curry blend|curry seasoning|curry)\b/i,
     insight: {
       id: "curry",
       title: "Curry",
@@ -108,7 +108,7 @@ const profiles: { match: RegExp; insight: IngredientInsight }[] = [
     },
   },
   {
-    match: /\\b(?:stock cube|bouillon|seasoning cube)\\b/i,
+    match: /\b(?:stock cube|bouillon|seasoning cube)\b/i,
     insight: {
       id: "stock-cube",
       title: "Stock cube or bouillon",
@@ -121,7 +121,7 @@ const profiles: { match: RegExp; insight: IngredientInsight }[] = [
     },
   },
   {
-    match: /\\b(?:seasoning blend|spice blend|mixed seasoning)\\b/i,
+    match: /\b(?:seasoning blend|spice blend|mixed seasoning)\b/i,
     insight: {
       id: "seasoning-blend",
       title: "Other seasoning blends",
@@ -163,7 +163,7 @@ export function getCombinedMealInsight(text: string): string[] {
     notes.push("The oil type is unknown. Its fatty-acid profile cannot be assessed from 'oil' alone.");
   }
   if (
-    insights.some((item) => item.id === "salt" || item.id === "seasoning-blend") &&
+    insights.some((item) => item.id === "salt" || ["seasoning-blend", "suya-spice", "curry", "stock-cube"].includes(item.id)) &&
     insights.some((item) => item.id === "fish" || item.id === "beef")
   ) {
     notes.push("Fish and beef naturally contain some potassium, but their amounts vary. That potassium does not cancel the sodium in added salt or a seasoning blend. Sodium and potassium affect fluid balance and blood-vessel function through complementary pathways; the total dietary pattern matters.");
