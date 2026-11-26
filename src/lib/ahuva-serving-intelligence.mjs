@@ -9,7 +9,10 @@ const isFiniteNonNegative = (value) =>
  * Packaged sources require label sodium per serving and servings used.
  * This is not a complete meal-sodium or clinical assessment.
  */
-/** @param {{tableSaltTeaspoons?: number | null, labelSodiumMgPerServing?: number | null, labelServingsUsed?: number | null, people: number}} input\n * @returns {SodiumEstimateResult}\n */\nexport function calculateKnownAddedSodium({
+/** @param {{tableSaltTeaspoons?: number | null, labelSodiumMgPerServing?: number | null, labelServingsUsed?: number | null, people: number}} input
+ * @returns {SodiumEstimateResult}
+ */
+export function calculateKnownAddedSodium({
   tableSaltTeaspoons = null,
   labelSodiumMgPerServing = null,
   labelServingsUsed = null,
