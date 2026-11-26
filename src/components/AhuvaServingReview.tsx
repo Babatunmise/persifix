@@ -55,7 +55,7 @@ export default function AhuvaServingReview({ initialPeople, mealName, ingredient
           </div>
 
           <div className="rounded-2xl border border-[#E2E9DF] bg-white p-4">
-            <p className="text-sm font-semibold text-[#29483B]">Did you use the salt and seasoning amounts we discussed?</p>
+            <p className="text-sm font-semibold text-[#29483B]">Did you follow the salt and seasoning guidance?</p>
             <div className="mt-3 flex flex-wrap gap-2">
               {[{ value: "about_the_same", label: "About the same" }, { value: "less", label: "I used less" }, { value: "more", label: "I used more" }, { value: "unsure", label: "I’m not sure" }].map((option) => <button key={option.value} type="button" aria-pressed={seasoningMatch === option.value} onClick={() => { setSeasoningMatch(option.value); setReview(null); }} className={`rounded-full border px-3 py-2 text-xs font-semibold ${seasoningMatch === option.value ? "border-[#315B49] bg-[#EAF1E8] text-[#315B49]" : "border-[#DCE4DA] bg-white text-[#718477]"}`}>{option.label}</button>)}
             </div>
@@ -85,7 +85,7 @@ export default function AhuvaServingReview({ initialPeople, mealName, ingredient
           </div>
 
           <div className="rounded-2xl border border-[#E2E9DF] bg-white p-4">
-            <p className="text-sm font-semibold text-[#29483B]">Did the main ingredient amounts stay close to what we planned?</p>
+            <p className="text-sm font-semibold text-[#29483B]">Did the main ingredients end up close to the amounts you intended?</p>
             <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
               {([{ value: "about_the_same", label: "Yes, about the same" }, { value: "changed", label: "I changed them" }, { value: "not_measured", label: "I didn’t measure" }]).map((option) => <button key={option.value} type="button" aria-pressed={ingredientChange === option.value} onClick={() => setIngredientChange(option.value)} className={`rounded-xl border px-3 py-3 text-left text-xs font-semibold ${ingredientChange === option.value ? "border-[#315B49] bg-[#EAF1E8] text-[#315B49]" : "border-[#DCE4DA] bg-white text-[#718477]"}`}>{option.label}</button>)}
             </div>
