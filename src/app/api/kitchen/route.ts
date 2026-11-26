@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 
 export const maxDuration = 60;
 import { extractConfirmedIngredientText, extractStructuredConfirmedIngredients, isIngredientConfirmed } from "@/lib/ingredient-confirmation.mjs";
+import { normalizeAhuvaResult } from "@/lib/ahuva-response-contract.mjs";
 import {
   authenticateRequest,
   enforceRateLimit,
@@ -50,55 +51,22 @@ CONVERSATION RULES:
 - Keep safety notes specific to a real issue in this meal. Do not append generic disclaimers.
 Provide concise preparation guidance and quantities for the selected serving count. The serving count is authoritative and must be respected.
 Do not claim to calculate exact nutrient or sodium values. Do not provide diagnoses, treatment advice, or medical suitability claims. If the user asks for medical dietary advice, say that this feature cannot assess that safely and suggest discussing it with their qualified care professional.
-Return ONLY valid JSON with this schema:
+Return ONLY one valid JSON object. Do not add markdown or text outside the object.
+Use exactly these keys and value types:
 {
-  "status": "ready" | "needs_clarification",
-  "assistantMessage": "string",
-  "interpretation": "string",
-  "questions": ["string"],
-  "recommendations": [],
-  "plan": {
-    "servings": "string",
-    "preparation": ["string"],
-    "ingredients": [{"name":"string","amount":"string","availability":"available"|"missing"|"optional"}]
-  } | null,
-  "safetyNotes": ["string"]
+  "status": "ready" or "needs_clarification",
+  "assistantMessage": "A concise user-facing message, required and non-empty",
+  "interpretation": "A concise description of the meal understood, or an empty string",
+  "questions": ["Zero or one concise clarification question"],
+  "recommendations": [{"title":"Short title","detail":"Short explanation"}],
+  "plan": null or {
+    "servings": "Serving count as text",
+    "preparation": ["Preparation step"],
+    "ingredients": [{"name":"Ingredient","amount":"Amount or empty string","availability":"available" or "missing" or "optional"}]
+  },
+  "safetyNotes": ["Specific, relevant safety note"]
 }
-Use no recommendations unless a small number of clearly relevant alternatives or optional improvements genuinely help. Use at most 8 preparation steps, 30 ingredients, 4 questions. Keep all strings concise.`;
-
-function validateAssistantResult(value: unknown): value is {
-  status: "ready" | "needs_clarification";
-  assistantMessage: string;
-  interpretation: string;
-  questions: string[];
-  recommendations: { title: string; detail: string }[];
-  plan: null | {
-    servings: string;
-    preparation: string[];
-    ingredients: { name: string; amount: string; availability: "available" | "missing" | "optional" }[];
-  };
-  safetyNotes: string[];
-} {
-  if (!isRecord(value)) return false;
-  if (value.status !== "ready" && value.status !== "needs_clarification") return false;
-  if (!safeString(value.assistantMessage, 1_200) || !safeString(value.interpretation, 1_200)) return false;
-  if (!Array.isArray(value.questions) || value.questions.length > 1 ||
-      !value.questions.every((item) => safeString(item, 300))) return false;
-  if (!Array.isArray(value.recommendations) || value.recommendations.length > 3 ||
-      !value.recommendations.every((item) => isRecord(item) && safeString(item.title, 120) && safeString(item.detail, 400))) return false;
-  if (!Array.isArray(value.safetyNotes) || value.safetyNotes.length > 4 ||
-      !value.safetyNotes.every((item) => safeString(item, 400))) return false;
-  if (value.plan !== null) {
-    if (!isRecord(value.plan) || !safeString(value.plan.servings, 20) ||
-        !Array.isArray(value.plan.preparation) || value.plan.preparation.length > 8 ||
-        !value.plan.preparation.every((item) => safeString(item, 500)) ||
-        !Array.isArray(value.plan.ingredients) || value.plan.ingredients.length > 30 ||
-        !value.plan.ingredients.every((item) => isRecord(item) &&
-          safeString(item.name, 100) && safeString(item.amount, 60) &&
-          ["available", "missing", "optional"].includes(String(item.availability)))) return false;
-  }
-  return true;
-}
+All keys must be present. Use empty arrays when there is nothing to add. Use plan:null for your-way unless the user explicitly requests guided cooking steps. For needs_clarification, include exactly one question and do not provide a full preparation plan. For ready responses, questions must be empty. Recommendations must be objects with both title and detail, never plain strings. Use at most 8 preparation steps, 30 ingredients, 3 recommendations and 4 safety notes. Keep strings concise. Never mark an ingredient available unless it appears in the confirmed inventory; the server independently checks this too.`;
 
 export async function POST(req: NextRequest) {
   const auth = await authenticateRequest(req);
@@ -275,17 +243,26 @@ export async function POST(req: NextRequest) {
     try {
       parsed = JSON.parse(data.choices[0].message.content);
     } catch {
+      console.error("[ahuva] response contract rejected", { category: "invalid_json_body" });
       return jsonError("Ahuva returned an unreadable response. Please try again.", 502);
     }
-    if (!validateAssistantResult(parsed)) {
-      return jsonError("Ahuva returned a response that could not be validated. Please try again.", 502);
+    const normalized = normalizeAhuvaResult(parsed);
+    if (!normalized.ok) {
+      // Diagnostic reason is a fixed enum from the normalizer. Never log model
+      // output, user meal details, or health-related content.
+      console.error("[ahuva] response contract rejected", {
+        category: "response_contract_rejected",
+        reason: normalized.reason,
+      });
+      return jsonError("Ahuva could not organise its cooking response. Please try again.", 502);
     }
+    const result = normalized.value;
 
     // Never label an ingredient as available unless the user explicitly named it.
-    if (parsed.plan) {
+    if (result.plan) {
       // The selected serving count is authoritative; do not let the model drift.
-      parsed.plan.servings = String(body.servings);
-      parsed.plan.ingredients = parsed.plan.ingredients.map((ingredient) =>
+      result.plan.servings = String(body.servings);
+      result.plan.ingredients = result.plan.ingredients.map((ingredient) =>
         ingredient.availability === "available" && !isIngredientConfirmed(
           ingredient.name,
           confirmedIngredientText ?? "",
@@ -296,7 +273,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    return Response.json(parsed);
+    return Response.json(result);
   } catch (error) {
     const category = error instanceof Error && error.name === "TimeoutError"
       ? "provider_timeout"
