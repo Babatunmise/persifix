@@ -111,3 +111,17 @@ test("rejects excessive or malformed preparation steps", () => {
   });
   assert.deepEqual(result, { ok: false, reason: "invalid_plan_preparation" });
 });
+
+test("requires a guided plan when Ahuva's way is selected", () => {
+  const result = normalizeAhuvaResult(base, { requirePlan: true });
+  assert.deepEqual(result, { ok: false, reason: "guided_cooking_plan_missing" });
+});
+
+test("allows clarification before requiring a guided plan", () => {
+  const result = normalizeAhuvaResult({
+    status: "needs_clarification",
+    assistantMessage: "One detail will help me guide the preparation.",
+    questions: ["Would you prefer grilling or pan-cooking?"],
+  }, { requirePlan: true });
+  assert.equal(result.ok, true);
+});
