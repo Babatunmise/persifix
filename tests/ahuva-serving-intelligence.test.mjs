@@ -16,8 +16,8 @@ test("combines salt and label-based seasoning sodium without guessing", () => {
     labelServingsUsed: 2,
     people: 3,
   });
-  assert.equal(result.knownAddedSodiumMg, 2050);
-  assert.equal(result.knownAddedSodiumPerShareMg, 683);
+  assert.equal(result.knownAddedSodiumMg, 1475);
+  assert.equal(result.knownAddedSodiumPerShareMg, 492);
 });
 
 test("does not invent a sodium estimate when quantities are unknown", () => {
@@ -37,4 +37,11 @@ test("rejects an incomplete packaged-food label entry", () => {
 test("rejects invalid serving counts and negative quantities", () => {
   assert.equal(calculateKnownAddedSodium({ people: 0 }).reason, "invalid_people_count");
   assert.equal(calculateKnownAddedSodium({ tableSaltTeaspoons: -1, people: 2 }).reason, "invalid_salt_quantity");
+});
+
+test("records zero added table salt when the user confirms none was used", () => {
+  const result = calculateKnownAddedSodium({ tableSaltTeaspoons: 0, people: 2 });
+  assert.equal(result.status, "estimate");
+  assert.equal(result.knownAddedSodiumMg, 0);
+  assert.equal(result.knownAddedSodiumPerShareMg, 0);
 });
