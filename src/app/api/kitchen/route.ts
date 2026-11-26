@@ -1,4 +1,6 @@
 import { NextRequest } from "next/server";
+
+export const maxDuration = 60;
 import { extractConfirmedIngredientText, extractStructuredConfirmedIngredients, isIngredientConfirmed } from "@/lib/ingredient-confirmation.mjs";
 import {
   authenticateRequest,
@@ -180,11 +182,13 @@ export async function POST(req: NextRequest) {
   ].join("\n");
 
   try {
-    const response = await fetch("https://api.deepseek.com/chat/completions", {
+    const providerRequest = {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
-        model: "deepseek-chat",
+        model: "deepseek-flash",
+        thinking: { type: "disabled" },
+        max_tokens: 2200,
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: context },
@@ -193,8 +197,40 @@ export async function POST(req: NextRequest) {
         response_format: { type: "json_object" },
         stream: false,
       }),
-      signal: AbortSignal.timeout(20_000),
-    });
+    };
+
+    // Retry one transient provider/network failure. Do not retry authentication,
+    // invalid-request, or rate-limit responses.
+    let response: Response | null = null;
+    let transportError: unknown = null;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        response = await fetch("https://api.deepseek.com/chat/completions", {
+          ...providerRequest,
+          signal: AbortSignal.timeout(25_000),
+        });
+        if (response.ok || ![408, 500, 502, 503, 504].includes(response.status) || attempt === 1) {
+          break;
+        }
+        console.warn("[ahuva] transient provider response; retrying once", {
+          category: "provider_transient_http",
+          status: response.status,
+          attempt: attempt + 1,
+        });
+      } catch (error) {
+        transportError = error;
+        if (attempt === 1) throw error;
+        console.warn("[ahuva] transient provider transport failure; retrying once", {
+          category: error instanceof Error && error.name === "TimeoutError"
+            ? "provider_timeout"
+            : "provider_network_error",
+          attempt: attempt + 1,
+        });
+      }
+      await new Promise((resolve) => setTimeout(resolve, 700));
+    }
+
+    if (!response) throw transportError ?? new Error("Provider request did not return a response");
 
     if (!response.ok) {
       const status = response.status;
@@ -215,9 +251,24 @@ export async function POST(req: NextRequest) {
       console.error("[ahuva] DeepSeek returned invalid JSON", { category: "provider_invalid_json" });
       return jsonError("Ahuva returned an incomplete response. Please try again.", 502);
     }
-    if (!isRecord(data) || !Array.isArray(data.choices) || !isRecord(data.choices[0]) ||
-        !isRecord(data.choices[0].message) || !safeString(data.choices[0].message.content, 8_000)) {
-      return jsonError("Ahuva returned an incomplete response. Please try again.", 502);
+    if (!isRecord(data) || "error" in data || !Array.isArray(data.choices) ||
+        !isRecord(data.choices[0]) || !isRecord(data.choices[0].message)) {
+      console.error("[ahuva] provider returned an invalid completion envelope", {
+        category: "provider_invalid_completion",
+      });
+      return jsonError("Ahuva could not complete the cooking response.", 502);
+    }
+    if (data.choices[0].finish_reason === "length") {
+      console.error("[ahuva] provider output reached its token limit", {
+        category: "provider_output_truncated",
+      });
+      return jsonError("Ahuva’s response was incomplete. Please try again.", 502);
+    }
+    if (!safeString(data.choices[0].message.content, 8_000)) {
+      console.error("[ahuva] provider returned empty completion content", {
+        category: "provider_empty_completion",
+      });
+      return jsonError("Ahuva could not complete the cooking response.", 502);
     }
 
     let parsed: unknown;
