@@ -99,7 +99,7 @@ export default function AhuvaKitchen() {
         // A proxy or provider failure may return a non-JSON response.
       }
 
-      if (response.ok && data && typeof data === "object" &&
+      if (data && typeof data === "object" &&
           "assistantMessage" in data && typeof data.assistantMessage === "string") {
         setResult(data as CookingResult);
         setActiveStep(0);
