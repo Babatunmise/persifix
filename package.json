@@ -4,10 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",
-    "build": "npm run test:ingredients && npm run lint -- src/app/api/kitchen/route.ts src/components/AhuvaKitchen.tsx src/lib/ingredient-confirmation.mjs src/lib/ahuva-request-lock.mjs tests/ingredient-confirmation.test.mjs tests/ahuva-request-lock.test.mjs && next build --webpack",
+    "build": "npm run test:ingredients && npm run lint -- src/app/api/kitchen/route.ts src/components/AhuvaKitchen.tsx src/lib/ingredient-confirmation.mjs src/lib/ahuva-request-lock.mjs src/lib/ahuva-response-contract.mjs tests/ingredient-confirmation.test.mjs tests/ahuva-request-lock.test.mjs tests/ahuva-response-contract.test.mjs && next build --webpack",
     "start": "next start",
     "lint": "eslint",
-    "test:ingredients": "node --test tests/ingredient-confirmation.test.mjs tests/ahuva-request-lock.test.mjs"
+    "test:ingredients": "node --test tests/ingredient-confirmation.test.mjs tests/ahuva-request-lock.test.mjs tests/ahuva-response-contract.test.mjs"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",
