@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { calculateKnownAddedSodium } from "@/lib/ahuva-serving-intelligence.mjs";
+import { calculateHouseholdPotShares, calculateKnownAddedSodium } from "@/lib/ahuva-serving-intelligence.mjs";
 
 type Props = {
   initialPeople: string;
@@ -12,6 +12,8 @@ type Props = {
 export default function AhuvaServingReview({ initialPeople, mealName, ingredients }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [people, setPeople] = useState(/^[1-8]$/.test(initialPeople) ? initialPeople : "");
+  const [potQuantity, setPotQuantity] = useState("");
+  const [potUnit, setPotUnit] = useState<"ladles" | "bowls" | "cups">("ladles");
   const [saltType, setSaltType] = useState("table");
   const [saltAmount, setSaltAmount] = useState("");
   const [otherSource, setOtherSource] = useState("unknown");
@@ -21,6 +23,7 @@ export default function AhuvaServingReview({ initialPeople, mealName, ingredient
   const [ingredientChange, setIngredientChange] = useState("about_the_same");
   const [changeNote, setChangeNote] = useState("");
   const [review, setReview] = useState<ReturnType<typeof calculateKnownAddedSodium> | null>(null);
+  const [potDistribution, setPotDistribution] = useState<ReturnType<typeof calculateHouseholdPotShares> | null>(null);
 
   const hasRice = /\b(rice|jollof|pilaf)\b/i.test(mealName + " " + ingredients);
   const hasProtein = /\b(chicken|beef|fish|turkey|pork|lamb|tofu|beans|lentils|egg)\b/i.test(ingredients);
@@ -35,6 +38,7 @@ export default function AhuvaServingReview({ initialPeople, mealName, ingredient
       people: Number(people),
     });
     setReview(result);
+    setPotDistribution(calculateHouseholdPotShares({ totalUnits: potQuantity === "" ? null : Number(potQuantity), unit: potUnit, people: Number(people) }));
   }
 
   return (
@@ -48,10 +52,22 @@ export default function AhuvaServingReview({ initialPeople, mealName, ingredient
         <form onSubmit={submit} className="mt-5 space-y-5">
           <div>
             <label htmlFor="ahuva-pot-people" className="block text-sm font-semibold text-[#29483B]">How many people will share this pot?</label>
-            <select id="ahuva-pot-people" value={people} onChange={(event) => { setPeople(event.target.value); setReview(null); }} required className="mt-2 w-full rounded-xl border border-[#DCE4DA] bg-white px-4 py-3 text-sm text-[#29483B]">
+            <select id="ahuva-pot-people" value={people} onChange={(event) => { setPeople(event.target.value); setReview(null); setPotDistribution(null); }} required className="mt-2 w-full rounded-xl border border-[#DCE4DA] bg-white px-4 py-3 text-sm text-[#29483B]">
               <option value="" disabled>Choose the number sharing</option>
               {Array.from({ length: 20 }, (_, index) => String(index + 1)).map((number) => <option key={number} value={number}>{number} {number === "1" ? "person" : "people"}</option>)}
             </select>
+            <div className="mt-4">
+              <label htmlFor="ahuva-pot-quantity" className="block text-sm font-semibold text-[#29483B]">How many of your usual bowls or ladles does the pot fill?</label>
+              <p className="mt-1 text-xs leading-5 text-[#718477]">Optional. Count using the same bowl or level ladle each time. No weighing scale needed.</p>
+              <div className="mt-2 grid grid-cols-2 gap-3">
+                <input id="ahuva-pot-quantity" type="number" min="0.25" max="1000" step="0.25" value={potQuantity} onChange={(event) => { setPotQuantity(event.target.value); setReview(null); setPotDistribution(null); }} placeholder="e.g. 8" className="min-w-0 rounded-xl border border-[#DCE4DA] bg-white px-3 py-3 text-sm text-[#29483B]" />
+                <select aria-label="Household measure" value={potUnit} onChange={(event) => { setPotUnit(event.target.value as "ladles" | "bowls" | "cups"); setReview(null); setPotDistribution(null); }} className="min-w-0 rounded-xl border border-[#DCE4DA] bg-white px-3 py-3 text-sm text-[#29483B]">
+                  <option value="ladles">Level ladles</option>
+                  <option value="bowls">Your bowls</option>
+                  <option value="cups">Standard cups</option>
+                </select>
+              </div>
+            </div>
           </div>
 
           <div className="rounded-2xl border border-[#E2E9DF] bg-white p-4">
@@ -98,7 +114,11 @@ export default function AhuvaServingReview({ initialPeople, mealName, ingredient
             <div className="rounded-2xl border border-[#DCE7D9] bg-white p-4 sm:p-5" aria-live="polite">
               <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#718477]">Your pot · {review.people} {review.people === 1 ? "person" : "people"}</p>
               <h5 className="mt-1 font-serif text-xl text-[#183D30]">Share the pot into {review.people} portions.</h5>
-              <p className="mt-2 text-sm leading-6 text-[#405C4D]">Start by dividing the cooked food into {review.people} roughly equal shares. That gives everyone a fair starting point; individual appetites and needs can differ.</p>
+              {potDistribution && potDistribution.ok && potDistribution.status === "measured" ? (
+                <p className="mt-2 text-sm leading-6 text-[#405C4D]">Your pot fills about {potDistribution.totalUnits} {potDistribution.unit}. Shared between {potDistribution.people}, that is about <strong>{potDistribution.unitsPerPerson} {potDistribution.unit} per person</strong>. Use the same level scoop or bowl when dividing it.</p>
+              ) : (
+                <p className="mt-2 text-sm leading-6 text-[#405C4D]">Start by dividing the cooked food into {review.people} roughly equal shares. That gives everyone a fair starting point; individual appetites and needs can differ.</p>
+              )}
               {review.status === "estimate" ? (
                 <div className="mt-4 rounded-xl bg-[#F6F8F3] p-4">
                   <p className="text-sm font-semibold text-[#29483B]">Known added sodium estimate</p>
