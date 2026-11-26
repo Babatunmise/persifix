@@ -135,7 +135,7 @@ const profiles: { match: RegExp; insight: IngredientInsight }[] = [
   },
 
   {
-    match: /\\b(?:rice|white rice|brown rice|wholegrain rice|parboiled rice|basmati rice|jasmine rice)\\b/i,
+    match: /\b(?:rice|white rice|brown rice|wholegrain rice|parboiled rice|basmati rice|jasmine rice)\b/i,
     insight: {
       id: "rice",
       title: "Rice",
@@ -148,7 +148,7 @@ const profiles: { match: RegExp; insight: IngredientInsight }[] = [
     },
   },
   {
-    match: /\\b(?:chicken|chicken breast|chicken thigh|chicken drumstick|chicken wing|ground chicken|minced chicken)\\b/i,
+    match: /\b(?:chicken|chicken breast|chicken thigh|chicken drumstick|chicken wing|ground chicken|minced chicken)\b/i,
     insight: {
       id: "chicken",
       title: "Chicken",
@@ -161,7 +161,7 @@ const profiles: { match: RegExp; insight: IngredientInsight }[] = [
     },
   },
   {
-    match: /\\b(?:tomato|tomatoes|tomato paste|tomato puree|passata|canned tomatoes|sun dried tomatoes)\\b/i,
+    match: /\b(?:tomato|tomatoes|tomato paste|tomato puree|passata|canned tomatoes|sun dried tomatoes)\b/i,
     insight: {
       id: "tomato",
       title: "Tomatoes and tomato products",
@@ -174,7 +174,7 @@ const profiles: { match: RegExp; insight: IngredientInsight }[] = [
     },
   },
   {
-    match: /\\b(?:onion|onions|red onion|white onion|yellow onion|spring onion|scallion|shallot)\\b/i,
+    match: /\b(?:onion|onions|red onion|white onion|yellow onion|spring onion|scallion|shallot)\b/i,
     insight: {
       id: "onion",
       title: "Onions and alliums",
