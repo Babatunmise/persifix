@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { supabase } from "@/supabase";
 
 type Mode = "your-way" | "ahuvas-way";
@@ -30,6 +30,9 @@ export default function AhuvaCookingStudio() {
   const [mode, setMode] = useState<Mode>("your-way");
   const [showSeasonings, setShowSeasonings] = useState(true);
   const [result, setResult] = useState<AhuvaResult | null>(null);
+  const [details, setDetails] = useState("");
+  const [conversation, setConversation] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
+  const [followUp, setFollowUp] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [activeCookingStep, setActiveCookingStep] = useState(0);
@@ -58,6 +61,7 @@ export default function AhuvaCookingStudio() {
         `Ingredients the user confirms having: I have ${ingredients.join(", ")}`,
         `Salt-based seasonings, sauces, herbs and spices the user uses or has: ${seasonings.trim() || "Not specified"}`,
       ].join("\\n");
+      const turns = [{ role: "user" as const, content: brief }];
       const response = await fetch("/api/kitchen", {
         method: "POST",
         headers: {
@@ -69,11 +73,13 @@ export default function AhuvaCookingStudio() {
           mode,
           details: brief,
           servings: String(servings),
-          conversation: [{ role: "user", content: brief }],
+          conversation: turns,
         }),
       });
       const data = await response.json().catch(() => null);
       if (data && typeof data === "object" && typeof data.assistantMessage === "string") {
+        setDetails(brief);
+        setConversation(turns);
         setResult(data as AhuvaResult);
       } else if (response.status === 401) {
         setError("Your session has expired. Sign in again. Your meal is still here.");
@@ -89,8 +95,56 @@ export default function AhuvaCookingStudio() {
     }
   }
 
+  async function submitFollowUp(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!followUp.trim() || loading || !details) return;
+    const turns = [
+      ...conversation,
+      { role: "assistant" as const, content: result?.assistantMessage ?? "" },
+      { role: "user" as const, content: followUp.trim() },
+    ];
+    setLoading(true);
+    setError("");
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        setError("Your session has expired. Sign in again. Your meal is still here.");
+        return;
+      }
+      const response = await fetch("/api/kitchen", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          intent: "meal",
+          mode,
+          details,
+          servings: String(servings),
+          conversation: turns,
+        }),
+      });
+      const data = await response.json().catch(() => null);
+      if (data && typeof data === "object" && typeof data.assistantMessage === "string") {
+        setConversation(turns);
+        setResult(data as AhuvaResult);
+        setFollowUp("");
+      } else {
+        setError(data?.error ?? "Ahuva couldn't complete that response. Your meal is still here; please try again.");
+      }
+    } catch {
+      setError("We couldn't reach Ahuva. Check your connection and try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   function startAgain() {
     setResult(null);
+    setDetails("");
+    setConversation([]);
+    setFollowUp("");
     setActiveCookingStep(0);
     setError("");
   }
@@ -321,6 +375,17 @@ export default function AhuvaCookingStudio() {
                 {result.safetyNotes?.length ? <section className="rounded-2xl border border-[#E8E1D5] bg-[#FBF8F1] p-4 text-xs leading-6 text-[#6F604B]">{result.safetyNotes.map((note, index) => <p key={index}>{note}</p>)}</section> : null}
               </aside>
             </div>
+            {result.status !== "unavailable" && (
+              <form onSubmit={submitFollowUp} className="mt-5 rounded-[26px] border border-[#E5E8DF] bg-white p-5 shadow-sm sm:p-6">
+                <label htmlFor="studio-followup" className="block text-[10px] font-bold uppercase tracking-[0.16em] text-[#849084]">
+                  {result.questions?.length ? "Your answer" : "Keep shaping your meal"}
+                </label>
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                  <input id="studio-followup" value={followUp} onChange={(event) => setFollowUp(event.target.value)} maxLength={1200} placeholder={result.questions?.[0] ? "Tell Ahuva what you mean…" : "Change an ingredient, ask a question or add a detail…"} className={`${fieldClass} min-w-0 flex-1`} />
+                  <button type="submit" disabled={!followUp.trim() || loading} className="rounded-2xl bg-[#183D30] px-6 py-3 text-xs font-semibold text-white disabled:opacity-40">{loading ? "Working…" : "Send to Ahuva →"}</button>
+                </div>
+              </form>
+            )}
             {error && <p role="alert" className="mt-4 rounded-xl bg-[#FFF7F1] p-4 text-sm text-[#8B4229]">{error}</p>}
           </section>
         )}
