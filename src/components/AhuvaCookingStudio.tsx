@@ -20,7 +20,6 @@ type AhuvaResult = {
 };
 
 const fieldClass = "w-full rounded-2xl border border-[#E4E8DF] bg-white px-4 py-3.5 text-[15px] leading-6 text-[#20392F] outline-none transition placeholder:text-[#A1AAA0] focus:border-[#789780] focus:ring-4 focus:ring-[#789780]/10";
-const labelClass = "mb-2 block text-[11px] font-semibold uppercase tracking-[0.13em] text-[#758477]";
 
 export default function AhuvaCookingStudio() {
   const [meal, setMeal] = useState("");
@@ -237,7 +236,7 @@ export default function AhuvaCookingStudio() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#849084]">03 · At the table</p>
-                      <h3 className="mt-1 font-serif text-2xl text-[#183D30]">Who's joining?</h3>
+                      <h3 className="mt-1 font-serif text-2xl text-[#183D30]">Who&apos;s joining?</h3>
                     </div>
                     <span className="text-xl text-[#8FA18D]">♧</span>
                   </div>
@@ -263,7 +262,7 @@ export default function AhuvaCookingStudio() {
                       <span className="mt-1 block text-[10px] leading-4 opacity-75">Keep my method</span>
                     </button>
                     <button type="button" aria-pressed={mode === "ahuvas-way"} onClick={() => setMode("ahuvas-way")} className={`rounded-xl px-3 py-3 text-left transition ${mode === "ahuvas-way" ? "bg-white text-[#29483B] shadow-sm" : "text-[#849084]"}`}>
-                      <span className="block text-xs font-semibold">Ahuva's way</span>
+                      <span className="block text-xs font-semibold">Ahuva&apos;s way</span>
                       <span className="mt-1 block text-[10px] leading-4 opacity-75">Show me an approach</span>
                     </button>
                   </div>
@@ -315,10 +314,10 @@ export default function AhuvaCookingStudio() {
             <div className="grid gap-5 lg:grid-cols-[minmax(0,1.3fr)_minmax(280px,0.7fr)]">
               <div className="space-y-5">
                 <section className="rounded-[26px] border border-[#E5E8DF] bg-white p-5 shadow-sm sm:p-7">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#849084]">Ahuva's understanding</p>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#849084]">Ahuva&apos;s understanding</p>
                   <h3 className="mt-2 font-serif text-2xl text-[#183D30]">Your meal, made better.</h3>
                   <p className="mt-4 whitespace-pre-wrap text-sm leading-7 text-[#405C4D]">{result.assistantMessage}</p>
-                  {result.interpretation && <div className="mt-5 rounded-2xl bg-[#F6F8F3] p-4"><p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#849084]">The meal we're making</p><p className="mt-2 text-sm leading-6 text-[#365444]">{result.interpretation}</p></div>}
+                  {result.interpretation && <div className="mt-5 rounded-2xl bg-[#F6F8F3] p-4"><p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#849084]">The meal we&apos;re making</p><p className="mt-2 text-sm leading-6 text-[#365444]">{result.interpretation}</p></div>}
                   {result.status === "unavailable" && <p className="mt-4 rounded-xl bg-[#F7F8F4] p-4 text-xs leading-6 text-[#718076]">{result.reason === "sensitive_context" ? "This experience cannot assess personal medical conditions, allergies or medication-related dietary needs. General ingredient information is not a personal medical assessment." : "Ahuva's guided cooking conversation is not connected for this request. Your meal details remain available."}</p>}
                 </section>
 
@@ -344,7 +343,7 @@ export default function AhuvaCookingStudio() {
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <p className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#849084]">Cooking in progress</p>
-                        <h3 className="mt-1 font-serif text-2xl text-[#183D30]">Let's make it.</h3>
+                        <h3 className="mt-1 font-serif text-2xl text-[#183D30]">Let&apos;s make it.</h3>
                       </div>
                       <span className="rounded-full bg-[#EEF3EA] px-3 py-1.5 text-[10px] font-semibold text-[#536A59]">Step {activeCookingStep + 1} of {result.plan.preparation.length}</span>
                     </div>
