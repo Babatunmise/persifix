@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",
-    "build": "npm run test:ingredients && npm run lint -- src/app/api/kitchen/route.ts src/components/AhuvaKitchen.tsx src/components/AhuvaServingReview.tsx src/lib/ingredient-confirmation.mjs src/lib/ahuva-request-lock.mjs src/lib/ahuva-response-contract.mjs src/lib/ahuva-serving-intelligence.mjs src/lib/ahuva-ingredient-variants.ts tests/ingredient-confirmation.test.mjs tests/ahuva-request-lock.test.mjs tests/ahuva-response-contract.test.mjs tests/ahuva-serving-intelligence.test.mjs && next build --webpack",
+    "build": "npm run test:ingredients && npm run lint -- src/app/api/kitchen/route.ts src/components/AhuvaKitchen.tsx src/components/AhuvaCookingStudio.tsx src/app/ahuva-studio/page.tsx src/components/AhuvaServingReview.tsx src/lib/ingredient-confirmation.mjs src/lib/ahuva-request-lock.mjs src/lib/ahuva-response-contract.mjs src/lib/ahuva-serving-intelligence.mjs src/lib/ahuva-ingredient-variants.ts tests/ingredient-confirmation.test.mjs tests/ahuva-request-lock.test.mjs tests/ahuva-response-contract.test.mjs tests/ahuva-serving-intelligence.test.mjs && next build --webpack",
     "start": "next start",
     "lint": "eslint",
     "test:ingredients": "node --test tests/ingredient-confirmation.test.mjs tests/ahuva-request-lock.test.mjs tests/ahuva-response-contract.test.mjs tests/ahuva-serving-intelligence.test.mjs"
