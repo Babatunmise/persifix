@@ -37,10 +37,14 @@ export default function AhuvaCookingStudio() {
   const [error, setError] = useState("");
   const [activeCookingStep, setActiveCookingStep] = useState(0);
 
-  const ingredients = useMemo(
-    () => ingredientText.split(/[,\\n]+/).map((item) => item.trim()).filter(Boolean),
-    [ingredientText],
-  );
+  const ingredients = useMemo(() => {
+    const groups = ingredientText.split(/[,\\n]+/).map((item) => item.trim()).filter(Boolean);
+    return groups.flatMap((item, index) =>
+      index > 0 && /\\s+and\\s+/i.test(item)
+        ? item.split(/\\s+and\\s+/i).map((part) => part.trim()).filter(Boolean)
+        : [item],
+    );
+  }, [ingredientText]);
 
   function removeIngredient(index: number) {
     setIngredientText(ingredients.filter((_, itemIndex) => itemIndex !== index).join(", "));
