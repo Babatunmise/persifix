@@ -30,8 +30,8 @@ const SYNTHETIC_TEST_BRIEF = [
 ].join("\n");
 
 const SYNTHETIC_TEST_CLARIFICATION = {
-  assistantMessage: "I have the meal and ingredient list. Before I assess its nutritional composition, I need to understand the amount of Oats you plan to use.",
-  question: "About how much Oats will you use? A household measure, such as one cup, is fine.",
+  assistantMessage: "I have the meal and ingredient list. Before I assess its nutritional composition, I need to understand the amount of oats you plan to use.",
+  question: "About how much oats will you use? A household measure, such as one cup, is fine.",
 };
 const SYNTHETIC_TEST_FOLLOWUP = "One cup.";
 
