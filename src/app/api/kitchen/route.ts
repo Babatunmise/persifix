@@ -85,6 +85,7 @@ export async function POST(req: NextRequest) {
       (body.mode !== "your-way" && body.mode !== "ahuvas-way") ||
       !safeString(body.details, 2_000) ||
       !validServings ||
+      typeof body.externalAiConsent !== "boolean" ||
       !Array.isArray(body.conversation) || body.conversation.length > 10) {
     return jsonError("Invalid cooking request", 400);
   }
@@ -116,8 +117,14 @@ export async function POST(req: NextRequest) {
     }, { status: 422 });
   }
 
-  // Keep external processing disabled until the product owner approves the
-  // provider's data terms, retention, transfer safeguards, and user consent.
+  // Require affirmative, session-level user consent on every API request.
+  // This is enforced server-side; a client-only checkbox is not sufficient.
+  if (body.externalAiConsent !== true) {
+    return jsonError("Explicit consent is required before meal details can be sent to an external AI provider.", 403);
+  }
+
+  // Keep provider access disabled until data terms, retention, transfer safeguards,
+  // and the product privacy disclosures have been reviewed and approved.
   if (process.env.SANCTOS_EXTERNAL_AI_APPROVED !== "true") {
     return Response.json({
       status: "unavailable",
