@@ -7,13 +7,13 @@ function escapeRegExp(value) {
 function hasIngredientMeasure(line, ingredient) {
   const name = escapeRegExp(ingredient);
   const quantity = "(?:\\d+(?:[./]\\d+)?|a|an|one|two|three|four|five|half|quarter)";
-  const unit = "(?:cups?|tablespoons?|tbsp|teaspoons?|tsp|grams?|g|kilograms?|kg|millilit(?:er|re)s?|ml|lit(?:er|re)s?|handfuls?|packets?|sachets?|servings?|slices?|pieces?|bowls?|scoops?)";
-  return new RegExp(`(?:\\b${quantity}\\s*${unit}\\s*(?:of\\s+)?${name}\\b|${name}\\s*[:=( -]*\\s*${quantity}\\s*${unit})`, "i").test(line);
+  const unit = "(?:cups?|tablespoons?|tbsp|teaspoons?|tsp|grams?|g|kilograms?|kg|millilit(?:er|re)s?|ml|lit(?:er|re)s?|handfuls?|packets?|sachets?|servings?|slices?|pieces?|bowls?|scoops?|eggs?|cloves?|tomatoes?|onions?|potatoes?|whole|large|medium|small)";
+  return new RegExp(`(?:\\b${quantity}\\s*(?:${unit}\\s*)?(?:of\\s+)?${name}\\b|${name}\\s*[:=( -]*\\s*${quantity}\\s*${unit})`, "i").test(line);
 }
 
 /**
  * Ask for the primary ingredient quantity before giving meal-level nutrition guidance.
- * This is a narrow deterministic guard, not a nutrient calculation.
+ * This is a narrow deterministic clarification, not a nutrient calculation.
  */
 export function getPrimaryIngredientQuantityClarification(details, conversation = []) {
   if (typeof details !== "string") return null;
@@ -22,7 +22,7 @@ export function getPrimaryIngredientQuantityClarification(details, conversation 
 
   const rawIngredients = ingredientLine.replace(/^Confirmed main ingredients:\s*/i, "").trim();
   const rawPrimaryIngredient = rawIngredients.split(/[;,]/)[0]?.trim();
-  const leadingQuantity = /^(?:\\d+(?:[./]\\d+)?|a|an|one|two|three|four|five|half|quarter)\\s*(?:(?:cups?|tablespoons?|tbsp|teaspoons?|tsp|grams?|g|kilograms?|kg|millilit(?:er|re)s?|ml|lit(?:er|re)s?|handfuls?|packets?|sachets?|servings?|slices?|pieces?|bowls?|scoops?|eggs?|cloves?|tomatoes?|onions?|potatoes?|whole|large|medium|small)\\s*)?(?:of\\s+)?/i;
+  const leadingQuantity = /^(?:\d+(?:[./]\d+)?|a|an|one|two|three|four|five|half|quarter)\s*(?:(?:cups?|tablespoons?|tbsp|teaspoons?|tsp|grams?|g|kilograms?|kg|millilit(?:er|re)s?|ml|lit(?:er|re)s?|handfuls?|packets?|sachets?|servings?|slices?|pieces?|bowls?|scoops?|eggs?|cloves?|tomatoes?|onions?|potatoes?|whole|large|medium|small)\s*)?(?:of\s+)?/i;
   const primaryIngredient = rawPrimaryIngredient?.replace(leadingQuantity, "").trim();
   if (!primaryIngredient || /^(?:none|not specified)$/i.test(primaryIngredient)) return null;
 
