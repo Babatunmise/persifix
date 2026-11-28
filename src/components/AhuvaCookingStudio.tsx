@@ -77,11 +77,11 @@ export default function AhuvaCookingStudio() {
         const authResult = await supabase.auth.getSession();
         session = authResult.data.session;
       } catch {
-        setError("We couldn't verify your sign-in. Check your connection, then try again. Your meal is still here.");
+        setError("We couldn’t verify your sign-in. Check your connection and try again. Keep this page open; your entries are not saved yet.");
         return;
       }
       if (!session?.access_token) {
-        setError("Your session has expired. Sign in again. Your meal is still here.");
+        setError("Your session has expired. Sign in again. Keep this page open; your entries are not saved yet.");
         return;
       }
 
@@ -102,7 +102,7 @@ export default function AhuvaCookingStudio() {
           }),
         });
       } catch {
-        setError("Ahuva's nutrition service could not be reached. Check your connection and try again. Your meal is still here.");
+        setError("Ahuva’s service could not be reached. Check your connection and try again. Keep this page open; your entries are not saved yet.");
         return;
       }
 
@@ -113,11 +113,11 @@ export default function AhuvaCookingStudio() {
         setResult(data as AhuvaResult);
         return;
       }
-      if (response.status === 401) setError("Your session has expired. Sign in again. Your meal is still here.");
+      if (response.status === 401) setError("Your session has expired. Sign in again. Keep this page open; your entries are not saved yet.");
       else if (response.status === 429) setError("Ahuva is busy right now. Wait a moment and try again.");
       else if (response.status === 503) setError("Ahuva’s nutrition intelligence is not connected yet. Your meal details are still here.");
-      else if (response.status >= 500) setError("Ahuva couldn't complete that request. Your meal is still here; please try again.");
-      else setError(data?.error ?? "Something needs attention before Ahuva can continue. Your meal is still here.");
+      else if (response.status >= 500) setError("Ahuva couldn’t complete that request. Please try again. Your entries are not saved yet.");
+      else setError(data?.error ?? "Something needs attention before Ahuva can continue. Your entries are not saved yet.");
     } finally {
       setLoading(false);
     }
