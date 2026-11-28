@@ -4,7 +4,7 @@ export const maxDuration = 60;
 import { extractConfirmedIngredientText, extractStructuredConfirmedIngredients, isIngredientConfirmed } from "@/lib/ingredient-confirmation.mjs";
 import { normalizeAhuvaResult } from "@/lib/ahuva-response-contract.mjs";
 import { isProviderSafetyRefusal } from "@/lib/ahuva-provider-response.mjs";
-import { getPrimaryIngredientQuantityClarification, isSyntheticAhuvaTestRequest, SYNTHETIC_TEST_BRIEF } from "@/lib/ahuva-conversation-policy.mjs";
+import { getPrimaryIngredientQuantityClarification, isApprovedSyntheticTestFollowup, isSyntheticAhuvaTestRequest, SYNTHETIC_TEST_BRIEF } from "@/lib/ahuva-conversation-policy.mjs";
 import {
   authenticateRequest,
   enforceRateLimit,
@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
       firstTurnMatchesBrief: conversation[0]?.content === SYNTHETIC_TEST_BRIEF,
       secondTurnRole: conversation[1]?.role ?? "missing",
       thirdTurnRole: conversation[2]?.role ?? "missing",
-      followupMatchesApprovedReply: conversation[2]?.content === "One cup.",
+      followupMatchesApprovedReply: isApprovedSyntheticTestFollowup(conversation[2]?.content),
       syntheticFlag: body.syntheticTest === true,
     });
     return Response.json({
@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
         approvedMealBriefMatched: syntheticDetailsMatch,
         conversationLength: conversation.length,
         firstTurnMatchedApprovedBrief: conversation[0]?.content === SYNTHETIC_TEST_BRIEF,
-        followupMatchedApprovedReply: conversation.length === 3 && conversation[2]?.content === "One cup.",
+        followupMatchedApprovedReply: conversation.length === 3 && isApprovedSyntheticTestFollowup(conversation[2]?.content),
         syntheticTestFlagPresent: body.syntheticTest === true,
       },
     }, { status: 403 });
