@@ -99,3 +99,28 @@ Not present in the inspected implementation:
 ## Approval boundaries
 
 This review authorises no provider activation, external data transfer, environment-variable change, new database schema, migration, production deployment, PR merge or release. Those remain separate explicit approval decisions.
+
+
+## Conversational Meal Review v1 — implementation update
+
+**Branch:** `feat/ahuva-home-experience`  
+**Status:** Implemented in source; preview build and synthetic follow-up verification pending.
+
+- A deterministic clarification policy now asks for the amount of the first confirmed main ingredient when no usable quantity is supplied. It accepts common household measures and counted ingredients.
+- The initial clarification returns one question only and withholds the meal overview and practical adjustments until the user responds.
+- The question and assistant message are both retained in the conversation history, so the follow-up request receives the actual question rather than only the surrounding explanation.
+- The provider prompt now explicitly follows a clarification-first sequence, asks one material question at a time, and avoids presenting a meal-level assessment while material information is unresolved.
+- The UI distinguishes a clarification from a completed meal understanding and changes the reply placeholder to invite an answer.
+- Automated tests cover missing quantities, measured ingredient lines, counted ingredients, household-measure answers, non-answers and repeat-question prevention.
+
+### Restricted synthetic follow-up test
+
+Preview test mode now permits only two fixed synthetic turns:
+1. The existing exact synthetic oats-and-cinnamon brief, which should trigger the deterministic question about the amount of oats.
+2. The exact synthetic reply `One cup.`, following the exact assistant clarification, which may proceed to the provider for a second conversational response.
+
+All other requests remain rejected in this branch-specific test mode. This does not authorise real meal data, general external AI processing or production activation.
+
+### Verification boundary
+
+This build tests conversation sequencing, not nutrient calculations. It does not add a food-composition database, quantity-to-weight conversion, nutrient aggregation, durable session storage or clinical personalisation. The existing external-provider privacy and approval gates remain in force.
