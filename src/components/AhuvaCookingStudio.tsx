@@ -115,7 +115,7 @@ export default function AhuvaCookingStudio() {
       }
       if (response.status === 401) setError("Your session has expired. Sign in again. Your meal is still here.");
       else if (response.status === 429) setError("Ahuva is busy right now. Wait a moment and try again.");
-      else if (response.status === 503) setError("Ahuva&apos;s nutrition intelligence is not connected yet. Your meal details are still here.");
+      else if (response.status === 503) setError("Ahuva’s nutrition intelligence is not connected yet. Your meal details are still here.");
       else if (response.status >= 500) setError("Ahuva couldn't complete that request. Your meal is still here; please try again.");
       else setError(data?.error ?? "Something needs attention before Ahuva can continue. Your meal is still here.");
     } finally {
@@ -295,13 +295,21 @@ export default function AhuvaCookingStudio() {
               <h3 className="mt-2 font-serif text-xl text-[#183D30]">Ahuva looks at what you entered.</h3>
               <p className="mt-2 text-sm leading-6 text-[#718076]">She can ask about an ingredient, seasoning, quantity or preparation detail only when it materially changes the nutritional picture. You will answer one question at a time.</p>
             </section>
-            <section className={cardClass}>
-              <p className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#849084]">Ahuva&apos;s understanding</p>
-              <h3 className="mt-2 font-serif text-2xl text-[#183D30]">Your meal, made better.</h3>
-              <p className="mt-4 whitespace-pre-wrap text-sm leading-7 text-[#405C4D]">{result.assistantMessage}</p>
-              {result.interpretation && <div className="mt-4 rounded-2xl bg-[#F6F8F3] p-4"><p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#849084]">Meal overview</p><p className="mt-2 text-sm leading-6 text-[#365444]">{result.interpretation}</p></div>}
-              {result.status === "unavailable" && <p className="mt-4 rounded-xl bg-[#F7F8F4] p-4 text-xs leading-6 text-[#718076]">Ahuva&apos;s nutrition intelligence is not connected for this request yet. Your meal details remain here; no nutritional values or health conclusions have been invented.</p>}
-            </section>
+            {result.status === "unavailable" ? (
+              <section role="status" aria-live="polite" className={`${cardClass} border-[#E8E1D5] bg-[#FBF9F4]`}>
+                <p className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#849084]">Connection status</p>
+                <h3 className="mt-2 font-serif text-2xl text-[#183D30]">Step 2 isn’t connected yet.</h3>
+                <p className="mt-4 whitespace-pre-wrap text-sm leading-7 text-[#405C4D]">{result.assistantMessage}</p>
+                <p className="mt-3 text-xs leading-6 text-[#718076]">Ahuva has not analysed this meal. No nutrient values or heart-health conclusions have been generated.</p>
+              </section>
+            ) : (
+              <section className={cardClass}>
+                <p className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#849084]">Ahuva&apos;s understanding</p>
+                <h3 className="mt-2 font-serif text-2xl text-[#183D30]">Your meal, made better.</h3>
+                <p className="mt-4 whitespace-pre-wrap text-sm leading-7 text-[#405C4D]">{result.assistantMessage}</p>
+                {result.interpretation && <div className="mt-4 rounded-2xl bg-[#F6F8F3] p-4"><p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#849084]">Meal overview</p><p className="mt-2 text-sm leading-6 text-[#365444]">{result.interpretation}</p></div>}
+              </section>
+            )}
             {result.recommendations?.length ? <section className={`${cardClass} mt-3`}><p className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#849084]">Practical adjustments</p><div className="mt-3 space-y-3">{result.recommendations.map((item, index) => <div key={index} className="rounded-2xl bg-[#F7F8F4] p-4"><p className="text-sm font-semibold text-[#365444]">{item.title}</p><p className="mt-1 text-sm leading-6 text-[#718076]">{item.detail}</p></div>)}</div></section> : null}
             {result.questions?.length ? <section className={`${cardClass} mt-3`}><p className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#718477]">Ahuva&apos;s question</p><p className="mt-3 text-sm leading-7 text-[#405C4D]">{result.questions[0]}</p></section> : null}
             {result.safetyNotes?.length ? <section className="mt-3 rounded-2xl border border-[#E8E1D5] bg-[#FBF8F1] p-4 text-xs leading-6 text-[#6F604B]">{result.safetyNotes.map((note, index) => <p key={index}>{note}</p>)}</section> : null}
