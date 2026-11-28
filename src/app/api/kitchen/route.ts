@@ -218,6 +218,7 @@ export async function POST(req: NextRequest) {
       let providerErrorParam = "none";
       let contentRiskRejected = false;
       let providerDiagnostic = "unclassified";
+      let safeProviderMessage = "";
       try {
         const errorBody: unknown = await response.clone().json();
         if (isRecord(errorBody) && isRecord(errorBody.error)) {
@@ -228,7 +229,9 @@ export async function POST(req: NextRequest) {
           if (typeof providerError.param === "string" && allowedParams.includes(providerError.param)) {
             providerErrorParam = providerError.param;
           }
-          const providerMessage = typeof providerError.message === "string" ? providerError.message.toLowerCase() : "";
+          const rawProviderMessage = typeof providerError.message === "string" ? providerError.message : "";
+          safeProviderMessage = rawProviderMessage.replace(/[\\r\\n\\t]+/g, " ").replace(/\\s{2,}/g, " ").slice(0, 240);
+          const providerMessage = rawProviderMessage.toLowerCase();
           contentRiskRejected =
             /content exists risk|content risk/i.test(providerMessage) ||
             /content[_ -]risk/i.test(providerErrorCode);
