@@ -4,7 +4,7 @@ export const maxDuration = 60;
 import { extractConfirmedIngredientText, extractStructuredConfirmedIngredients, isIngredientConfirmed } from "@/lib/ingredient-confirmation.mjs";
 import { normalizeAhuvaResult } from "@/lib/ahuva-response-contract.mjs";
 import { isProviderSafetyRefusal } from "@/lib/ahuva-provider-response.mjs";
-import { getPrimaryIngredientQuantityClarification, isApprovedSyntheticTestFollowup, isSyntheticAhuvaTestRequest, SYNTHETIC_TEST_BRIEF } from "@/lib/ahuva-conversation-policy.mjs";
+import { getPrimaryIngredientQuantityClarification, getApprovedSyntheticTestFixture, isApprovedSyntheticTestBrief, isApprovedSyntheticTestFollowup, isSyntheticAhuvaTestRequest } from "@/lib/ahuva-conversation-policy.mjs";
 import {
   authenticateRequest,
   enforceRateLimit,
@@ -105,7 +105,8 @@ export async function POST(req: NextRequest) {
   // Preview test mode is limited to one fixed, non-personal synthetic fixture.
   // The server validates the complete payload; client flags cannot authorise other data.
   const syntheticTestMode = process.env.SANCTOS_EXTERNAL_AI_TEST_MODE === "true";
-  const syntheticDetailsMatch = safeDetails === SYNTHETIC_TEST_BRIEF;
+  const syntheticFixture = getApprovedSyntheticTestFixture(safeDetails);
+  const syntheticDetailsMatch = isApprovedSyntheticTestBrief(safeDetails);
   const syntheticConversationMatch = isSyntheticAhuvaTestRequest(safeDetails, conversation);
   const isSyntheticTestRequest =
     body.syntheticTest === true &&
@@ -127,10 +128,10 @@ export async function POST(req: NextRequest) {
       detailsMatch: syntheticDetailsMatch,
       conversationLength: conversation.length,
       firstTurnRole: conversation[0]?.role ?? "missing",
-      firstTurnMatchesBrief: conversation[0]?.content === SYNTHETIC_TEST_BRIEF,
+      firstTurnMatchesBrief: conversation[0]?.content === safeDetails,
       secondTurnRole: conversation[1]?.role ?? "missing",
       thirdTurnRole: conversation[2]?.role ?? "missing",
-      followupMatchesApprovedReply: isApprovedSyntheticTestFollowup(conversation[2]?.content),
+      followupMatchesApprovedReply: Boolean(syntheticFixture?.followup && isApprovedSyntheticTestFollowup(conversation[2]?.content, syntheticFixture)),
       syntheticFlag: body.syntheticTest === true,
     });
     return Response.json({
@@ -139,7 +140,7 @@ export async function POST(req: NextRequest) {
       checks: {
         approvedMealBriefMatched: syntheticDetailsMatch,
         conversationLength: conversation.length,
-        firstTurnMatchedApprovedBrief: conversation[0]?.content === SYNTHETIC_TEST_BRIEF,
+        firstTurnMatchedApprovedBrief: conversation[0]?.content === safeDetails,
         followupMatchedApprovedReply: conversation.length === 3 && isApprovedSyntheticTestFollowup(conversation[2]?.content),
         syntheticTestFlagPresent: body.syntheticTest === true,
       },
