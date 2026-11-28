@@ -230,7 +230,7 @@ export async function POST(req: NextRequest) {
             providerErrorParam = providerError.param;
           }
           const rawProviderMessage = typeof providerError.message === "string" ? providerError.message : "";
-          safeProviderMessage = rawProviderMessage.replace(/[\\r\\n\\t]+/g, " ").replace(/\\s{2,}/g, " ").slice(0, 240);
+          safeProviderMessage = rawProviderMessage.replace(/[\r\n\t]+/g, " ").replace(/\s{2,}/g, " ").slice(0, 240);
           const providerMessage = rawProviderMessage.toLowerCase();
           contentRiskRejected =
             /content exists risk|content risk/i.test(providerMessage) ||
@@ -293,7 +293,17 @@ export async function POST(req: NextRequest) {
           reason: "provider_safety_input_rejected",
         }, { status: 422 });
       }
-      return jsonError("Ahuva could not respond just now. Please try again.", 502);
+      return Response.json({
+        error: "Ahuva could not complete the provider request.",
+        diagnostic: providerDiagnostic,
+        provider: {
+          status,
+          type: providerErrorType,
+          code: providerErrorCode,
+          parameter: providerErrorParam,
+          message: safeProviderMessage,
+        },
+      }, { status: 502 });
     }
     let data: unknown;
     try {
