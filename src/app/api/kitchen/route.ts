@@ -4,7 +4,7 @@ export const maxDuration = 60;
 import { extractConfirmedIngredientText, extractStructuredConfirmedIngredients, isIngredientConfirmed } from "@/lib/ingredient-confirmation.mjs";
 import { normalizeAhuvaResult } from "@/lib/ahuva-response-contract.mjs";
 import { isProviderSafetyRefusal } from "@/lib/ahuva-provider-response.mjs";
-import { getPrimaryIngredientQuantityClarification, isSyntheticAhuvaTestRequest } from "@/lib/ahuva-conversation-policy.mjs";
+import { getPrimaryIngredientQuantityClarification, isSyntheticAhuvaTestRequest, SYNTHETIC_TEST_BRIEF } from "@/lib/ahuva-conversation-policy.mjs";
 import {
   authenticateRequest,
   enforceRateLimit,
