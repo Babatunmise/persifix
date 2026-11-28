@@ -79,16 +79,14 @@ A minimum evaluation should cover all scenarios above, with more than one cultur
 
 ## 6. Controls and remaining work
 
-- Expand local automated tests for deterministic conversation policy and response-contract handling.
-- Correct the singular/plural serving and ingredient labels.
-- Review the prompt and UI against the acceptance criteria without weakening safety controls.
-- Keep the existing fixed synthetic provider test available for connectivity regression only.
+- Keep the finite fixture list and server-side allowlist in sync.
+- Run automated gate-tampering tests and the full Preview build before manual provider evaluation.
+- Execute each approved fixture and score its response against the acceptance criteria.
+- Keep production and real-user provider approval disabled.
 
 ## 7. Explicit blockers
 
-The current Preview deployment intentionally accepts only the exact synthetic oats brief and its fixed follow-up. Therefore, the broader scenario matrix cannot yet be exercised against the live provider.
-
-The synthetic-only provider evaluation mode must:
+The expanded synthetic-only mode is implemented on the Preview branch. Deployment and runtime verification are still pending. It accepts only the five exact synthetic briefs and the defined conversation shapes. The synthetic-only provider evaluation mode must:
 - accept only a finite, reviewed list of synthetic fixtures;
 - reject all real-user meal data and all unrecognised payloads;
 - keep production and real-user provider approval gates closed;
