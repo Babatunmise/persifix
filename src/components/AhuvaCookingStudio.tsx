@@ -44,6 +44,7 @@ export default function AhuvaCookingStudio() {
   const [followUp, setFollowUp] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [externalAiConsent, setExternalAiConsent] = useState(false);
 
   const totalServings = useMemo(
     () => Math.max(1, peopleEating - 1 + personalServings),
@@ -99,6 +100,7 @@ export default function AhuvaCookingStudio() {
             details: requestDetails,
             servings: String(totalServings),
             conversation: turns,
+            externalAiConsent,
           }),
         });
       } catch {
@@ -124,7 +126,7 @@ export default function AhuvaCookingStudio() {
   }
 
   async function analyseMeal() {
-    if (!meal.trim() || ingredients.length === 0 || loading) return;
+    if (!meal.trim() || ingredients.length === 0 || loading || !externalAiConsent) return;
     const brief = [
       `Meal the user intends to prepare: ${meal.trim()}`,
       `Confirmed main ingredients: ${ingredients.join("; ")}`,
@@ -155,6 +157,7 @@ export default function AhuvaCookingStudio() {
     setConversation([]);
     setFollowUp("");
     setError("");
+    setExternalAiConsent(false);
   }
 
   function renderIngredientChips(items: string[], section: IngredientSection) {
@@ -278,9 +281,22 @@ export default function AhuvaCookingStudio() {
               <p className="mt-2 text-[11px] leading-5 text-[#899589]">For now, Ahuva assumes one portion for each other person. Individual family allocations and automatic journal sharing will come with family connections later.</p>
             </section>
 
+            <section className={`${cardClass} mt-5`}>
+              <label className="flex cursor-pointer items-start gap-3 text-sm leading-6 text-[#405C4D]">
+                <input
+                  type="checkbox"
+                  checked={externalAiConsent}
+                  onChange={(event) => setExternalAiConsent(event.target.checked)}
+                  className="mt-1 h-4 w-4 shrink-0 accent-[#183D30]"
+                />
+                <span>I agree that the meal details and messages I submit in Step 2 will be sent to DeepSeek, an external AI service, so Ahuva can respond. The service may process data outside my country. I will not include my name, contact details or personal medical information. I can choose not to continue.</span>
+              </label>
+              <p className="mt-3 text-xs leading-5 text-[#849084]">Only continue if you are comfortable sharing this information with an external provider. Consent applies to this meal conversation only.</p>
+            </section>
+
             <div className="mt-5 flex flex-col gap-3 rounded-[24px] bg-[#183D30] p-5 text-white sm:flex-row sm:items-center sm:justify-between sm:px-6">
               <div><p className="font-serif text-xl">Your meal, understood.</p><p className="mt-1 text-xs text-white/65">Ingredients, quantities and heart-health considerations.</p></div>
-              <button type="button" onClick={analyseMeal} disabled={!meal.trim() || ingredients.length === 0 || loading} className="inline-flex min-h-12 items-center justify-center gap-3 rounded-2xl bg-[#E7EBDD] px-6 py-3 text-sm font-bold text-[#183D30] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-45">{loading ? "Reviewing…" : "Review my meal"} <span aria-hidden="true">↗</span></button>
+              <button type="button" onClick={analyseMeal} disabled={!meal.trim() || ingredients.length === 0 || loading || !externalAiConsent} className="inline-flex min-h-12 items-center justify-center gap-3 rounded-2xl bg-[#E7EBDD] px-6 py-3 text-sm font-bold text-[#183D30] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-45">{loading ? "Reviewing…" : "Review my meal"} <span aria-hidden="true">↗</span></button>
             </div>
             {error && <p role="alert" className="mt-4 rounded-xl border border-[#EBD9CF] bg-[#FFF7F1] px-4 py-3 text-sm leading-6 text-[#8B4229]">{error}</p>}
           </>
