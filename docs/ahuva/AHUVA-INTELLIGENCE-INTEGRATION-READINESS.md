@@ -11,7 +11,9 @@
 - The `POST /api/kitchen` route already contains a DeepSeek Chat Completions integration.
 - The integration is deliberately fail-closed unless `SANCTOS_EXTERNAL_AI_APPROVED=true`.
 - The route also requires `DEEPSEEK_API_KEY`.
-- The provider model is currently hard-coded as `deepseek-flash`.
+- The provider model is currently hard-coded as `deepseek-flash`; current provider documentation identifies this as DeepSeek-V4.1-Flash-1017. The identifier is current, but should become a controlled server-side configuration before provider activation.
+- The request now includes DeepSeek's documented `safety_check: { level: "high" }` setting. This provides provider-side input/output risk review; it does not replace Sanctos' own clinical and product safety controls.
+- The route now handles a provider content-filter/refusal outcome without retrying it as though it were a transient empty response.
 - Before the approval gate, the route authenticates the user, applies the shared rate limit, validates the request, redacts direct identifiers and rejects free text matching its sensitive-health-context rule.
 - When the approval gate is closed, the route returns HTTP 503 with `reason: provider_not_approved`. The client currently renders that structured response as an unavailable Step 2 state.
 
@@ -21,9 +23,10 @@
 
 - The current DeepSeek API documentation lists `deepseek-flash` as a supported model name, so the existing model identifier is current at the time of this review: https://api-docs.deepseek.com/quick_start/pricing/
 - DeepSeek's API guidance says public-facing applications should enable its model safety checks and separately fulfil their own content-safety and AI-labelling obligations: https://api-docs.deepseek.com/guides/safety/
-- The inspected route does not currently send the documented `safety_check` setting. Add and test the supported high-safety setting before any public provider activation.
+- These safety settings have been added to the integration code while the external-processing gate remains closed. They have not yet been exercised against the live provider because activation is not approved.
 - The publicly available DeepSeek Privacy Policy describes storage in mainland China, but its scope describes DeepSeek website products/services. It does not, by itself, conclusively establish the contractual processing, retention or training terms for Sanctos' Open Platform API traffic: https://chat.deepseek.com/downloads/DeepSeek%20Privacy%20Policy.pdf
-- Obtain API-specific written confirmation or applicable Open Platform contractual terms for data processing, retention, training use, subprocessors and processing locations. Do not infer API protections from the consumer website policy or from the API's stateless conversation behaviour.
+- The Open Platform Terms place responsibility on Sanctos as the downstream application operator, require end-user disclosure of processing rules and consent or another legal basis, and require organisational/technical safeguards. The terms do not themselves resolve every retention, model-training, subprocessor or processing-location question for our intended use.
+- Obtain API-specific written confirmation or applicable contractual terms for data processing, retention, training use, subprocessors and processing locations. Do not infer API protections from the consumer website policy or from the API's stateless conversation behaviour.
 
 ### Nutrition intelligence
 
