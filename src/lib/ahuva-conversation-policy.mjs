@@ -38,9 +38,10 @@ export function getPrimaryIngredientQuantityClarification(details, conversation 
   const laterUserTurns = turns.filter((turn, index) => index > 0 && turn?.role === "user" && typeof turn.content === "string");
   if (laterUserTurns.some((turn) => MEASURE.test(turn.content))) return null;
 
+  const ingredientLabel = primaryIngredient.charAt(0).toLocaleLowerCase() + primaryIngredient.slice(1);
   return {
     ingredient: primaryIngredient,
-    assistantMessage: `I have the meal and ingredient list. Before I assess its nutritional composition, I need to understand the amount of ${primaryIngredient} you plan to use.`,
-    question: `About how much ${primaryIngredient} will you use? A household measure, such as one cup, is fine.`,
+    assistantMessage: `I have the meal and ingredient list. Before I assess its nutritional composition, I need to understand the amount of ${ingredientLabel} you plan to use.`,
+    question: `About how much ${ingredientLabel} will you use? A household measure, such as one cup, is fine.`,
   };
 }
