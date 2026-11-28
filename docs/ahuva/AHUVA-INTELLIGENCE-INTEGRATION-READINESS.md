@@ -17,6 +17,14 @@
 
 **Conclusion:** The observed message is not evidence of a missing API route. The provider call exists but is intentionally disabled by the approval gate. Do not enable the environment variable or transmit meal data until the owner has explicitly approved the provider, model, data terms, retention, processing location/transfer safeguards and consent experience.
 
+### Provider safety and data terms review
+
+- The current DeepSeek API documentation lists `deepseek-flash` as a supported model name, so the existing model identifier is current at the time of this review: https://api-docs.deepseek.com/quick_start/pricing/
+- DeepSeek's API guidance says public-facing applications should enable its model safety checks and separately fulfil their own content-safety and AI-labelling obligations: https://api-docs.deepseek.com/guides/safety/
+- The inspected route does not currently send the documented `safety_check` setting. Add and test the supported high-safety setting before any public provider activation.
+- The publicly available DeepSeek Privacy Policy describes storage in mainland China, but its scope describes DeepSeek website products/services. It does not, by itself, conclusively establish the contractual processing, retention or training terms for Sanctos' Open Platform API traffic: https://chat.deepseek.com/downloads/DeepSeek%20Privacy%20Policy.pdf
+- Obtain API-specific written confirmation or applicable Open Platform contractual terms for data processing, retention, training use, subprocessors and processing locations. Do not infer API protections from the consumer website policy or from the API's stateless conversation behaviour.
+
 ### Nutrition intelligence
 
 Existing deterministic capability:
