@@ -24,6 +24,10 @@ type IngredientSection = "ingredients" | "seasonings";
 const fieldClass = "w-full rounded-2xl border border-[#E4E8DF] bg-white px-4 py-3 text-[15px] leading-6 text-[#20392F] outline-none transition placeholder:text-[#A1AAA0] focus:border-[#789780] focus:ring-4 focus:ring-[#789780]/10";
 const cardClass = "rounded-[24px] border border-[#E5E8DF] bg-white p-4 shadow-[0_10px_30px_rgba(35,61,47,0.035)] sm:p-5";
 
+function countLabel(count: number, singular: string, plural = `${singular}s`) {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
 function addUnique(current: string[], value: string) {
   const clean = value.trim().replace(/\s+/g, " ");
   if (!clean || current.some((item) => item.toLocaleLowerCase() === clean.toLocaleLowerCase())) return current;
@@ -320,7 +324,7 @@ export default function AhuvaCookingStudio() {
               </div>
               <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[#E7ECE3] px-4 py-3">
                 <span className="text-sm text-[#536A59]">Total portions to prepare</span>
-                <span className="font-semibold tabular-nums text-[#183D30]">{totalServings} portions</span>
+                <span className="font-semibold tabular-nums text-[#183D30]">{countLabel(totalServings, "portion")}</span>
               </div>
               <p className="mt-2 text-[11px] leading-5 text-[#899589]">For now, Ahuva assumes one portion for each other person. Individual family allocations and automatic journal sharing will come with family connections later.</p>
             </section>
@@ -347,7 +351,7 @@ export default function AhuvaCookingStudio() {
         ) : (
           <section>
             <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-              <div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#718477]">Step 2 · Ahuva understands your meal</p><h2 className="mt-2 font-serif text-4xl tracking-tight text-[#183D30] sm:text-5xl">{meal}</h2><p className="mt-2 text-sm text-[#718076]">{totalServings} portions · {ingredients.length} main ingredients · {seasonings.length} seasonings</p></div>
+              <div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#718477]">Step 2 · Ahuva understands your meal</p><h2 className="mt-2 font-serif text-4xl tracking-tight text-[#183D30] sm:text-5xl">{meal}</h2><p className="mt-2 text-sm text-[#718076]">{countLabel(totalServings, "portion")} · {countLabel(ingredients.length, "main ingredient")} · {countLabel(seasonings.length, "seasoning")}</p></div>
               <button type="button" onClick={startAgain} className="self-start rounded-full border border-[#DCE4DA] bg-white px-4 py-2.5 text-xs font-semibold text-[#536A59]">← New meal</button>
             </div>
             <section className={`${cardClass} mb-3`}>
