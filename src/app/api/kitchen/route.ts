@@ -105,12 +105,45 @@ export async function POST(req: NextRequest) {
   // Preview test mode is limited to one fixed, non-personal synthetic fixture.
   // The server validates the complete payload; client flags cannot authorise other data.
   const syntheticTestMode = process.env.SANCTOS_EXTERNAL_AI_TEST_MODE === "true";
+  const syntheticDetailsMatch = safeDetails === SYNTHETIC_TEST_BRIEF;
+  const syntheticConversationMatch = isSyntheticAhuvaTestRequest(safeDetails, conversation);
   const isSyntheticTestRequest =
     body.syntheticTest === true &&
-    isSyntheticAhuvaTestRequest(safeDetails, conversation);
+    syntheticConversationMatch;
 
   if (syntheticTestMode && !isSyntheticTestRequest) {
-    return jsonError("This preview is restricted to the fixed synthetic connection test.", 403);
+    const diagnostic = !syntheticDetailsMatch
+      ? "approved_meal_brief_mismatch"
+      : !syntheticConversationMatch
+        ? conversation.length === 1
+          ? "initial_test_turn_mismatch"
+          : conversation.length === 3
+            ? "followup_test_turn_mismatch"
+            : "unexpected_conversation_length"
+        : "synthetic_test_flag_missing";
+    console.warn("[ahuva] synthetic Preview request rejected", {
+      category: "synthetic_test_validation_failed",
+      diagnostic,
+      detailsMatch: syntheticDetailsMatch,
+      conversationLength: conversation.length,
+      firstTurnRole: conversation[0]?.role ?? "missing",
+      firstTurnMatchesBrief: conversation[0]?.content === SYNTHETIC_TEST_BRIEF,
+      secondTurnRole: conversation[1]?.role ?? "missing",
+      thirdTurnRole: conversation[2]?.role ?? "missing",
+      followupMatchesApprovedReply: conversation[2]?.content === "One cup.",
+      syntheticFlag: body.syntheticTest === true,
+    });
+    return Response.json({
+      error: "The synthetic test was rejected by the Preview safety gate.",
+      diagnostic,
+      checks: {
+        approvedMealBriefMatched: syntheticDetailsMatch,
+        conversationLength: conversation.length,
+        firstTurnMatchedApprovedBrief: conversation[0]?.content === SYNTHETIC_TEST_BRIEF,
+        followupMatchedApprovedReply: conversation.length === 3 && conversation[2]?.content === "One cup.",
+        syntheticTestFlagPresent: body.syntheticTest === true,
+      },
+    }, { status: 403 });
   }
   if (!syntheticTestMode && body.syntheticTest === true) {
     return jsonError("Synthetic test mode is not enabled for this deployment.", 403);
