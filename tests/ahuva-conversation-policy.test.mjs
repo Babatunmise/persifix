@@ -20,6 +20,11 @@ test("does not ask again when the ingredient line includes a measured quantity",
   assert.equal(getPrimaryIngredientQuantityClarification(measured, []), null);
 });
 
+test("recognises a counted main ingredient such as two eggs", () => {
+  const counted = details.replace("Confirmed main ingredients: Oats", "Confirmed main ingredients: 2 eggs");
+  assert.equal(getPrimaryIngredientQuantityClarification(counted, []), null);
+});
+
 test("accepts a household-measure answer in a later user turn", () => {
   const conversation = [
     { role: "user", content: details },
