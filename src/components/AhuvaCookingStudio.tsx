@@ -116,7 +116,7 @@ export default function AhuvaCookingStudio() {
       }
       if (response.status === 401) setError("Your session has expired. Sign in again. Your meal is still here.");
       else if (response.status === 429) setError("Ahuva is busy right now. Wait a moment and try again.");
-      else if (response.status === 503) setError("Ahuva's nutrition intelligence is not connected yet. Your meal details are still here.");
+      else if (response.status === 503) setError("Ahuva&apos;s nutrition intelligence is not connected yet. Your meal details are still here.");
       else if (response.status >= 500) setError("Ahuva couldn't complete that request. Your meal is still here; please try again.");
       else setError(data?.error ?? "Something needs attention before Ahuva can continue. Your meal is still here.");
     } finally {
@@ -215,7 +215,7 @@ export default function AhuvaCookingStudio() {
           </button>
           {activeSuggestions === section && (
             <p className="mt-2 rounded-xl bg-[#F7F8F4] p-3 text-xs leading-5 text-[#718076]">
-              Meal-based suggestions will appear here when Ahuva's suggestion service is connected. For now, add only the items you actually plan to use. Nothing is assumed to be in your kitchen.
+              Meal-based suggestions will appear here when Ahuva&apos;s suggestion service is connected. For now, add only the items you actually plan to use. Nothing is assumed to be in your kitchen.
             </p>
           )}
         </div>
@@ -283,7 +283,7 @@ export default function AhuvaCookingStudio() {
             <section className={`${cardClass} mt-3`}>
               <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#849084]">04 · Preparation context</p>
               <h3 className="mt-1 font-serif text-xl text-[#183D30]">How will it be prepared?</h3>
-              <p className="mt-1 text-xs leading-5 text-[#879487]">This helps Ahuva assess the meal's nutritional impact, not teach you how to cook.</p>
+              <p className="mt-1 text-xs leading-5 text-[#879487]">This helps Ahuva assess the meal&apos;s nutritional impact, not teach you how to cook.</p>
               <label htmlFor="preparation-method" className="sr-only">Preparation method</label>
               <select id="preparation-method" value={preparationMethod} onChange={(event) => setPreparationMethod(event.target.value)} className={`${fieldClass} mt-3`}>
                 {["Not decided", "Boiled", "Steamed", "Baked", "Grilled", "Pan-fried", "Deep-fried", "Roasted", "Mixed or multiple methods", "Other"].map((method) => <option key={method} value={method}>{method}</option>)}
@@ -303,11 +303,11 @@ export default function AhuvaCookingStudio() {
               <button type="button" onClick={startAgain} className="self-start rounded-full border border-[#DCE4DA] bg-white px-4 py-2.5 text-xs font-semibold text-[#536A59]">← New meal</button>
             </div>
             <section className={cardClass}>
-              <p className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#849084]">Ahuva's understanding</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#849084]">Ahuva&apos;s understanding</p>
               <h3 className="mt-2 font-serif text-2xl text-[#183D30]">Your meal, made better.</h3>
               <p className="mt-4 whitespace-pre-wrap text-sm leading-7 text-[#405C4D]">{result.assistantMessage}</p>
               {result.interpretation && <div className="mt-4 rounded-2xl bg-[#F6F8F3] p-4"><p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#849084]">Meal overview</p><p className="mt-2 text-sm leading-6 text-[#365444]">{result.interpretation}</p></div>}
-              {result.status === "unavailable" && <p className="mt-4 rounded-xl bg-[#F7F8F4] p-4 text-xs leading-6 text-[#718076]">Ahuva's nutrition intelligence is not connected for this request yet. Your meal details remain here; no nutritional values or health conclusions have been invented.</p>}
+              {result.status === "unavailable" && <p className="mt-4 rounded-xl bg-[#F7F8F4] p-4 text-xs leading-6 text-[#718076]">Ahuva&apos;s nutrition intelligence is not connected for this request yet. Your meal details remain here; no nutritional values or health conclusions have been invented.</p>}
             </section>
             {result.recommendations?.length ? <section className={`${cardClass} mt-3`}><p className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#849084]">Practical adjustments</p><div className="mt-3 space-y-3">{result.recommendations.map((item, index) => <div key={index} className="rounded-2xl bg-[#F7F8F4] p-4"><p className="text-sm font-semibold text-[#365444]">{item.title}</p><p className="mt-1 text-sm leading-6 text-[#718076]">{item.detail}</p></div>)}</div></section> : null}
             {result.questions?.length ? <section className={`${cardClass} mt-3`}><p className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#718477]">One detail to settle</p><p className="mt-3 text-sm leading-7 text-[#405C4D]">{result.questions[0]}</p></section> : null}
