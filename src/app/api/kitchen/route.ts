@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
     return jsonError("Explicit consent is required before meal details can be sent to an external AI provider.", 403);
   }
 
-  // Preview test mode is limited to one fixed, non-personal synthetic fixture.
+  // Preview test mode accepts only the finite, exact synthetic fixture set.
   // The server validates the complete payload; client flags cannot authorise other data.
   const syntheticTestMode = process.env.SANCTOS_EXTERNAL_AI_TEST_MODE === "true";
   const syntheticFixture = getApprovedSyntheticTestFixture(safeDetails);
@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
         approvedMealBriefMatched: syntheticDetailsMatch,
         conversationLength: conversation.length,
         firstTurnMatchedApprovedBrief: conversation[0]?.content === safeDetails,
-        followupMatchedApprovedReply: conversation.length === 3 && isApprovedSyntheticTestFollowup(conversation[2]?.content),
+        followupMatchedApprovedReply: conversation.length === 3 && Boolean(syntheticFixture?.followup) && isApprovedSyntheticTestFollowup(conversation[2]?.content, syntheticFixture),
         syntheticTestFlagPresent: body.syntheticTest === true,
       },
     }, { status: 403 });
