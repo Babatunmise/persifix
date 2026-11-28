@@ -131,7 +131,7 @@ export async function POST(req: NextRequest) {
       firstTurnMatchesBrief: conversation[0]?.content === safeDetails,
       secondTurnRole: conversation[1]?.role ?? "missing",
       thirdTurnRole: conversation[2]?.role ?? "missing",
-      followupMatchesApprovedReply: Boolean(syntheticFixture?.followup && isApprovedSyntheticTestFollowup(conversation[2]?.content, syntheticFixture)),
+      followupMatchesApprovedReply: Boolean(syntheticFixture?.followup && isApprovedSyntheticTestFollowup(conversation[2]?.content, syntheticFixture ?? undefined)),
       syntheticFlag: body.syntheticTest === true,
     });
     return Response.json({
