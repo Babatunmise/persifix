@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getPrimaryIngredientQuantityClarification, isSyntheticAhuvaTestRequest, SYNTHETIC_TEST_BRIEF, SYNTHETIC_TEST_FOLLOWUP } from "../src/lib/ahuva-conversation-policy.mjs";
+import { getPrimaryIngredientQuantityClarification, isApprovedSyntheticTestFollowup, isSyntheticAhuvaTestRequest, SYNTHETIC_TEST_BRIEF, SYNTHETIC_TEST_FOLLOWUP } from "../src/lib/ahuva-conversation-policy.mjs";
 
 const details = [
   "Meal the user intends to prepare: Synthetic oats test",
@@ -69,7 +69,7 @@ test("allows the exact two-turn synthetic clarification follow-up", () => {
   ]), true);
 });
 
-test("rejects altered synthetic details, assistant turns and user follow-ups", () => {
+test("accepts harmless case and punctuation differences in the fixed synthetic reply", () => {\n  for (const reply of ["one cup", "ONE CUP.", "One cup!", "  One cup?  "]) {\n    assert.equal(isApprovedSyntheticTestFollowup(reply), true);\n  }\n  for (const reply of ["two cups", "one cup of oats", "a cup", "one bowl"]) {\n    assert.equal(isApprovedSyntheticTestFollowup(reply), false);\n  }\n});\n\ntest("rejects altered synthetic details, assistant turns and user follow-ups", () => {
   const clarification = getPrimaryIngredientQuantityClarification(SYNTHETIC_TEST_BRIEF, [
     { role: "user", content: SYNTHETIC_TEST_BRIEF },
   ]);
