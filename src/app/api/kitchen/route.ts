@@ -216,15 +216,40 @@ export async function POST(req: NextRequest) {
       let providerErrorType = "unknown";
       let providerErrorCode = "unknown";
       let contentRiskRejected = false;
+      let providerDiagnostic = "unclassified";
       try {
         const errorBody: unknown = await response.clone().json();
         if (isRecord(errorBody) && isRecord(errorBody.error)) {
           const providerError = errorBody.error;
           if (typeof providerError.type === "string") providerErrorType = providerError.type.slice(0, 80);
           if (typeof providerError.code === "string") providerErrorCode = providerError.code.slice(0, 80);
+          const providerMessage = typeof providerError.message === "string" ? providerError.message.toLowerCase() : "";
           contentRiskRejected =
-            (typeof providerError.message === "string" && /content exists risk|content risk/i.test(providerError.message)) ||
+            /content exists risk|content risk/i.test(providerMessage) ||
             /content[_ -]risk/i.test(providerErrorCode);
+          if (contentRiskRejected) {
+            providerDiagnostic = "content_risk";
+          } else if (/model.*(not found|invalid|unavailable)|invalid.*model/.test(providerMessage)) {
+            providerDiagnostic = "model_rejected";
+          } else if (/context length|maximum context|too many tokens/.test(providerMessage)) {
+            providerDiagnostic = "context_length";
+          } else if (/unsupported|unknown|extra.*parameter/.test(providerMessage)) {
+            const parameter = ["model", "messages", "thinking", "max_tokens", "response_format", "safety_check", "stream"].find((key) =>
+              providerMessage.includes(key),
+            );
+            providerDiagnostic = parameter ? `unsupported_parameter:${parameter}` : "unsupported_parameter";
+          } else if (/invalid.*(parameter|field|value)|parameter.*invalid/.test(providerMessage)) {
+            const parameter = ["model", "messages", "thinking", "max_tokens", "response_format", "safety_check", "stream"].find((key) =>
+              providerMessage.includes(key),
+            );
+            providerDiagnostic = parameter ? `invalid_parameter:${parameter}` : "invalid_parameter";
+          } else if (/message.*(role|content|empty|invalid)|messages.*(role|content|empty|invalid)/.test(providerMessage)) {
+            providerDiagnostic = "messages_rejected";
+          } else if (/api key|authentication|unauthorized/.test(providerMessage)) {
+            providerDiagnostic = "authentication_rejected";
+          } else if (status === 400) {
+            providerDiagnostic = "unclassified_bad_request";
+          }
         }
       } catch {
         // Keep provider error bodies out of logs; classify only structured metadata.
@@ -239,6 +264,7 @@ export async function POST(req: NextRequest) {
         status,
         providerErrorType,
         providerErrorCode,
+        providerDiagnostic,
       });
       if (contentRiskRejected) {
         return Response.json({
