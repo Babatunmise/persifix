@@ -1,4 +1,4 @@
-const MEASURE = /\b(?:\d+(?:[./]\d+)?|a|an|one|two|three|four|five|half|quarter)\s*(?:cups?|tablespoons?|tbsp|teaspoons?|tsp|grams?|g|kilograms?|kg|millilit(?:er|re)s?|ml|lit(?:er|re)s?|handfuls?|packets?|sachets?|servings?|slices?|pieces?|bowls?|scoops?)\b/i;
+const MEASURE = /\b(?:\d+(?:[./]\d+)?|a|an|one|two|three|four|five|half|quarter)\s*(?:cups?|tablespoons?|tbsp|teaspoons?|tsp|grams?|g|kilograms?|kg|millilit(?:er|re)s?|ml|lit(?:er|re)s?|handfuls?|packets?|sachets?|servings?|slices?|pieces?|bowls?|scoops?|eggs?|cloves?|tomatoes?|onions?|potatoes?|whole|large|medium|small)\b/i;
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
