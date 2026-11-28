@@ -3,12 +3,12 @@ const TASK = "Task: enter Ahuva Step 2. Review the confirmed meal brief and ask 
 function makeBrief({ meal, ingredients, seasonings, peopleEating, personalServings }) {
   const totalServings = Math.max(1, peopleEating - 1 + personalServings);
   return [
-    \`Meal the user intends to prepare: \${meal}\`,
-    \`Confirmed main ingredients: \${ingredients.join("; ")}\`,
-    \`Confirmed seasonings, sauces, herbs and spices: \${seasonings.length ? seasonings.join("; ") : "Not specified"}\`,
-    \`People eating at this meal, including the user: \${peopleEating}\`,
-    \`Personal servings the user expects to consume across meals: \${personalServings}\`,
-    \`Total portions to prepare, assuming one portion for each other diner: \${totalServings}\`,
+    `Meal the user intends to prepare: ${meal}`,
+    `Confirmed main ingredients: ${ingredients.join("; ")}`,
+    `Confirmed seasonings, sauces, herbs and spices: ${seasonings.length ? seasonings.join("; ") : "Not specified"}`,
+    `People eating at this meal, including the user: ${peopleEating}`,
+    `Personal servings the user expects to consume across meals: ${personalServings}`,
+    `Total portions to prepare, assuming one portion for each other diner: ${totalServings}`,
     TASK,
   ].join("\n");
 }
@@ -118,20 +118,20 @@ export function isSyntheticAhuvaTestRequest(details, conversation) {
 
   const expected = getPrimaryIngredientQuantityClarification(fixture.details, [conversation[0]]);
   return Boolean(expected) &&
-    conversation[1].content === \`\${expected.assistantMessage}\n\${expected.question}\`;
+    conversation[1].content === expected.assistantMessage + "\n" + expected.question;
 }
 
 const MEASURE = /\b(?:\d+(?:[./]\d+)?|a|an|one|two|three|four|five|half|quarter)\s*(?:cups?|tablespoons?|tbsp|teaspoons?|tsp|grams?|g|kilograms?|kg|millilit(?:er|re)s?|ml|lit(?:er|re)s?|handfuls?|packets?|sachets?|servings?|slices?|pieces?|bowls?|scoops?|eggs?|cloves?|tomatoes?|onions?|potatoes?|whole|large|medium|small)\b/i;
 
 function escapeRegExp(value) {
-  return value.replace(/[.*+?^\${}()|[\]\\]/g, "\\$&");
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function hasIngredientMeasure(line, ingredient) {
   const name = escapeRegExp(ingredient);
   const quantity = "(?:\\d+(?:[./]\\d+)?|a|an|one|two|three|four|five|half|quarter)";
   const unit = "(?:cups?|tablespoons?|tbsp|teaspoons?|tsp|grams?|g|kilograms?|kg|millilit(?:er|re)s?|ml|lit(?:er|re)s?|handfuls?|packets?|sachets?|servings?|slices?|pieces?|bowls?|scoops?|eggs?|cloves?|tomatoes?|onions?|potatoes?|whole|large|medium|small)";
-  return new RegExp(\`(?:\\b\${quantity}\\s*(?:\${unit}\\s*)?(?:of\\s+)?\${name}\\b|\${name}\\s*[:=( -]*\\s*\${quantity}\\s*\${unit})\`, "i").test(line);
+  return new RegExp(`(?:\\b${quantity}\\s*(?:${unit}\\s*)?(?:of\\s+)?${name}\\b|${name}\\s*[:=( -]*\\s*${quantity}\\s*${unit})`, "i").test(line);
 }
 
 /**
@@ -166,7 +166,7 @@ export function getPrimaryIngredientQuantityClarification(details, conversation 
   const ingredientLabel = primaryIngredient.charAt(0).toLocaleLowerCase() + primaryIngredient.slice(1);
   return {
     ingredient: primaryIngredient,
-    assistantMessage: \`I have the meal and ingredient list. Before I assess its nutritional composition, I need to understand the amount of \${ingredientLabel} you plan to use.\`,
-    question: \`About how much \${ingredientLabel} will you use? A household measure, such as one cup, is fine.\`,
+    assistantMessage: `I have the meal and ingredient list. Before I assess its nutritional composition, I need to understand the amount of ${ingredientLabel} you plan to use.`,
+    question: `About how much ${ingredientLabel} will you use? A household measure, such as one cup, is fine.`,
   };
 }
