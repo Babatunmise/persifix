@@ -320,7 +320,7 @@ export default function AhuvaCookingStudio() {
               <div><p className="font-serif text-xl">Your meal, understood.</p><p className="mt-1 text-xs text-white/65">Ingredients, quantities and heart-health considerations.</p></div>
               <button type="button" onClick={analyseMeal} disabled={!meal.trim() || ingredients.length === 0 || loading || !externalAiConsent} className="inline-flex min-h-12 items-center justify-center gap-3 rounded-2xl bg-[#E7EBDD] px-6 py-3 text-sm font-bold text-[#183D30] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-45">{loading ? "Reviewing…" : "Review my meal"} <span aria-hidden="true">↗</span></button>
             </div>
-            {error && <p role="alert" className="mt-4 rounded-xl border border-[#EBD9CF] bg-[#FFF7F1] px-4 py-3 text-sm leading-6 text-[#8B4229]">{error}</p>}
+            {error && <p role="alert" className="mt-4 whitespace-pre-wrap rounded-xl border border-[#EBD9CF] bg-[#FFF7F1] px-4 py-3 text-sm leading-6 text-[#8B4229]">{error}</p>}
           </>
         ) : (
           <section>
