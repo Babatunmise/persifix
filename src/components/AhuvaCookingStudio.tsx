@@ -2,7 +2,7 @@
 
 import { useMemo, useState, type FormEvent, type KeyboardEvent } from "react";
 import { supabase } from "@/supabase";
-import { SYNTHETIC_TEST_BRIEF } from "@/lib/ahuva-conversation-policy.mjs";
+import { isApprovedSyntheticTestBrief, SYNTHETIC_TEST_FIXTURES } from "@/lib/ahuva-conversation-policy.mjs";
 
 type AhuvaResult = {
   status: "ready" | "needs_clarification" | "unavailable";
@@ -106,7 +106,7 @@ export default function AhuvaCookingStudio() {
             servings: String(totalServings),
             conversation: turns,
             externalAiConsent,
-            syntheticTest: requestDetails === SYNTHETIC_TEST_BRIEF,
+            syntheticTest: isApprovedSyntheticTestBrief(requestDetails),
           }),
         });
       } catch {
@@ -191,14 +191,15 @@ export default function AhuvaCookingStudio() {
     setExternalAiConsent(false);
   }
 
-  // Preview-only helper: populate the exact approved synthetic fixture so
-  // manual entry differences cannot accidentally fail the server-side gate.
-  function loadSyntheticTest() {
-    setMeal("Synthetic oats test");
-    setIngredients(["Oats"]);
-    setSeasonings(["Cinnamon"]);
-    setPeopleEating(1);
-    setPersonalServings(1);
+  // Preview-only helpers: populate one of the finite, server-approved synthetic fixtures.
+  function loadSyntheticTest(fixtureId: string) {
+    const fixture = SYNTHETIC_TEST_FIXTURES.find((item) => item.id === fixtureId);
+    if (!fixture) return;
+    setMeal(fixture.meal);
+    setIngredients([...fixture.ingredients]);
+    setSeasonings([...fixture.seasonings]);
+    setPeopleEating(fixture.peopleEating);
+    setPersonalServings(fixture.personalServings);
     setResult(null);
     setDetails("");
     setConversation([]);
@@ -292,7 +293,16 @@ export default function AhuvaCookingStudio() {
               <h2 className="mt-2 font-serif text-[2.5rem] leading-[1.02] tracking-tight text-[#183D30] sm:text-5xl">What are you making?</h2>
               <label htmlFor="studio-meal" className="sr-only">What meal do you have in mind?</label>
               <input id="studio-meal" value={meal} onChange={(event) => setMeal(event.target.value)} placeholder="Name the meal you have in mind…" className="mt-4 w-full border-0 border-b border-[#DDE4DA] bg-transparent px-0 py-3 font-serif text-xl text-[#20392F] outline-none placeholder:text-[#AEB8AC] focus:border-[#789780] focus:ring-0 sm:text-2xl" />
-              <button type="button" onClick={loadSyntheticTest} className="mt-3 rounded-full border border-[#DCE4DA] bg-white px-3 py-2 text-xs font-semibold text-[#56735E]">Load approved synthetic test</button>
+              <div className="mt-3 rounded-2xl border border-dashed border-[#DCE4DA] bg-white/70 p-3">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#7B8A7C]">Preview evaluation · synthetic meals only</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {SYNTHETIC_TEST_FIXTURES.map((fixture) => (
+                    <button key={fixture.id} type="button" onClick={() => loadSyntheticTest(fixture.id)} className="rounded-full border border-[#DCE4DA] bg-white px-3 py-2 text-xs font-semibold text-[#56735E]">
+                      {fixture.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
             <div className="space-y-3">
