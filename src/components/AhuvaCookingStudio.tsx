@@ -120,6 +120,18 @@ export default function AhuvaCookingStudio() {
       if (response.status === 401) setError("Your session has expired. Sign in again. Keep this page open; your entries are not saved yet.");
       else if (response.status === 429) setError("Ahuva is busy right now. Wait a moment and try again.");
       else if (response.status === 503) setError("Ahuva’s nutrition intelligence is not connected yet. Your meal details are still here.");
+      else if (response.status === 403 && typeof data?.diagnostic === "string") {
+        const checks = data?.checks && typeof data.checks === "object" ? data.checks : {};
+        setError([
+          "The Preview safety gate rejected this request.",
+          `Diagnostic: ${data.diagnostic}`,
+          typeof checks.approvedMealBriefMatched === "boolean" ? `Approved meal brief matched: ${checks.approvedMealBriefMatched}` : "",
+          typeof checks.conversationLength === "number" ? `Conversation turns: ${checks.conversationLength}` : "",
+          typeof checks.firstTurnMatchedApprovedBrief === "boolean" ? `First turn matched approved brief: ${checks.firstTurnMatchedApprovedBrief}` : "",
+          typeof checks.followupMatchedApprovedReply === "boolean" ? `Follow-up matched approved reply: ${checks.followupMatchedApprovedReply}` : "",
+          typeof checks.syntheticTestFlagPresent === "boolean" ? `Synthetic test flag present: ${checks.syntheticTestFlagPresent}` : "",
+        ].filter(Boolean).join("\\n"));
+      }
       else if (response.status >= 500) {
         const diagnostic = typeof data?.diagnostic === "string" ? data.diagnostic : "server_error";
         const provider = data?.provider && typeof data.provider === "object" ? data.provider : null;
