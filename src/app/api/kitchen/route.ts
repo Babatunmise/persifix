@@ -42,7 +42,7 @@ Keep observations proportionate. One meal does not establish a person's overall 
 
 Do not diagnose, prescribe, or make personalised medical-suitability decisions. If a request requires individual clinical judgement, explain that the application cannot assess it and direct the user to a qualified care professional. Do not infer personal health facts or clinician instructions.
 
-Return ONLY one valid JSON object with exactly these keys and value types:
+Return ONLY one valid json object with exactly these keys and value types:
 {
   "status": "ready" or "needs_clarification",
   "assistantMessage": "A concise user-facing message, required and non-empty",
@@ -234,6 +234,8 @@ export async function POST(req: NextRequest) {
             /content[_ -]risk/i.test(providerErrorCode);
           if (contentRiskRejected) {
             providerDiagnostic = "content_risk";
+          } else if (/json.*(prompt|word)|prompt.*json/.test(providerMessage)) {
+            providerDiagnostic = "json_mode_prompt_requirement";
           } else if (/model.*(not found|invalid|unavailable)|invalid.*model/.test(providerMessage)) {
             providerDiagnostic = "model_rejected";
           } else if (/context length|maximum context|too many tokens/.test(providerMessage)) {
