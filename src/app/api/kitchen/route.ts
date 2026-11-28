@@ -4,6 +4,7 @@ export const maxDuration = 60;
 import { extractConfirmedIngredientText, extractStructuredConfirmedIngredients, isIngredientConfirmed } from "@/lib/ingredient-confirmation.mjs";
 import { normalizeAhuvaResult } from "@/lib/ahuva-response-contract.mjs";
 import { isProviderSafetyRefusal } from "@/lib/ahuva-provider-response.mjs";
+import { getPrimaryIngredientQuantityClarification } from "@/lib/ahuva-conversation-policy.mjs";
 import {
   authenticateRequest,
   enforceRateLimit,
@@ -28,11 +29,17 @@ const SYNTHETIC_TEST_BRIEF = [
   "Task: enter Ahuva Step 2. Review the confirmed meal brief and ask only the most useful missing clarification about ingredient form, quantities, seasonings or preparation where it materially changes nutritional understanding. Ask one question at a time. If enough is known, explain the relevant nutritional composition and heart-health considerations, then offer optional adjustments. Never teach cooking steps.",
 ].join("\n");
 
+const SYNTHETIC_TEST_CLARIFICATION = {
+  assistantMessage: "I have the meal and ingredient list. Before I assess its nutritional composition, I need to understand the amount of Oats you plan to use.",
+  question: "About how much Oats will you use? A household measure, such as one cup, is fine.",
+};
+const SYNTHETIC_TEST_FOLLOWUP = "One cup.";
+
 const SYSTEM_PROMPT = `You are Ahuva, Sanctos' food, nutrition and heart-health companion.
 
 Help users understand the meal they have chosen, its ingredients and seasonings, relevant nutritional characteristics, and optional practical adjustments. Do not teach cooking steps or replace the user's chosen meal.
 
-Review the complete meal brief and conversation before responding. Ask at most one concise clarification, and only when a missing detail materially changes the nutritional understanding. Never repeat a question or assume unconfirmed ingredients are present.
+Review the complete meal brief and conversation before responding. Follow a clarification-first conversation: if a material ingredient quantity, form or formulation is unknown, set status to "needs_clarification", ask exactly one concise question, and do not present a meal-level nutritional assessment or practical adjustments yet. Prioritise the amount of the main ingredient when no quantity is supplied; accept familiar household measures. After the user answers, retain that answer and ask only the next most useful missing detail, if one remains. Never repeat a question, bundle questions, or assume unconfirmed ingredients are present. If the user cannot provide a detail, acknowledge the uncertainty and proceed only with appropriately limited qualitative information.
 
 Discuss relevant nutrition such as fibre, carbohydrate, protein, sodium, added sugars, and fat quality only when supported by the known ingredients. Seasonings, sauces and packaged products may have materially different formulations; do not infer their contents from their names.
 
@@ -114,12 +121,22 @@ export async function POST(req: NextRequest) {
   // Preview test mode is limited to one fixed, non-personal synthetic fixture.
   // The server validates the complete payload; client flags cannot authorise other data.
   const syntheticTestMode = process.env.SANCTOS_EXTERNAL_AI_TEST_MODE === "true";
-  const isSyntheticTestRequest =
-    body.syntheticTest === true &&
-    safeDetails === SYNTHETIC_TEST_BRIEF &&
+  const isSyntheticInitialRequest =
     conversation.length === 1 &&
     conversation[0].role === "user" &&
     conversation[0].content === SYNTHETIC_TEST_BRIEF;
+  const isSyntheticFollowupRequest =
+    conversation.length === 3 &&
+    conversation[0].role === "user" &&
+    conversation[0].content === SYNTHETIC_TEST_BRIEF &&
+    conversation[1].role === "assistant" &&
+    conversation[1].content === SYNTHETIC_TEST_CLARIFICATION.assistantMessage + "\n" + SYNTHETIC_TEST_CLARIFICATION.question &&
+    conversation[2].role === "user" &&
+    conversation[2].content === SYNTHETIC_TEST_FOLLOWUP;
+  const isSyntheticTestRequest =
+    body.syntheticTest === true &&
+    safeDetails === SYNTHETIC_TEST_BRIEF &&
+    (isSyntheticInitialRequest || isSyntheticFollowupRequest);
 
   if (syntheticTestMode && !isSyntheticTestRequest) {
     return jsonError("This preview is restricted to the fixed synthetic connection test.", 403);
@@ -142,6 +159,20 @@ export async function POST(req: NextRequest) {
     }, { status: 503 });
   }
 
+  // Ask for the primary ingredient quantity before generating meal-level guidance.
+  // This narrow deterministic clarification does not calculate or estimate nutrients.
+  const quantityClarification = getPrimaryIngredientQuantityClarification(safeDetails, conversation);
+  if (quantityClarification) {
+    return Response.json({
+      status: "needs_clarification",
+      assistantMessage: quantityClarification.assistantMessage,
+      interpretation: "",
+      questions: [quantityClarification.question],
+      recommendations: [],
+      plan: null,
+      safetyNotes: [],
+    });
+  }
   const apiKey = process.env.DEEPSEEK_API_KEY;
   if (!apiKey) return jsonError("Ahuva is temporarily unavailable. Please try again later.", 503);
 
