@@ -159,7 +159,7 @@ export default function AhuvaCookingStudio() {
     setError("");
   }
 
-  function IngredientChips({ items, section }: { items: string[]; section: IngredientSection }) {
+  function renderIngredientChips(items: string[], section: IngredientSection) {
     const remove = (index: number) => {
       if (section === "ingredients") setIngredients((current) => current.filter((_, itemIndex) => itemIndex !== index));
       else setSeasonings((current) => current.filter((_, itemIndex) => itemIndex !== index));
@@ -176,7 +176,7 @@ export default function AhuvaCookingStudio() {
     );
   }
 
-  function EntrySection({ section, title, description, items, draft, setDraft }: {
+  function renderEntrySection({ section, title, description, items, draft, setDraft }: {
     section: IngredientSection;
     title: string;
     description: string;
@@ -195,7 +195,7 @@ export default function AhuvaCookingStudio() {
           <span className="shrink-0 rounded-full bg-[#F4F6F1] px-2.5 py-1 text-[11px] text-[#738174]">{items.length} added</span>
         </div>
         <div className="mt-4 rounded-2xl border border-dashed border-[#DDE5DA] bg-[#FBFCF9] px-3 py-2">
-          <IngredientChips items={items} section={section} />
+          {renderIngredientChips(items, section)}
         </div>
         <div className="mt-3 flex gap-2">
           <label className="sr-only" htmlFor={section === "ingredients" ? "ingredient-entry" : "seasoning-entry"}>Add {title.toLowerCase()}</label>
@@ -247,8 +247,8 @@ export default function AhuvaCookingStudio() {
             </div>
 
             <div className="space-y-3">
-              <EntrySection section="ingredients" title="Main ingredients" description="Add each ingredient separately. You can remove or change any item." items={ingredients} draft={ingredientDraft} setDraft={setIngredientDraft} />
-              <EntrySection section="seasonings" title="Seasonings" description="Keep salt, stock, sauces, herbs and spices separate from the main ingredients." items={seasonings} draft={seasoningDraft} setDraft={setSeasoningDraft} />
+              {renderEntrySection({ section: "ingredients", title: "Main ingredients", description: "Add each ingredient separately. You can remove or change any item.", items: ingredients, draft: ingredientDraft, setDraft: setIngredientDraft })}
+              {renderEntrySection({ section: "seasonings", title: "Seasonings", description: "Keep salt, stock, sauces, herbs and spices separate from the main ingredients.", items: seasonings, draft: seasoningDraft, setDraft: setSeasoningDraft })}
             </div>
 
             <section className={`${cardClass} mt-3`}>
