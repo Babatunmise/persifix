@@ -21,7 +21,9 @@ export function getPrimaryIngredientQuantityClarification(details, conversation 
   if (!ingredientLine) return null;
 
   const rawIngredients = ingredientLine.replace(/^Confirmed main ingredients:\s*/i, "").trim();
-  const primaryIngredient = rawIngredients.split(/[;,]/)[0]?.trim();
+  const rawPrimaryIngredient = rawIngredients.split(/[;,]/)[0]?.trim();
+  const leadingQuantity = /^(?:\\d+(?:[./]\\d+)?|a|an|one|two|three|four|five|half|quarter)\\s*(?:(?:cups?|tablespoons?|tbsp|teaspoons?|tsp|grams?|g|kilograms?|kg|millilit(?:er|re)s?|ml|lit(?:er|re)s?|handfuls?|packets?|sachets?|servings?|slices?|pieces?|bowls?|scoops?|eggs?|cloves?|tomatoes?|onions?|potatoes?|whole|large|medium|small)\\s*)?(?:of\\s+)?/i;
+  const primaryIngredient = rawPrimaryIngredient?.replace(leadingQuantity, "").trim();
   if (!primaryIngredient || /^(?:none|not specified)$/i.test(primaryIngredient)) return null;
 
   if (hasIngredientMeasure(ingredientLine, primaryIngredient)) return null;
