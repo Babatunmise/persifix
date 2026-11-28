@@ -37,7 +37,6 @@ export default function AhuvaCookingStudio() {
   const [seasonings, setSeasonings] = useState<string[]>([]);
   const [peopleEating, setPeopleEating] = useState(2);
   const [personalServings, setPersonalServings] = useState(1);
-  const [preparationMethod, setPreparationMethod] = useState("Not decided");
   const [activeSuggestions, setActiveSuggestions] = useState<IngredientSection | null>(null);
   const [result, setResult] = useState<AhuvaResult | null>(null);
   const [details, setDetails] = useState("");
@@ -133,8 +132,7 @@ export default function AhuvaCookingStudio() {
       `People eating at this meal, including the user: ${peopleEating}`,
       `Personal servings the user expects to consume across meals: ${personalServings}`,
       `Total portions to prepare, assuming one portion for each other diner: ${totalServings}`,
-      `Preparation method, if known: ${preparationMethod}`,
-      "Task: explain ingredient composition and relevant heart-health considerations; recommend practical quantity adjustments and optional healthier adaptations. Do not teach cooking steps.",
+      "Task: enter Ahuva Step 2. Review the confirmed meal brief and ask only the most useful missing clarification about ingredient form, quantities, seasonings or preparation where it materially changes nutritional understanding. Ask one question at a time. If enough is known, explain the relevant nutritional composition and heart-health considerations, then offer optional adjustments. Never teach cooking steps.",
     ].join("\n");
     await requestAhuva([{ role: "user", content: brief }], brief);
   }
@@ -280,16 +278,6 @@ export default function AhuvaCookingStudio() {
               <p className="mt-2 text-[11px] leading-5 text-[#899589]">For now, Ahuva assumes one portion for each other person. Individual family allocations and automatic journal sharing will come with family connections later.</p>
             </section>
 
-            <section className={`${cardClass} mt-3`}>
-              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#849084]">04 · Preparation context</p>
-              <h3 className="mt-1 font-serif text-xl text-[#183D30]">How will it be prepared?</h3>
-              <p className="mt-1 text-xs leading-5 text-[#879487]">This helps Ahuva assess the meal&apos;s nutritional impact, not teach you how to cook.</p>
-              <label htmlFor="preparation-method" className="sr-only">Preparation method</label>
-              <select id="preparation-method" value={preparationMethod} onChange={(event) => setPreparationMethod(event.target.value)} className={`${fieldClass} mt-3`}>
-                {["Not decided", "Boiled", "Steamed", "Baked", "Grilled", "Pan-fried", "Deep-fried", "Roasted", "Mixed or multiple methods", "Other"].map((method) => <option key={method} value={method}>{method}</option>)}
-              </select>
-            </section>
-
             <div className="mt-5 flex flex-col gap-3 rounded-[24px] bg-[#183D30] p-5 text-white sm:flex-row sm:items-center sm:justify-between sm:px-6">
               <div><p className="font-serif text-xl">Your meal, understood.</p><p className="mt-1 text-xs text-white/65">Ingredients, quantities and heart-health considerations.</p></div>
               <button type="button" onClick={analyseMeal} disabled={!meal.trim() || ingredients.length === 0 || loading} className="inline-flex min-h-12 items-center justify-center gap-3 rounded-2xl bg-[#E7EBDD] px-6 py-3 text-sm font-bold text-[#183D30] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-45">{loading ? "Reviewing…" : "Review my meal"} <span aria-hidden="true">↗</span></button>
@@ -299,9 +287,14 @@ export default function AhuvaCookingStudio() {
         ) : (
           <section>
             <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-              <div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#718477]">Ahuva · Nutrition review</p><h2 className="mt-2 font-serif text-4xl tracking-tight text-[#183D30] sm:text-5xl">{meal}</h2><p className="mt-2 text-sm text-[#718076]">{totalServings} portions · {ingredients.length} main ingredients · {seasonings.length} seasonings</p></div>
+              <div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#718477]">Step 2 · Ahuva understands your meal</p><h2 className="mt-2 font-serif text-4xl tracking-tight text-[#183D30] sm:text-5xl">{meal}</h2><p className="mt-2 text-sm text-[#718076]">{totalServings} portions · {ingredients.length} main ingredients · {seasonings.length} seasonings</p></div>
               <button type="button" onClick={startAgain} className="self-start rounded-full border border-[#DCE4DA] bg-white px-4 py-2.5 text-xs font-semibold text-[#536A59]">← New meal</button>
             </div>
+            <section className={`${cardClass} mb-3`}>
+              <p className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#718477]">Step 2 · Conversational meal review</p>
+              <h3 className="mt-2 font-serif text-xl text-[#183D30]">Ahuva looks at what you entered.</h3>
+              <p className="mt-2 text-sm leading-6 text-[#718076]">She can ask about an ingredient, seasoning, quantity or preparation detail only when it materially changes the nutritional picture. You will answer one question at a time.</p>
+            </section>
             <section className={cardClass}>
               <p className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#849084]">Ahuva&apos;s understanding</p>
               <h3 className="mt-2 font-serif text-2xl text-[#183D30]">Your meal, made better.</h3>
@@ -310,15 +303,14 @@ export default function AhuvaCookingStudio() {
               {result.status === "unavailable" && <p className="mt-4 rounded-xl bg-[#F7F8F4] p-4 text-xs leading-6 text-[#718076]">Ahuva&apos;s nutrition intelligence is not connected for this request yet. Your meal details remain here; no nutritional values or health conclusions have been invented.</p>}
             </section>
             {result.recommendations?.length ? <section className={`${cardClass} mt-3`}><p className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#849084]">Practical adjustments</p><div className="mt-3 space-y-3">{result.recommendations.map((item, index) => <div key={index} className="rounded-2xl bg-[#F7F8F4] p-4"><p className="text-sm font-semibold text-[#365444]">{item.title}</p><p className="mt-1 text-sm leading-6 text-[#718076]">{item.detail}</p></div>)}</div></section> : null}
-            {result.questions?.length ? <section className={`${cardClass} mt-3`}><p className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#718477]">One detail to settle</p><p className="mt-3 text-sm leading-7 text-[#405C4D]">{result.questions[0]}</p></section> : null}
+            {result.questions?.length ? <section className={`${cardClass} mt-3`}><p className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#718477]">Ahuva&apos;s question</p><p className="mt-3 text-sm leading-7 text-[#405C4D]">{result.questions[0]}</p></section> : null}
             {result.safetyNotes?.length ? <section className="mt-3 rounded-2xl border border-[#E8E1D5] bg-[#FBF8F1] p-4 text-xs leading-6 text-[#6F604B]">{result.safetyNotes.map((note, index) => <p key={index}>{note}</p>)}</section> : null}
             <section className={`${cardClass} mt-3`}>
               <p className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#849084]">What you entered</p>
               <div className="mt-3"><p className="text-xs font-semibold text-[#536A59]">Main ingredients</p><p className="mt-1 text-sm leading-6 text-[#718076]">{ingredients.join(", ")}</p></div>
               <div className="mt-3"><p className="text-xs font-semibold text-[#536A59]">Seasonings</p><p className="mt-1 text-sm leading-6 text-[#718076]">{seasonings.join(", ") || "Not specified"}</p></div>
-              <div className="mt-3"><p className="text-xs font-semibold text-[#536A59]">Preparation method</p><p className="mt-1 text-sm text-[#718076]">{preparationMethod}</p></div>
             </section>
-            {result.status !== "unavailable" && <form onSubmit={submitFollowUp} className={`${cardClass} mt-3`}><label htmlFor="studio-followup" className="block text-[10px] font-bold uppercase tracking-[0.16em] text-[#849084]">Ask Ahuva about this meal</label><div className="mt-3 flex flex-col gap-2 sm:flex-row"><input id="studio-followup" value={followUp} onChange={(event) => setFollowUp(event.target.value)} maxLength={1200} placeholder="Ask about an ingredient or adjustment…" className={`${fieldClass} min-w-0 flex-1`} /><button type="submit" disabled={!followUp.trim() || loading} className="rounded-2xl bg-[#183D30] px-6 py-3 text-xs font-semibold text-white disabled:opacity-40">{loading ? "Working…" : "Send →"}</button></div></form>}
+            {result.status !== "unavailable" && <form onSubmit={submitFollowUp} className={`${cardClass} mt-3`}><label htmlFor="studio-followup" className="block text-[10px] font-bold uppercase tracking-[0.16em] text-[#849084]">{result.questions?.length ? "Your answer" : "Continue the conversation"}</label><div className="mt-3 flex flex-col gap-2 sm:flex-row"><input id="studio-followup" value={followUp} onChange={(event) => setFollowUp(event.target.value)} maxLength={1200} placeholder="Ask about an ingredient or adjustment…" className={`${fieldClass} min-w-0 flex-1`} /><button type="submit" disabled={!followUp.trim() || loading} className="rounded-2xl bg-[#183D30] px-6 py-3 text-xs font-semibold text-white disabled:opacity-40">{loading ? "Working…" : "Send →"}</button></div></form>}
             {error && <p role="alert" className="mt-4 rounded-xl border border-[#EBD9CF] bg-[#FFF7F1] px-4 py-3 text-sm leading-6 text-[#8B4229]">{error}</p>}
           </section>
         )}
