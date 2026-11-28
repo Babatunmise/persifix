@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getPrimaryIngredientQuantityClarification } from "../src/lib/ahuva-conversation-policy.mjs";
+import { getPrimaryIngredientQuantityClarification, isSyntheticAhuvaTestRequest, SYNTHETIC_TEST_BRIEF, SYNTHETIC_TEST_FOLLOWUP } from "../src/lib/ahuva-conversation-policy.mjs";
 
 const details = [
   "Meal the user intends to prepare: Synthetic oats test",
@@ -49,4 +49,41 @@ test("does not infer a quantity from household serving counts", () => {
 
 test("returns no clarification when the meal brief has no confirmed ingredient line", () => {
   assert.equal(getPrimaryIngredientQuantityClarification("Meal: oats", []), null);
+});
+
+test("allows the exact initial synthetic connection fixture", () => {
+  assert.equal(isSyntheticAhuvaTestRequest(SYNTHETIC_TEST_BRIEF, [
+    { role: "user", content: SYNTHETIC_TEST_BRIEF },
+  ]), true);
+});
+
+test("allows the exact two-turn synthetic clarification follow-up", () => {
+  const clarification = getPrimaryIngredientQuantityClarification(SYNTHETIC_TEST_BRIEF, [
+    { role: "user", content: SYNTHETIC_TEST_BRIEF },
+  ]);
+  assert.ok(clarification);
+  assert.equal(isSyntheticAhuvaTestRequest(SYNTHETIC_TEST_BRIEF, [
+    { role: "user", content: SYNTHETIC_TEST_BRIEF },
+    { role: "assistant", content: `${clarification.assistantMessage}\n${clarification.question}` },
+    { role: "user", content: SYNTHETIC_TEST_FOLLOWUP },
+  ]), true);
+});
+
+test("rejects altered synthetic details, assistant turns and user follow-ups", () => {
+  const clarification = getPrimaryIngredientQuantityClarification(SYNTHETIC_TEST_BRIEF, [
+    { role: "user", content: SYNTHETIC_TEST_BRIEF },
+  ]);
+  assert.ok(clarification);
+  const base = [
+    { role: "user", content: SYNTHETIC_TEST_BRIEF },
+    { role: "assistant", content: `${clarification.assistantMessage}\n${clarification.question}` },
+    { role: "user", content: SYNTHETIC_TEST_FOLLOWUP },
+  ];
+  assert.equal(isSyntheticAhuvaTestRequest(SYNTHETIC_TEST_BRIEF + "\\nextra", base), false);
+  assert.equal(isSyntheticAhuvaTestRequest(SYNTHETIC_TEST_BRIEF, [
+    base[0], { ...base[1], content: base[1].content + " " }, base[2],
+  ]), false);
+  assert.equal(isSyntheticAhuvaTestRequest(SYNTHETIC_TEST_BRIEF, [
+    base[0], base[1], { role: "user", content: "Two cups." },
+  ]), false);
 });
