@@ -1,5 +1,12 @@
-import { redirect } from "next/navigation";
+import AhuvaHome from "@/components/AhuvaHome";
+import BottomNav from "@/components/BottomNav";
+import KitchenRouteGuard from "@/components/KitchenRouteGuard";
 
 export default function AhuvaPage() {
-  redirect("/kitchen/cooking");
+  return (
+    <KitchenRouteGuard>
+      <AhuvaHome />
+      <BottomNav />
+    </KitchenRouteGuard>
+  );
 }
