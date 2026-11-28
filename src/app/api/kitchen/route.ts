@@ -4,7 +4,7 @@ export const maxDuration = 60;
 import { extractConfirmedIngredientText, extractStructuredConfirmedIngredients, isIngredientConfirmed } from "@/lib/ingredient-confirmation.mjs";
 import { normalizeAhuvaResult } from "@/lib/ahuva-response-contract.mjs";
 import { isProviderSafetyRefusal } from "@/lib/ahuva-provider-response.mjs";
-import { getPrimaryIngredientQuantityClarification } from "@/lib/ahuva-conversation-policy.mjs";
+import { getPrimaryIngredientQuantityClarification, isSyntheticAhuvaTestRequest } from "@/lib/ahuva-conversation-policy.mjs";
 import {
   authenticateRequest,
   enforceRateLimit,
@@ -18,22 +18,6 @@ import {
 type Turn = { role: "user" | "assistant"; content: string };
 
 const SENSITIVE_CONTEXT = /\b(?:blood pressure|high blood pressure|low blood pressure|\bbp\b|hypertension|hypertensive|hypotension|hypotensive|medication|medicines|prescription|insulin|warfarin|blood thinner|anticoagulant|glp[- ]?1|diagnos(?:is|ed)|allerg(?:y|ies|ic)|intoleran(?:ce|t)|kidney disease|renal disease|dialysis|liver disease|hepatitis|diabetes|type 1 diabetes|type 2 diabetes|pre[- ]?diabetes|blood sugar|high cholesterol|heart failure|heart disease|cardiovascular|stroke|gout|celiac|coeliac|crohn(?:'s)?|ulcerative colitis|irritable bowel syndrome|ibs|autoimmune|immunocompromised|cancer|chemotherapy|eating disorder|anorexia|bulimia|pregnan(?:t|cy)|breastfeed(?:ing)?|medical condition|medical history|health condition|symptom(?:s)?|disease|disorder|doctor|physician|clinician|dietitian|nurse|hospital|clinic|prescribed|treatment|therapy|surgery|chronic|acute|doctor told me|low[- ]?sodium|low[- ]?salt diet|sodium restriction|salt restriction)\b/i;
-
-const SYNTHETIC_TEST_BRIEF = [
-  "Meal the user intends to prepare: Synthetic oats test",
-  "Confirmed main ingredients: Oats",
-  "Confirmed seasonings, sauces, herbs and spices: Cinnamon",
-  "People eating at this meal, including the user: 1",
-  "Personal servings the user expects to consume across meals: 1",
-  "Total portions to prepare, assuming one portion for each other diner: 1",
-  "Task: enter Ahuva Step 2. Review the confirmed meal brief and ask only the most useful missing clarification about ingredient form, quantities, seasonings or preparation where it materially changes nutritional understanding. Ask one question at a time. If enough is known, explain the relevant nutritional composition and heart-health considerations, then offer optional adjustments. Never teach cooking steps.",
-].join("\n");
-
-const SYNTHETIC_TEST_CLARIFICATION = {
-  assistantMessage: "I have the meal and ingredient list. Before I assess its nutritional composition, I need to understand the amount of oats you plan to use.",
-  question: "About how much oats will you use? A household measure, such as one cup, is fine.",
-};
-const SYNTHETIC_TEST_FOLLOWUP = "One cup.";
 
 const SYSTEM_PROMPT = `You are Ahuva, Sanctos' food, nutrition and heart-health companion.
 
@@ -121,22 +105,9 @@ export async function POST(req: NextRequest) {
   // Preview test mode is limited to one fixed, non-personal synthetic fixture.
   // The server validates the complete payload; client flags cannot authorise other data.
   const syntheticTestMode = process.env.SANCTOS_EXTERNAL_AI_TEST_MODE === "true";
-  const isSyntheticInitialRequest =
-    conversation.length === 1 &&
-    conversation[0].role === "user" &&
-    conversation[0].content === SYNTHETIC_TEST_BRIEF;
-  const isSyntheticFollowupRequest =
-    conversation.length === 3 &&
-    conversation[0].role === "user" &&
-    conversation[0].content === SYNTHETIC_TEST_BRIEF &&
-    conversation[1].role === "assistant" &&
-    conversation[1].content === SYNTHETIC_TEST_CLARIFICATION.assistantMessage + "\n" + SYNTHETIC_TEST_CLARIFICATION.question &&
-    conversation[2].role === "user" &&
-    conversation[2].content === SYNTHETIC_TEST_FOLLOWUP;
   const isSyntheticTestRequest =
     body.syntheticTest === true &&
-    safeDetails === SYNTHETIC_TEST_BRIEF &&
-    (isSyntheticInitialRequest || isSyntheticFollowupRequest);
+    isSyntheticAhuvaTestRequest(safeDetails, conversation);
 
   if (syntheticTestMode && !isSyntheticTestRequest) {
     return jsonError("This preview is restricted to the fixed synthetic connection test.", 403);
