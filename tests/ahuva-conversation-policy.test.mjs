@@ -69,7 +69,14 @@ test("allows the exact two-turn synthetic clarification follow-up", () => {
   ]), true);
 });
 
-test("accepts harmless case and punctuation differences in the fixed synthetic reply", () => {\n  for (const reply of ["one cup", "ONE CUP.", "One cup!", "  One cup?  "]) {\n    assert.equal(isApprovedSyntheticTestFollowup(reply), true);\n  }\n  for (const reply of ["two cups", "one cup of oats", "a cup", "one bowl"]) {\n    assert.equal(isApprovedSyntheticTestFollowup(reply), false);\n  }\n});\n\ntest("rejects altered synthetic details, assistant turns and user follow-ups", () => {
+test("accepts harmless case and punctuation differences in the fixed synthetic reply", () => {
+  for (const reply of ["one cup", "ONE CUP.", "One cup!", "  One cup?  "]) {
+    assert.equal(isApprovedSyntheticTestFollowup(reply), true);
+  }
+  for (const reply of ["two cups", "one cup of oats", "a cup", "one bowl"]) {
+    assert.equal(isApprovedSyntheticTestFollowup(reply), false);
+  }
+});\n\ntest("rejects altered synthetic details, assistant turns and user follow-ups", () => {
   const clarification = getPrimaryIngredientQuantityClarification(SYNTHETIC_TEST_BRIEF, [
     { role: "user", content: SYNTHETIC_TEST_BRIEF },
   ]);
