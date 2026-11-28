@@ -10,6 +10,13 @@ export const SYNTHETIC_TEST_BRIEF = [
 
 export const SYNTHETIC_TEST_FOLLOWUP = "One cup.";
 
+// Accept harmless casing and terminal-punctuation differences while keeping the
+// synthetic test reply constrained to the same single, fixed household measure.
+export function isApprovedSyntheticTestFollowup(value) {
+  if (typeof value !== "string") return false;
+  return value.trim().toLocaleLowerCase().replace(/[.!?]+$/, "") === "one cup";
+}
+
 
 /**
  * Validate the only Preview-safe synthetic conversation.
@@ -30,7 +37,7 @@ export function isSyntheticAhuvaTestRequest(details, conversation) {
     conversation[0]?.content !== SYNTHETIC_TEST_BRIEF ||
     conversation[1]?.role !== "assistant" ||
     conversation[2]?.role !== "user" ||
-    conversation[2]?.content !== SYNTHETIC_TEST_FOLLOWUP
+    !isApprovedSyntheticTestFollowup(conversation[2]?.content)
   ) return false;
 
   const expected = getPrimaryIngredientQuantityClarification(SYNTHETIC_TEST_BRIEF, [conversation[0]]);
