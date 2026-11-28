@@ -166,7 +166,7 @@ export default function AhuvaCookingStudio() {
     if (!followUp.trim() || !details || !result || loading) return;
     const turns = [
       ...conversation,
-      { role: "assistant" as const, content: result.assistantMessage },
+      { role: "assistant" as const, content: [result.assistantMessage, ...(result.questions ?? [])].filter(Boolean).join("\n") },
       { role: "user" as const, content: followUp.trim() },
     ];
     await requestAhuva(turns, details);
@@ -343,12 +343,12 @@ export default function AhuvaCookingStudio() {
             ) : (
               <section className={cardClass}>
                 <p className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#849084]">Ahuva&apos;s understanding</p>
-                <h3 className="mt-2 font-serif text-2xl text-[#183D30]">Your meal, made better.</h3>
+                <h3 className="mt-2 font-serif text-2xl text-[#183D30]">{result.status === "needs_clarification" ? "One detail will help Ahuva understand your meal." : "Your meal, made better."}</h3>
                 <p className="mt-4 whitespace-pre-wrap text-sm leading-7 text-[#405C4D]">{result.assistantMessage}</p>
-                {result.interpretation && <div className="mt-4 rounded-2xl bg-[#F6F8F3] p-4"><p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#849084]">Meal overview</p><p className="mt-2 text-sm leading-6 text-[#365444]">{result.interpretation}</p></div>}
+                {result.status === "ready" && result.interpretation && <div className="mt-4 rounded-2xl bg-[#F6F8F3] p-4"><p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#849084]">Meal overview</p><p className="mt-2 text-sm leading-6 text-[#365444]">{result.interpretation}</p></div>}
               </section>
             )}
-            {result.recommendations?.length ? <section className={`${cardClass} mt-3`}><p className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#849084]">Practical adjustments</p><div className="mt-3 space-y-3">{result.recommendations.map((item, index) => <div key={index} className="rounded-2xl bg-[#F7F8F4] p-4"><p className="text-sm font-semibold text-[#365444]">{item.title}</p><p className="mt-1 text-sm leading-6 text-[#718076]">{item.detail}</p></div>)}</div></section> : null}
+            {result.status === "ready" && result.recommendations?.length ? <section className={`${cardClass} mt-3`}><p className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#849084]">Practical adjustments</p><div className="mt-3 space-y-3">{result.recommendations.map((item, index) => <div key={index} className="rounded-2xl bg-[#F7F8F4] p-4"><p className="text-sm font-semibold text-[#365444]">{item.title}</p><p className="mt-1 text-sm leading-6 text-[#718076]">{item.detail}</p></div>)}</div></section> : null}
             {result.questions?.length ? <section className={`${cardClass} mt-3`}><p className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#718477]">Ahuva&apos;s question</p><p className="mt-3 text-sm leading-7 text-[#405C4D]">{result.questions[0]}</p></section> : null}
             {result.safetyNotes?.length ? <section className="mt-3 rounded-2xl border border-[#E8E1D5] bg-[#FBF8F1] p-4 text-xs leading-6 text-[#6F604B]">{result.safetyNotes.map((note, index) => <p key={index}>{note}</p>)}</section> : null}
             <section className={`${cardClass} mt-3`}>
@@ -356,7 +356,7 @@ export default function AhuvaCookingStudio() {
               <div className="mt-3"><p className="text-xs font-semibold text-[#536A59]">Main ingredients</p><p className="mt-1 text-sm leading-6 text-[#718076]">{ingredients.join(", ")}</p></div>
               <div className="mt-3"><p className="text-xs font-semibold text-[#536A59]">Seasonings</p><p className="mt-1 text-sm leading-6 text-[#718076]">{seasonings.join(", ") || "Not specified"}</p></div>
             </section>
-            {result.status !== "unavailable" && <form onSubmit={submitFollowUp} className={`${cardClass} mt-3`}><label htmlFor="studio-followup" className="block text-[10px] font-bold uppercase tracking-[0.16em] text-[#849084]">{result.questions?.length ? "Your answer" : "Continue the conversation"}</label><div className="mt-3 flex flex-col gap-2 sm:flex-row"><input id="studio-followup" value={followUp} onChange={(event) => setFollowUp(event.target.value)} maxLength={1200} placeholder="Ask about an ingredient or adjustment…" className={`${fieldClass} min-w-0 flex-1`} /><button type="submit" disabled={!followUp.trim() || loading} className="rounded-2xl bg-[#183D30] px-6 py-3 text-xs font-semibold text-white disabled:opacity-40">{loading ? "Working…" : "Send →"}</button></div></form>}
+            {result.status !== "unavailable" && <form onSubmit={submitFollowUp} className={`${cardClass} mt-3`}><label htmlFor="studio-followup" className="block text-[10px] font-bold uppercase tracking-[0.16em] text-[#849084]">{result.questions?.length ? "Your answer" : "Continue the conversation"}</label><div className="mt-3 flex flex-col gap-2 sm:flex-row"><input id="studio-followup" value={followUp} onChange={(event) => setFollowUp(event.target.value)} maxLength={1200} placeholder={result.questions?.length ? "Answer Ahuva’s question…" : "Ask about an ingredient or adjustment…"} className={`${fieldClass} min-w-0 flex-1`} /><button type="submit" disabled={!followUp.trim() || loading} className="rounded-2xl bg-[#183D30] px-6 py-3 text-xs font-semibold text-white disabled:opacity-40">{loading ? "Working…" : "Send →"}</button></div></form>}
             {error && <p role="alert" className="mt-4 rounded-xl border border-[#EBD9CF] bg-[#FFF7F1] px-4 py-3 text-sm leading-6 text-[#8B4229]">{error}</p>}
           </section>
         )}
