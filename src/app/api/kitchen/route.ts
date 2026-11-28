@@ -173,7 +173,8 @@ export async function POST(req: NextRequest) {
           { role: "user", content: context },
           ...conversation.slice(1),
         ],
-        response_format: { type: "json_object" },
+        // DeepSeek does not support JSON response_format together with safety_check.
+        // Keep the provider safety review enabled and enforce JSON through the system prompt + parser.
         stream: false,
       }),
     };
