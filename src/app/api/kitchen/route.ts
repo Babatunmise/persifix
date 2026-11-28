@@ -215,6 +215,7 @@ export async function POST(req: NextRequest) {
       const status = response.status;
       let providerErrorType = "unknown";
       let providerErrorCode = "unknown";
+      let providerErrorParam = "none";
       let contentRiskRejected = false;
       let providerDiagnostic = "unclassified";
       try {
@@ -223,6 +224,10 @@ export async function POST(req: NextRequest) {
           const providerError = errorBody.error;
           if (typeof providerError.type === "string") providerErrorType = providerError.type.slice(0, 80);
           if (typeof providerError.code === "string") providerErrorCode = providerError.code.slice(0, 80);
+          const allowedParams = ["model", "messages", "thinking", "max_tokens", "response_format", "safety_check", "stream", "temperature", "top_p", "frequency_penalty", "presence_penalty"];
+          if (typeof providerError.param === "string" && allowedParams.includes(providerError.param)) {
+            providerErrorParam = providerError.param;
+          }
           const providerMessage = typeof providerError.message === "string" ? providerError.message.toLowerCase() : "";
           contentRiskRejected =
             /content exists risk|content risk/i.test(providerMessage) ||
@@ -247,6 +252,10 @@ export async function POST(req: NextRequest) {
             providerDiagnostic = "messages_rejected";
           } else if (/api key|authentication|unauthorized/.test(providerMessage)) {
             providerDiagnostic = "authentication_rejected";
+          } else if (providerErrorParam !== "none") {
+            providerDiagnostic = `provider_rejected_parameter:${providerErrorParam}`;
+          } else if (/invalid request|bad request|request parameter/.test(providerMessage)) {
+            providerDiagnostic = "generic_invalid_request";
           } else if (status === 400) {
             providerDiagnostic = "unclassified_bad_request";
           }
@@ -264,6 +273,7 @@ export async function POST(req: NextRequest) {
         status,
         providerErrorType,
         providerErrorCode,
+        providerErrorParam,
         providerDiagnostic,
       });
       if (contentRiskRejected) {
