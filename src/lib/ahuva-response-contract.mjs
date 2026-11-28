@@ -7,7 +7,8 @@ const isTextArray = (value, maxItems, maxLength) =>
  * @typedef {{status: "ready" | "needs_clarification", assistantMessage: string, interpretation: string, questions: string[], recommendations: {title: string, detail: string}[], plan: null | {servings: string, preparation: string[], ingredients: {name: string, amount: string, availability: "available" | "missing" | "optional"}[]}, safetyNotes: string[]}} NormalizedAhuvaResult
  *
  * Converts a provider response into Ahuva's stable UI contract.
- * Missing optional fields receive safe defaults; malformed supplied values fail closed.
+ * Essential fields fail closed. Malformed optional recommendations are discarded
+ * as a group so formatting drift cannot erase an otherwise valid meal review.
  * The caller must still apply serving-count and confirmed-inventory safeguards.
  *
  * @param {unknown} value
@@ -35,16 +36,15 @@ export function normalizeAhuvaResult(value, options = {}) {
   }
 
   const rawRecommendations = value.recommendations === undefined ? [] : value.recommendations;
-  if (!Array.isArray(rawRecommendations) || rawRecommendations.length > 3) {
-    return { ok: false, reason: "invalid_recommendations" };
-  }
-  const recommendations = [];
-  for (const item of rawRecommendations) {
-    if (!isRecord(item) || !isText(item.title, 120) || !isText(item.detail, 400)) {
-      return { ok: false, reason: "invalid_recommendation_item" };
-    }
-    recommendations.push({ title: item.title.trim(), detail: item.detail.trim() });
-  }
+  const recommendationsAreValid =
+    Array.isArray(rawRecommendations) &&
+    rawRecommendations.length <= 3 &&
+    rawRecommendations.every((item) =>
+      isRecord(item) && isText(item.title, 120) && isText(item.detail, 400)
+    );
+  const recommendations = recommendationsAreValid
+    ? rawRecommendations.map((item) => ({ title: item.title.trim(), detail: item.detail.trim() }))
+    : [];
 
   const safetyNotes = value.safetyNotes === undefined ? [] : value.safetyNotes;
   if (!isTextArray(safetyNotes, 4, 400)) return { ok: false, reason: "invalid_safety_notes" };
