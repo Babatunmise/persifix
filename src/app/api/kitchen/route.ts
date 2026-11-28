@@ -153,6 +153,7 @@ export async function POST(req: NextRequest) {
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
         model: "deepseek-flash",
+        safety_check: { level: "high" },
         thinking: { type: "disabled" },
         max_tokens: 2600,
         messages: [
