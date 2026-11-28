@@ -96,12 +96,23 @@ test("rejects malformed required fields with a field-level reason", () => {
   assert.deepEqual(result, { ok: false, reason: "invalid_assistant_message" });
 });
 
-test("rejects malformed recommendation objects rather than silently displaying them", () => {
+test("discards malformed optional recommendations but preserves the valid meal review", () => {
   const result = normalizeAhuvaResult({
     ...base,
     recommendations: [{ title: "Use less salt" }],
   });
-  assert.deepEqual(result, { ok: false, reason: "invalid_recommendation_item" });
+  assert.equal(result.ok, true);
+  assert.equal(result.value.assistantMessage, base.assistantMessage);
+  assert.deepEqual(result.value.recommendations, []);
+});
+
+test("discards a malformed recommendations container without exposing it", () => {
+  const result = normalizeAhuvaResult({
+    ...base,
+    recommendations: "Try adding vegetables",
+  });
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.value.recommendations, []);
 });
 
 test("rejects excessive or malformed preparation steps", () => {

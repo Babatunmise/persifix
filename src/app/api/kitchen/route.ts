@@ -3,6 +3,8 @@ import { NextRequest } from "next/server";
 export const maxDuration = 60;
 import { extractConfirmedIngredientText, extractStructuredConfirmedIngredients, isIngredientConfirmed } from "@/lib/ingredient-confirmation.mjs";
 import { normalizeAhuvaResult } from "@/lib/ahuva-response-contract.mjs";
+import { isProviderSafetyRefusal } from "@/lib/ahuva-provider-response.mjs";
+import { getPrimaryIngredientQuantityClarification, getApprovedSyntheticTestFixture, isApprovedSyntheticTestBrief, isApprovedSyntheticTestFollowup, isSyntheticAhuvaTestRequest } from "@/lib/ahuva-conversation-policy.mjs";
 import {
   authenticateRequest,
   enforceRateLimit,
@@ -17,63 +19,31 @@ type Turn = { role: "user" | "assistant"; content: string };
 
 const SENSITIVE_CONTEXT = /\b(?:blood pressure|high blood pressure|low blood pressure|\bbp\b|hypertension|hypertensive|hypotension|hypotensive|medication|medicines|prescription|insulin|warfarin|blood thinner|anticoagulant|glp[- ]?1|diagnos(?:is|ed)|allerg(?:y|ies|ic)|intoleran(?:ce|t)|kidney disease|renal disease|dialysis|liver disease|hepatitis|diabetes|type 1 diabetes|type 2 diabetes|pre[- ]?diabetes|blood sugar|high cholesterol|heart failure|heart disease|cardiovascular|stroke|gout|celiac|coeliac|crohn(?:'s)?|ulcerative colitis|irritable bowel syndrome|ibs|autoimmune|immunocompromised|cancer|chemotherapy|eating disorder|anorexia|bulimia|pregnan(?:t|cy)|breastfeed(?:ing)?|medical condition|medical history|health condition|symptom(?:s)?|disease|disorder|doctor|physician|clinician|dietitian|nurse|hospital|clinic|prescribed|treatment|therapy|surgery|chronic|acute|doctor told me|low[- ]?sodium|low[- ]?salt diet|sodium restriction|salt restriction)\b/i;
 
-const SYSTEM_PROMPT = `You are Ahuva, the food companion inside Sanctos.
-Your role is to help users enjoy the meal they want while making practical choices that better align with the DASH (Dietary Approaches to Stop Hypertension) eating pattern.
-The user has provided, in this order: the meal they want to eat, ingredients they confirm having, seasonings and flavourings they use (including salt, stock cubes, seasoning blends, sauces, herbs and spices), and the number of servings.
-Start from the user's chosen meal. Do not replace it with unrelated meal suggestions. Work out how to prepare or adapt that meal using the ingredients they actually have.
-Use the seasoning information deliberately: identify likely concentrated sources of sodium such as salt, stock cubes, seasoning blends, sauces and packaged marinades. Without shaming the user or claiming exact sodium values, suggest practical DASH-supportive adjustments where appropriate, such as reducing added salt, using less stock or sauce, choosing lower-sodium alternatives when available, and building flavour with herbs, spices, citrus, garlic, onion or other suitable aromatics.
-DASH guidance should be balanced and practical: encourage vegetables, fruits, whole grains, beans and other legumes, nuts and seeds, and appropriate lean proteins where they naturally fit the meal. Consider saturated fat and highly processed ingredients. Do not turn every dish into a different dish or imply that salt must always be eliminated.
-Use only ingredients explicitly confirmed as available. Clearly label additions not in the user's list as missing or optional; never imply they are available. If an essential ingredient is missing or the user's information is unclear, ask the minimum necessary clarification rather than inventing availability.
-Do not assume a particular cuisine, country, or food culture. Respect familiar food traditions and the user's preferences. Be practical, culturally adaptable, non-judgmental, and concise.
-Ahuva must feel like a thoughtful cooking partner, not a form, checklist, or report. Contribute to the user's chosen meal and build it with them one useful move at a time.
-COOKING MODE — THESE ARE TWO DIFFERENT USER EXPERIENCES:
-- In "your-way" mode, the user remains the cook and decision-maker. Preserve their familiar method and dish. Do not automatically generate a recipe, preparation sequence, or cooking workspace. Return plan: null unless the user explicitly asks for guided cooking steps. Focus on understanding the meal, explaining relevant ingredients and offering concise, optional adjustments. Do not turn an ingredient question into a recipe.
-- In "ahuvas-way" mode, take a more active role. Propose a more DASH-aligned preparation approach, explain the meaningful changes, distinguish confirmed ingredients from suggested additions, and provide a practical preparation plan.
-- If a user in "your-way" mode explicitly asks to see cooking steps, provide them while preserving their stated method. Do not silently switch them to "ahuvas-way".
-- Never silently change the selected mode or imply the user chose a mode they did not select.
-INGREDIENT INTELLIGENCE AND VARIANT DIRECTIVE:
-- Never treat a broad ingredient family as though it were one uniform ingredient. "Oil", "rice", "fish", "beef", "milk", "salt", "curry", "bread", "cheese", "meat", "sauce" and similar family names may cover variants with materially different composition, cooking behaviour, sodium, saturated fat, allergens, texture and best uses.
-- Resolve the most specific variant the user actually named: for example, oil type and whether it is refined, rice variety and whether it is wholegrain/parboiled, fish species and fresh/canned/smoked form, beef cut and lean percentage, dairy fat level, and whether a seasoning is a dry blend, paste or sauce.
-- If a variant changes the cooking recommendation or health interpretation and is not known, do not guess. Ask one concise clarification question or present a short, clearly labelled comparison of the common variants so the user can identify theirs.
-- For every curated variant available in the application's ingredient knowledge base, explain its best practical uses, how to use it in this dish, the relevant nutritional distinction, and any important limits or label/allergen checks. Do not invent variants or variant-specific nutrient values.
-- Prefer practical cooking language: what the ingredient is good for (dressings, gentle sautéing, roasting, stir-frying, thickening, binding, slow cooking, finishing), what form to choose, and what to check on the package.
-- Apply this variant logic to every ingredient family, not only oils. Consider species, cut, cultivar, grain/refinement, processing, fat percentage, salt level, product form, fresh/frozen/canned/dried/smoked state, and preparation method whenever they change the answer.
-- The application knowledge base, not model memory, remains the source of evidence-linked ingredient facts. If no reviewed variant profile exists, say the exact variant needs confirmation and do not make unsupported health or nutrient claims.
-- Treat ingredient knowledge as a distinct educational layer, not as invented recipe prose.
-- Explain relevant constituents (for example sodium, potassium, saturated fat, omega-3 fatty acids) and established biological pathways only when supported by reliable evidence.
-- Explain ingredient-ingredient or nutrient-nutrient interactions only when there is credible evidence; distinguish direct biochemical interaction, whole-diet interaction, and simple co-occurrence.
-- Do not infer the composition of a spice blend, stock cube, sauce, oil, or packaged seasoning from its name. Ask for its label or composition only when it materially changes the guidance.
-- Do not claim that a single food treats hypertension or predict a person's blood-pressure response.
-- Do not generate ingredient intelligence from memory. The application should display clinically reviewed knowledge-base entries separately from AI-generated cooking suggestions.
-CONVERSATION RULES:
-- First demonstrate that you understood the exact dish the user named. Do not reinterpret a recognisable dish as an unclear ingredient list.
-- The structured meal brief is authoritative. It separately identifies the intended meal, confirmed available ingredients, seasonings and serving count. Read each field according to its label.
-- Never ask whether the user has an ingredient already listed under confirmed available ingredients. Never ask the user to repeat information already present in the brief or conversation.
-- Do not confuse the name of a dish with its inventory. A named dish can include components that are not confirmed as available; use the confirmed inventory field to establish availability.
-- Ask at most ONE concise, high-value clarification question in a turn. Ask only when its answer would materially change the preparation or safety of the meal. If the available information is sufficient, proceed without a question.
-- Prefer one useful contribution over several generic suggestions. Explain briefly why it helps this particular meal.
-- Do not produce a long introductory explanation, repeat the entire ingredient list in prose, or narrate your internal reasoning.
-- If clarification is needed, acknowledge the meal, briefly state what you can already do, then ask the single question. Do not produce a full preparation plan until the essential uncertainty is resolved.
-- If ready in "your-way" mode and the user has not explicitly requested guided steps, give a concise meal-focused response and set plan to null. If ready in "ahuvas-way" mode, provide a practical preparation plan. If the user explicitly requests guided steps in either mode, provide them without changing the selected mode. Keep the user's original dish recognisable.
-- Keep safety notes specific to a real issue in this meal. Do not append generic disclaimers.
-Provide concise preparation guidance and quantities for the selected serving count. The serving count is authoritative and must be respected.
-Do not claim to calculate exact nutrient or sodium values. Do not provide diagnoses, treatment advice, or medical suitability claims. If the user asks for medical dietary advice, say that this feature cannot assess that safely and suggest discussing it with their qualified care professional.
-Return ONLY one valid JSON object. Do not add markdown or text outside the object.
-Use exactly these keys and value types:
+const SYSTEM_PROMPT = `You are Ahuva, Sanctos' food, nutrition and heart-health companion.
+
+Help users understand the meal they have chosen, its ingredients and seasonings, relevant nutritional characteristics, and optional practical adjustments. Do not teach cooking steps or replace the user's chosen meal.
+
+Review the complete meal brief and conversation before responding. Follow a clarification-first conversation: if a material ingredient quantity, form or formulation is unknown, set status to "needs_clarification", ask exactly one concise question, and do not present a meal-level nutritional assessment or practical adjustments yet. Prioritise the amount of the main ingredient when no quantity is supplied; accept familiar household measures. After the user answers, retain that answer and ask only the next most useful missing detail, if one remains. Never repeat a question, bundle questions, or assume unconfirmed ingredients are present. If the user cannot provide a detail, acknowledge the uncertainty and proceed only with appropriately limited qualitative information.
+
+Discuss relevant nutrition such as fibre, carbohydrate, protein, sodium, added sugars, and fat quality only when supported by the known ingredients. Seasonings, sauces and packaged products may have materially different formulations; do not infer their contents from their names.
+
+Never invent nutrient values, sodium totals, portion weights, ingredient variants or health effects. Do not calculate nutrition from model memory. Exact nutrient calculations must come from reviewed food-composition data and deterministic application calculations. If those are unavailable, say so clearly.
+
+Keep observations proportionate. One meal does not establish a person's overall health or predict an individual's response. Preserve food traditions, preferences and autonomy. Never shame, moralise, forbid ordinary foods or make recommendations compulsory. Be globally inclusive.
+
+Do not diagnose, prescribe, or make personalised medical-suitability decisions. If a request requires individual clinical judgement, explain that the application cannot assess it and direct the user to a qualified care professional. Do not infer personal health facts or clinician instructions.
+
+Return ONLY one valid json object with exactly these keys and value types:
 {
   "status": "ready" or "needs_clarification",
   "assistantMessage": "A concise user-facing message, required and non-empty",
   "interpretation": "A concise description of the meal understood, or an empty string",
   "questions": ["Zero or one concise clarification question"],
   "recommendations": [{"title":"Short title","detail":"Short explanation"}],
-  "plan": null or {
-    "servings": "Serving count as text",
-    "preparation": ["Preparation step"],
-    "ingredients": [{"name":"Ingredient","amount":"Amount or empty string","availability":"available" or "missing" or "optional"}]
-  },
+  "plan": null,
   "safetyNotes": ["Specific, relevant safety note"]
 }
-All keys must be present. Use empty arrays when there is nothing to add. Use plan:null for your-way unless the user explicitly requests guided cooking steps. For needs_clarification, include exactly one question and do not provide a full preparation plan. For ready responses, questions must be empty. Recommendations must be objects with both title and detail, never plain strings. Use at most 8 preparation steps, 30 ingredients, 3 recommendations and 4 safety notes. Keep strings concise. Never mark an ingredient available unless it appears in the confirmed inventory; the server independently checks this too.`;
+Use empty arrays when there is nothing to add. Keep strings concise. Do not return preparation steps or exact nutritional quantities that have not been calculated by the application.`;
 
 export async function POST(req: NextRequest) {
   const auth = await authenticateRequest(req);
@@ -85,14 +55,16 @@ export async function POST(req: NextRequest) {
   const body = await readJsonBody(req, 16_384);
   if (body instanceof Response) return body;
   const validServings = isRecord(body) &&
-    ((typeof body.servings === "number" && Number.isInteger(body.servings) && body.servings >= 1 && body.servings <= 8) ||
-      (typeof body.servings === "string" && (/^[1-8]$/.test(body.servings) || body.servings === "8+")));
+    ((typeof body.servings === "number" && Number.isInteger(body.servings) && body.servings >= 1 && body.servings <= 39) ||
+      (typeof body.servings === "string" && /^(?:[1-9]|[1-3][0-9])$/.test(body.servings)));
 
   if (!isRecord(body) ||
       (body.intent !== "meal" && body.intent !== "ingredients") ||
       (body.mode !== "your-way" && body.mode !== "ahuvas-way") ||
       !safeString(body.details, 2_000) ||
       !validServings ||
+      typeof body.externalAiConsent !== "boolean" ||
+      (body.syntheticTest !== undefined && typeof body.syntheticTest !== "boolean") ||
       !Array.isArray(body.conversation) || body.conversation.length > 10) {
     return jsonError("Invalid cooking request", 400);
   }
@@ -124,12 +96,65 @@ export async function POST(req: NextRequest) {
     }, { status: 422 });
   }
 
-  // Keep external processing disabled until the product owner approves the
-  // provider's data terms, retention, transfer safeguards, and user consent.
-  if (process.env.SANCTOS_EXTERNAL_AI_APPROVED !== "true") {
+  // Require affirmative, session-level user consent on every API request.
+  // This is enforced server-side; a client-only checkbox is not sufficient.
+  if (body.externalAiConsent !== true) {
+    return jsonError("Explicit consent is required before meal details can be sent to an external AI provider.", 403);
+  }
+
+  // Preview test mode accepts only the finite, exact synthetic fixture set.
+  // The server validates the complete payload; client flags cannot authorise other data.
+  const syntheticTestMode = process.env.SANCTOS_EXTERNAL_AI_TEST_MODE === "true";
+  const syntheticFixture = getApprovedSyntheticTestFixture(safeDetails);
+  const syntheticDetailsMatch = isApprovedSyntheticTestBrief(safeDetails);
+  const syntheticConversationMatch = isSyntheticAhuvaTestRequest(safeDetails, conversation);
+  const isSyntheticTestRequest =
+    body.syntheticTest === true &&
+    syntheticConversationMatch;
+
+  if (syntheticTestMode && !isSyntheticTestRequest) {
+    const diagnostic = !syntheticDetailsMatch
+      ? "approved_meal_brief_mismatch"
+      : !syntheticConversationMatch
+        ? conversation.length === 1
+          ? "initial_test_turn_mismatch"
+          : conversation.length === 3
+            ? "followup_test_turn_mismatch"
+            : "unexpected_conversation_length"
+        : "synthetic_test_flag_missing";
+    console.warn("[ahuva] synthetic Preview request rejected", {
+      category: "synthetic_test_validation_failed",
+      diagnostic,
+      detailsMatch: syntheticDetailsMatch,
+      conversationLength: conversation.length,
+      firstTurnRole: conversation[0]?.role ?? "missing",
+      firstTurnMatchesBrief: conversation[0]?.content === safeDetails,
+      secondTurnRole: conversation[1]?.role ?? "missing",
+      thirdTurnRole: conversation[2]?.role ?? "missing",
+      followupMatchesApprovedReply: Boolean(syntheticFixture?.followup && isApprovedSyntheticTestFollowup(conversation[2]?.content, syntheticFixture ?? undefined)),
+      syntheticFlag: body.syntheticTest === true,
+    });
+    return Response.json({
+      error: "The synthetic test was rejected by the Preview safety gate.",
+      diagnostic,
+      checks: {
+        approvedMealBriefMatched: syntheticDetailsMatch,
+        conversationLength: conversation.length,
+        firstTurnMatchedApprovedBrief: conversation[0]?.content === safeDetails,
+        followupMatchedApprovedReply: conversation.length === 3 && Boolean(syntheticFixture?.followup) && isApprovedSyntheticTestFollowup(conversation[2]?.content, syntheticFixture ?? undefined),
+        syntheticTestFlagPresent: body.syntheticTest === true,
+      },
+    }, { status: 403 });
+  }
+  if (!syntheticTestMode && body.syntheticTest === true) {
+    return jsonError("Synthetic test mode is not enabled for this deployment.", 403);
+  }
+
+  // Real meal data still requires the separate provider approval gate.
+  if (!isSyntheticTestRequest && process.env.SANCTOS_EXTERNAL_AI_APPROVED !== "true") {
     return Response.json({
       status: "unavailable",
-      assistantMessage: "Ahuva’s guided cooking conversation is not connected yet. You can still explore the source-linked ingredient notes below.",
+      assistantMessage: "Ahuva’s Step 2 meal conversation is not connected yet. Your meal details are still here.",
       interpretation: "",
       questions: [],
       recommendations: [],
@@ -139,6 +164,20 @@ export async function POST(req: NextRequest) {
     }, { status: 503 });
   }
 
+  // Ask for the primary ingredient quantity before generating meal-level guidance.
+  // This narrow deterministic clarification does not calculate or estimate nutrients.
+  const quantityClarification = getPrimaryIngredientQuantityClarification(safeDetails, conversation);
+  if (quantityClarification) {
+    return Response.json({
+      status: "needs_clarification",
+      assistantMessage: quantityClarification.assistantMessage,
+      interpretation: "",
+      questions: [quantityClarification.question],
+      recommendations: [],
+      plan: null,
+      safetyNotes: [],
+    });
+  }
   const apiKey = process.env.DEEPSEEK_API_KEY;
   if (!apiKey) return jsonError("Ahuva is temporarily unavailable. Please try again later.", 503);
 
@@ -150,10 +189,10 @@ export async function POST(req: NextRequest) {
     extractStructuredConfirmedIngredients(safeDetails) ??
     extractConfirmedIngredientText(body.intent, safeDetails, conversation);
   const context = [
-    "Task: help the user prepare the meal they asked for, with practical DASH-aligned adjustments.",
+    "Task: explain the nutritional composition and heart-health considerations of the meal the user chose; offer optional evidence-based adjustments without teaching cooking steps.",
     `User's meal, confirmed ingredients, seasonings and serving count: ${safeDetails}`,
-    `Cooking preference selected by the user: ${body.mode === "ahuvas-way" ? "Ahuva’s way — propose a more DASH-aligned approach and a guided preparation plan" : "Your way — preserve the familiar method; do not return preparation steps unless the user explicitly requests them"}.`,
-    "Pay particular attention to salt, stock cubes, seasoning blends and sauces as potential sodium sources. Preserve the chosen meal where practical.",
+    "The user wants nutrition and heart-health guidance, not cooking instructions.",
+    "Assess seasonings separately and identify relevant nutritional pressure points, including sodium sources, fat type and preparation method where known. Preserve the chosen meal and user autonomy.",
   ].join("\n");
 
   try {
@@ -162,6 +201,7 @@ export async function POST(req: NextRequest) {
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
         model: "deepseek-flash",
+        safety_check: { level: "high" },
         thinking: { type: "disabled" },
         max_tokens: 2600,
         messages: [
@@ -169,7 +209,8 @@ export async function POST(req: NextRequest) {
           { role: "user", content: context },
           ...conversation.slice(1),
         ],
-        response_format: { type: "json_object" },
+        // DeepSeek does not support JSON response_format together with safety_check.
+        // Keep the provider safety review enabled and enforce JSON through the system prompt + parser.
         stream: false,
       }),
     };
@@ -209,15 +250,97 @@ export async function POST(req: NextRequest) {
 
     if (!response.ok) {
       const status = response.status;
-      const category =
+      let providerErrorType = "unknown";
+      let providerErrorCode = "unknown";
+      let providerErrorParam = "none";
+      let contentRiskRejected = false;
+      let providerDiagnostic = "unclassified";
+      let safeProviderMessage = "";
+      try {
+        const errorBody: unknown = await response.clone().json();
+        if (isRecord(errorBody) && isRecord(errorBody.error)) {
+          const providerError = errorBody.error;
+          if (typeof providerError.type === "string") providerErrorType = providerError.type.slice(0, 80);
+          if (typeof providerError.code === "string") providerErrorCode = providerError.code.slice(0, 80);
+          const allowedParams = ["model", "messages", "thinking", "max_tokens", "response_format", "safety_check", "stream", "temperature", "top_p", "frequency_penalty", "presence_penalty"];
+          if (typeof providerError.param === "string" && allowedParams.includes(providerError.param)) {
+            providerErrorParam = providerError.param;
+          }
+          const rawProviderMessage = typeof providerError.message === "string" ? providerError.message : "";
+          safeProviderMessage = rawProviderMessage.replace(/[\r\n\t]+/g, " ").replace(/\s{2,}/g, " ").slice(0, 240);
+          const providerMessage = rawProviderMessage.toLowerCase();
+          contentRiskRejected =
+            /content exists risk|content risk/i.test(providerMessage) ||
+            /content[_ -]risk/i.test(providerErrorCode);
+          if (contentRiskRejected) {
+            providerDiagnostic = "content_risk";
+          } else if (/json.*(prompt|word)|prompt.*json/.test(providerMessage)) {
+            providerDiagnostic = "json_mode_prompt_requirement";
+          } else if (/model.*(not found|invalid|unavailable)|invalid.*model/.test(providerMessage)) {
+            providerDiagnostic = "model_rejected";
+          } else if (/context length|maximum context|too many tokens/.test(providerMessage)) {
+            providerDiagnostic = "context_length";
+          } else if (/unsupported|unknown|extra.*parameter/.test(providerMessage)) {
+            const parameter = ["model", "messages", "thinking", "max_tokens", "response_format", "safety_check", "stream"].find((key) =>
+              providerMessage.includes(key),
+            );
+            providerDiagnostic = parameter ? `unsupported_parameter:${parameter}` : "unsupported_parameter";
+          } else if (/invalid.*(parameter|field|value)|parameter.*invalid/.test(providerMessage)) {
+            const parameter = ["model", "messages", "thinking", "max_tokens", "response_format", "safety_check", "stream"].find((key) =>
+              providerMessage.includes(key),
+            );
+            providerDiagnostic = parameter ? `invalid_parameter:${parameter}` : "invalid_parameter";
+          } else if (/message.*(role|content|empty|invalid)|messages.*(role|content|empty|invalid)/.test(providerMessage)) {
+            providerDiagnostic = "messages_rejected";
+          } else if (/api key|authentication|unauthorized/.test(providerMessage)) {
+            providerDiagnostic = "authentication_rejected";
+          } else if (providerErrorParam !== "none") {
+            providerDiagnostic = `provider_rejected_parameter:${providerErrorParam}`;
+          } else if (/invalid request|bad request|request parameter/.test(providerMessage)) {
+            providerDiagnostic = "generic_invalid_request";
+          } else if (status === 400) {
+            providerDiagnostic = "unclassified_bad_request";
+          }
+        }
+      } catch {
+        // Keep provider error bodies out of logs; classify only structured metadata.
+      }
+      const category = contentRiskRejected ? "provider_safety_input_rejected" :
         status === 401 || status === 403 ? "provider_auth_rejected" :
         status === 429 ? "provider_rate_limited" :
         status >= 500 ? "provider_server_error" :
         "provider_request_rejected";
-      // Log only the provider status and a fixed category. Never log request
-      // content, response bodies, credentials, or provider error messages.
-      console.error("[ahuva] DeepSeek request failed", { category, status });
-      return jsonError("Ahuva could not respond just now. Please try again.", 502);
+      console.error("[ahuva] DeepSeek request failed", {
+        category,
+        status,
+        providerErrorType,
+        providerErrorCode,
+        providerErrorParam,
+        providerDiagnostic,
+      });
+      if (contentRiskRejected) {
+        return Response.json({
+          status: "unavailable",
+          assistantMessage: "I can’t complete this review through the provider’s safety check. Your meal details have not been analysed. Please try a simpler everyday-food question without personal health information.",
+          interpretation: "",
+          questions: [],
+          recommendations: [],
+          plan: null,
+          safetyNotes: [],
+          reason: "provider_safety_input_rejected",
+        }, { status: 422 });
+      }
+      return Response.json({
+        error: "Ahuva could not complete the provider request.",
+        diagnostic: providerDiagnostic,
+        provider: {
+          status,
+          type: providerErrorType,
+          code: providerErrorCode,
+          parameter: providerErrorParam,
+          message: safeProviderMessage,
+        },
+      }, { status: 502 });
     }
     let data: unknown;
     try {
@@ -232,6 +355,19 @@ export async function POST(req: NextRequest) {
         category: "provider_invalid_completion",
       });
       return jsonError("Ahuva could not complete the cooking response.", 502);
+    }
+    const firstChoice = data.choices[0] as Record<string, unknown>;
+    if (isProviderSafetyRefusal(firstChoice)) {
+      return Response.json({
+        status: "unavailable",
+        assistantMessage: "I can’t complete that meal review safely. You can still keep your meal details, or ask about everyday nutrition without personal medical information.",
+        interpretation: "",
+        questions: [],
+        recommendations: [],
+        plan: null,
+        safetyNotes: [],
+        reason: "provider_safety_refusal",
+      }, { status: 422 });
     }
     if (data.choices[0].finish_reason === "length") {
       console.error("[ahuva] provider output reached its token limit", {

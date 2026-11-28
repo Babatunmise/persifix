@@ -1,12 +1,5 @@
-import BottomNav from "@/components/BottomNav";
-import KitchenHub from "@/components/KitchenHub";
-import KitchenRouteGuard from "@/components/KitchenRouteGuard";
+import { redirect } from "next/navigation";
 
 export default function KitchenPage() {
-  return (
-    <KitchenRouteGuard>
-      <KitchenHub />
-      <BottomNav />
-    </KitchenRouteGuard>
-  );
+  redirect("/ahuva");
 }
