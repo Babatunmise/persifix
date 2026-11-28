@@ -17,10 +17,10 @@ function hasIngredientMeasure(line, ingredient) {
  */
 export function getPrimaryIngredientQuantityClarification(details, conversation = []) {
   if (typeof details !== "string") return null;
-  const ingredientLine = details.split(/\\r?\\n/).find((line) => /^Confirmed main ingredients:/i.test(line.trim()));
+  const ingredientLine = details.split(/\r?\n/).find((line) => /^Confirmed main ingredients:/i.test(line.trim()));
   if (!ingredientLine) return null;
 
-  const rawIngredients = ingredientLine.replace(/^Confirmed main ingredients:\\s*/i, "").trim();
+  const rawIngredients = ingredientLine.replace(/^Confirmed main ingredients:\s*/i, "").trim();
   const primaryIngredient = rawIngredients.split(/[;,]/)[0]?.trim();
   if (!primaryIngredient || /^(?:none|not specified)$/i.test(primaryIngredient)) return null;
 
