@@ -76,7 +76,9 @@ test("accepts harmless case and punctuation differences in the fixed synthetic r
   for (const reply of ["two cups", "one cup of oats", "a cup", "one bowl"]) {
     assert.equal(isApprovedSyntheticTestFollowup(reply), false);
   }
-});\n\ntest("rejects altered synthetic details, assistant turns and user follow-ups", () => {
+});
+
+test("rejects altered synthetic details, assistant turns and user follow-ups", () => {
   const clarification = getPrimaryIngredientQuantityClarification(SYNTHETIC_TEST_BRIEF, [
     { role: "user", content: SYNTHETIC_TEST_BRIEF },
   ]);
