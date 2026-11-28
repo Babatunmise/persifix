@@ -99,6 +99,25 @@ test("accepts only the fixture's fixed follow-up answer", () => {
   }
 });
 
+test("allows only the fixed follow-up for each quantity-clarification fixture", () => {
+  for (const fixture of SYNTHETIC_TEST_FIXTURES.filter((item) => item.followup)) {
+    const clarification = getPrimaryIngredientQuantityClarification(fixture.details, [
+      { role: "user", content: fixture.details },
+    ]);
+    assert.ok(clarification);
+    assert.equal(isSyntheticAhuvaTestRequest(fixture.details, [
+      { role: "user", content: fixture.details },
+      { role: "assistant", content: clarification.assistantMessage + "\\n" + clarification.question },
+      { role: "user", content: fixture.followup },
+    ]), true);
+    assert.equal(isSyntheticAhuvaTestRequest(fixture.details, [
+      { role: "user", content: fixture.details },
+      { role: "assistant", content: clarification.assistantMessage + "\\n" + clarification.question },
+      { role: "user", content: "A free-form personal reply" },
+    ]), false);
+  }
+});
+
 test("allows only a single initial turn for pre-quantified fixtures", () => {
   for (const fixture of SYNTHETIC_TEST_FIXTURES.filter((item) => !item.followup)) {
     assert.equal(getPrimaryIngredientQuantityClarification(fixture.details, [
