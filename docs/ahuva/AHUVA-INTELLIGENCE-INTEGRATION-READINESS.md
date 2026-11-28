@@ -13,9 +13,10 @@
 - The route also requires `DEEPSEEK_API_KEY`.
 - The provider model is currently hard-coded as `deepseek-flash`; current provider documentation identifies this as DeepSeek-V4.1-Flash-1017. The identifier is current, but should become a controlled server-side configuration before provider activation.
 - The request now includes DeepSeek's documented `safety_check: { level: "high" }` setting. This provides provider-side input/output risk review; it does not replace Sanctos' own clinical and product safety controls.
-- The route now handles a provider content-filter/refusal outcome without retrying it as though it were a transient empty response.
+- The route now handles a provider content-filter/refusal outcome without retrying it as though it were a transient empty response. This behaviour is isolated in a small helper with unit tests included in the normal build test command; execution still awaits the preview build.
 - Before the approval gate, the route authenticates the user, applies the shared rate limit, validates the request, redacts direct identifiers and rejects free text matching its sensitive-health-context rule.
 - When the approval gate is closed, the route returns HTTP 503 with `reason: provider_not_approved`. The client currently renders that structured response as an unavailable Step 2 state.
+- Session and network error copy now explicitly says meal entries are not saved and asks the user to keep the page open. The current meal brief is React client state only; durable recovery across refresh/navigation is not implemented.
 
 **Conclusion:** The observed message is not evidence of a missing API route. The provider call exists but is intentionally disabled by the approval gate. Do not enable the environment variable or transmit meal data until the owner has explicitly approved the provider, model, data terms, retention, processing location/transfer safeguards and consent experience.
 
