@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 export const maxDuration = 60;
 import { extractConfirmedIngredientText, extractStructuredConfirmedIngredients, isIngredientConfirmed } from "@/lib/ingredient-confirmation.mjs";
 import { normalizeAhuvaResult } from "@/lib/ahuva-response-contract.mjs";
+import { isProviderSafetyRefusal } from "@/lib/ahuva-provider-response.mjs";
 import {
   authenticateRequest,
   enforceRateLimit,
@@ -224,6 +225,19 @@ export async function POST(req: NextRequest) {
         category: "provider_invalid_completion",
       });
       return jsonError("Ahuva could not complete the cooking response.", 502);
+    }
+    const firstChoice = data.choices[0] as Record<string, unknown>;
+    if (isProviderSafetyRefusal(firstChoice)) {
+      return Response.json({
+        status: "unavailable",
+        assistantMessage: "I can’t complete that meal review safely. You can still keep your meal details, or ask about everyday nutrition without personal medical information.",
+        interpretation: "",
+        questions: [],
+        recommendations: [],
+        plan: null,
+        safetyNotes: [],
+        reason: "provider_safety_refusal",
+      }, { status: 422 });
     }
     if (data.choices[0].finish_reason === "length") {
       console.error("[ahuva] provider output reached its token limit", {
