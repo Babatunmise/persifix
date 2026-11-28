@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
         approvedMealBriefMatched: syntheticDetailsMatch,
         conversationLength: conversation.length,
         firstTurnMatchedApprovedBrief: conversation[0]?.content === safeDetails,
-        followupMatchedApprovedReply: conversation.length === 3 && Boolean(syntheticFixture?.followup) && isApprovedSyntheticTestFollowup(conversation[2]?.content, syntheticFixture),
+        followupMatchedApprovedReply: conversation.length === 3 && Boolean(syntheticFixture?.followup) && isApprovedSyntheticTestFollowup(conversation[2]?.content, syntheticFixture ?? undefined),
         syntheticTestFlagPresent: body.syntheticTest === true,
       },
     }, { status: 403 });
