@@ -342,7 +342,7 @@ export default function AhuvaCookingStudio() {
               </section>
             ) : (
               <section className={cardClass}>
-                <p className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#849084]">Ahuva&apos;s understanding</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#849084]">{result.status === "needs_clarification" ? "Ahuva’s next question" : "Ahuva’s understanding"}</p>
                 <h3 className="mt-2 font-serif text-2xl text-[#183D30]">{result.status === "needs_clarification" ? "One detail will help Ahuva understand your meal." : "Your meal, made better."}</h3>
                 <p className="mt-4 whitespace-pre-wrap text-sm leading-7 text-[#405C4D]">{result.assistantMessage}</p>
                 {result.status === "ready" && result.interpretation && <div className="mt-4 rounded-2xl bg-[#F6F8F3] p-4"><p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#849084]">Meal overview</p><p className="mt-2 text-sm leading-6 text-[#365444]">{result.interpretation}</p></div>}
