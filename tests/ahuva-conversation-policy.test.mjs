@@ -107,12 +107,12 @@ test("allows only the fixed follow-up for each quantity-clarification fixture", 
     assert.ok(clarification);
     assert.equal(isSyntheticAhuvaTestRequest(fixture.details, [
       { role: "user", content: fixture.details },
-      { role: "assistant", content: clarification.assistantMessage + "\\n" + clarification.question },
+      { role: "assistant", content: clarification.assistantMessage + "\n" + clarification.question },
       { role: "user", content: fixture.followup },
     ]), true);
     assert.equal(isSyntheticAhuvaTestRequest(fixture.details, [
       { role: "user", content: fixture.details },
-      { role: "assistant", content: clarification.assistantMessage + "\\n" + clarification.question },
+      { role: "assistant", content: clarification.assistantMessage + "\n" + clarification.question },
       { role: "user", content: "A free-form personal reply" },
     ]), false);
   }
