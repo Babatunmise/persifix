@@ -1,6 +1,6 @@
 # Ahuva Conversational Intelligence — Validation Plan
 
-**Status:** Validation framework proposed and recorded; broader provider evaluation is blocked by the fixed synthetic Preview gate.
+**Status:** Finite synthetic Preview evaluation approved and implemented; deployment and runtime verification pending.
 **Branch:** `feat/ahuva-home-experience`
 **Scope:** Evaluate conversation quality independently from provider connectivity and nutrient-calculation readiness. This document does not authorise broader external processing, provider activation, production changes, migrations, PR merge or release.
 
@@ -44,9 +44,9 @@ Every evaluated conversation must satisfy all applicable criteria:
 9. **Respect scope:** No recipe teaching in the nutrition-first Studio flow. Do not make personalised medical-suitability decisions.
 10. **Recover honestly:** If a necessary detail cannot be supplied, explain the limitation and give only the qualitative interpretation that remains justified.
 
-## 4. Scenario matrix for a future approved evaluation
+## 4. Finite synthetic Preview evaluation set
 
-These are evaluation scenarios, not authorised provider requests. Do not submit them to the external provider while the Preview gate accepts only the fixed synthetic oats test.
+The Preview gate now accepts only five exact, reviewed synthetic briefs: oats and cinnamon; rice, lentils and greens; pasta with packaged tomato sauce; fish and chips; and tofu with vegetables. The oats and mixed-bowl fixtures permit one deterministic quantity clarification with one fixed answer. The three pre-quantified fixtures permit only their exact initial turn. No other brief or free-form follow-up is accepted.
 
 | Scenario | What Ahuva must demonstrate | Failure signal |
 |---|---|---|
@@ -77,7 +77,7 @@ Do not average away a critical failure. Any critical failure blocks progression 
 
 A minimum evaluation should cover all scenarios above, with more than one culturally distinct meal example per applicable scenario, before claiming broad conversational reliability. Human product and clinical review remain necessary; automated tests alone cannot establish readiness.
 
-## 6. Work that can proceed now
+## 6. Controls and remaining work
 
 - Expand local automated tests for deterministic conversation policy and response-contract handling.
 - Correct the singular/plural serving and ingredient labels.
@@ -88,7 +88,7 @@ A minimum evaluation should cover all scenarios above, with more than one cultur
 
 The current Preview deployment intentionally accepts only the exact synthetic oats brief and its fixed follow-up. Therefore, the broader scenario matrix cannot yet be exercised against the live provider.
 
-A separate, explicit approval is required before adding a broader synthetic-only provider evaluation mode. Any such mode must:
+The synthetic-only provider evaluation mode must:
 - accept only a finite, reviewed list of synthetic fixtures;
 - reject all real-user meal data and all unrecognised payloads;
 - keep production and real-user provider approval gates closed;
