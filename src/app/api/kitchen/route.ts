@@ -18,6 +18,16 @@ type Turn = { role: "user" | "assistant"; content: string };
 
 const SENSITIVE_CONTEXT = /\b(?:blood pressure|high blood pressure|low blood pressure|\bbp\b|hypertension|hypertensive|hypotension|hypotensive|medication|medicines|prescription|insulin|warfarin|blood thinner|anticoagulant|glp[- ]?1|diagnos(?:is|ed)|allerg(?:y|ies|ic)|intoleran(?:ce|t)|kidney disease|renal disease|dialysis|liver disease|hepatitis|diabetes|type 1 diabetes|type 2 diabetes|pre[- ]?diabetes|blood sugar|high cholesterol|heart failure|heart disease|cardiovascular|stroke|gout|celiac|coeliac|crohn(?:'s)?|ulcerative colitis|irritable bowel syndrome|ibs|autoimmune|immunocompromised|cancer|chemotherapy|eating disorder|anorexia|bulimia|pregnan(?:t|cy)|breastfeed(?:ing)?|medical condition|medical history|health condition|symptom(?:s)?|disease|disorder|doctor|physician|clinician|dietitian|nurse|hospital|clinic|prescribed|treatment|therapy|surgery|chronic|acute|doctor told me|low[- ]?sodium|low[- ]?salt diet|sodium restriction|salt restriction)\b/i;
 
+const SYNTHETIC_TEST_BRIEF = [
+  "Meal the user intends to prepare: Synthetic oats test",
+  "Confirmed main ingredients: Oats",
+  "Confirmed seasonings, sauces, herbs and spices: Cinnamon",
+  "People eating at this meal, including the user: 1",
+  "Personal servings the user expects to consume across meals: 1",
+  "Total portions to prepare, assuming one portion for each other diner: 1",
+  "Task: enter Ahuva Step 2. Review the confirmed meal brief and ask only the most useful missing clarification about ingredient form, quantities, seasonings or preparation where it materially changes nutritional understanding. Ask one question at a time. If enough is known, explain the relevant nutritional composition and heart-health considerations, then offer optional adjustments. Never teach cooking steps.",
+].join("\n");
+
 const SYSTEM_PROMPT = `You are Ahuva, Sanctos' food, nutrition and heart-health companion.
 
 Your job is NOT to teach people how to cook. Help users understand the food they already want to prepare, the nutritional composition of its ingredients, how the combined meal may relate to cardiovascular health, and what practical adjustments they may choose to make. Reduce effort and preserve the user's food traditions, preferences and freedom.
@@ -86,6 +96,7 @@ export async function POST(req: NextRequest) {
       !safeString(body.details, 2_000) ||
       !validServings ||
       typeof body.externalAiConsent !== "boolean" ||
+      (body.syntheticTest !== undefined && typeof body.syntheticTest !== "boolean") ||
       !Array.isArray(body.conversation) || body.conversation.length > 10) {
     return jsonError("Invalid cooking request", 400);
   }
@@ -123,9 +134,25 @@ export async function POST(req: NextRequest) {
     return jsonError("Explicit consent is required before meal details can be sent to an external AI provider.", 403);
   }
 
-  // Keep provider access disabled until data terms, retention, transfer safeguards,
-  // and the product privacy disclosures have been reviewed and approved.
-  if (process.env.SANCTOS_EXTERNAL_AI_APPROVED !== "true") {
+  // Preview test mode is limited to one fixed, non-personal synthetic fixture.
+  // The server validates the complete payload; client flags cannot authorise other data.
+  const syntheticTestMode = process.env.SANCTOS_EXTERNAL_AI_TEST_MODE === "true";
+  const isSyntheticTestRequest =
+    body.syntheticTest === true &&
+    safeDetails === SYNTHETIC_TEST_BRIEF &&
+    conversation.length === 1 &&
+    conversation[0].role === "user" &&
+    conversation[0].content === SYNTHETIC_TEST_BRIEF;
+
+  if (syntheticTestMode && !isSyntheticTestRequest) {
+    return jsonError("This preview is restricted to the fixed synthetic connection test.", 403);
+  }
+  if (!syntheticTestMode && body.syntheticTest === true) {
+    return jsonError("Synthetic test mode is not enabled for this deployment.", 403);
+  }
+
+  // Real meal data still requires the separate provider approval gate.
+  if (!isSyntheticTestRequest && process.env.SANCTOS_EXTERNAL_AI_APPROVED !== "true") {
     return Response.json({
       status: "unavailable",
       assistantMessage: "Ahuva’s Step 2 meal conversation is not connected yet. Your meal details are still here.",
