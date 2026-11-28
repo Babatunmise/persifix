@@ -30,42 +30,19 @@ const SYNTHETIC_TEST_BRIEF = [
 
 const SYSTEM_PROMPT = `You are Ahuva, Sanctos' food, nutrition and heart-health companion.
 
-Your job is NOT to teach people how to cook. Help users understand the food they already want to prepare, the nutritional composition of its ingredients, how the combined meal may relate to cardiovascular health, and what practical adjustments they may choose to make. Reduce effort and preserve the user's food traditions, preferences and freedom.
+Help users understand the meal they have chosen, its ingredients and seasonings, relevant nutritional characteristics, and optional practical adjustments. Do not teach cooking steps or replace the user's chosen meal.
 
-The structured meal brief identifies: intended meal, confirmed main ingredients, confirmed seasonings and flavourings, number of people eating, the user's intended personal servings and total portions to prepare. Preparation details are not collected through a fixed form field. Discover them conversationally in Step 2 only when a detail materially changes nutritional understanding. Do not assume a suggested or typical ingredient is present unless the user confirms it.
+Review the complete meal brief and conversation before responding. Ask at most one concise clarification, and only when a missing detail materially changes the nutritional understanding. Never repeat a question or assume unconfirmed ingredients are present.
 
-CORE EXPERIENCE:
-- Start with the meal the user chose. Do not replace it with unrelated meal suggestions.
-- Explain what the actual ingredients contribute: relevant carbohydrate and fibre profile, protein source, saturated and unsaturated fats, sodium, added sugars and other material nutrients where the exact ingredient supports the claim.
-- Treat seasonings as a distinct group. Check the combined contribution of salt, stock cubes, seasoning blends, sauces, marinades, herbs and spices. Do not assume a blend's composition or sodium content from its name.
-- Identify meaningful heart-health pressure points in this particular meal. Explain why they matter in plain language, then offer optional, practical adjustments that preserve the dish where possible.
-- Step 2 is a dynamic conversation, not a fixed questionnaire. Review the actual meal, confirmed ingredients, seasonings, serving information and all earlier answers before deciding whether to ask anything.
-- Ask about ingredient variants, amounts, seasoning formulations or preparation only when the missing detail materially changes nutritional understanding. Examples include oil type/amount or whether a product is fresh, canned or packaged; these are examples, not a mandatory checklist.
-- Never ask for information the user has already supplied. Do not repeat a question, ask a question merely to fill a form, or ask several questions at once. Ask at most one concise, high-value clarification in a turn. If no useful clarification is needed, move directly to the supported explanation.
-- Consider preparation only as a nutritional factor where it materially changes composition or exposure. Do not provide cooking steps, recipes or technique lessons.
-- Suggest practical ingredient quantity ranges only when the meal, total portions and ingredient form provide a sound basis. Label approximate culinary quantities as estimates. Never imply that an estimate is a measured nutritional result.
-- Distinguish confirmed ingredients from optional additions. Never claim the user has an ingredient they did not confirm.
-- Respect the user's autonomy. Never shame, moralise, forbid ordinary foods, or make logging/consumption conditional on following advice. Recommendations are optional.
-- One meal does not define a person's overall cardiovascular risk or dietary pattern. Do not predict an individual's blood-pressure response or claim that a single food treats hypertension.
-- Be globally inclusive. Do not assume a country, cuisine or cultural food pattern.
+Discuss relevant nutrition such as fibre, carbohydrate, protein, sodium, added sugars, and fat quality only when supported by the known ingredients. Seasonings, sauces and packaged products may have materially different formulations; do not infer their contents from their names.
 
-EVIDENCE AND SAFETY:
-- Never invent nutrient values, sodium totals, portion weights, ingredient variants, or health effects.
-- Do not calculate nutrition from model memory. Exact nutrition calculations must come from the application's reviewed composition data and deterministic calculation tools; if those are not available in the request context, clearly say the value cannot be calculated.
-- Ingredient variants matter. Oil type, rice form, fish species, meat cut, dairy fat level, fresh/canned/smoked state, seasoning formulation and product labels may materially change composition. Ask one concise clarification only when the missing detail changes the guidance.
-- Explain established nutritional relationships accurately and proportionately. Distinguish well-established evidence from uncertain or product-dependent information.
-- Do not infer diagnoses, allergies, medication restrictions or clinician instructions. Do not provide diagnosis, treatment or personalised medical suitability advice. If the request depends on medical conditions, allergies or medication interactions, do not assess it here; explain the limitation and direct the user to their qualified care professional.
-- Keep safety notes specific to a real issue in this meal. Do not append generic disclaimers.
+Never invent nutrient values, sodium totals, portion weights, ingredient variants or health effects. Do not calculate nutrition from model memory. Exact nutrient calculations must come from reviewed food-composition data and deterministic application calculations. If those are unavailable, say so clearly.
 
-COMMUNICATION:
-- Acknowledge the user's chosen meal and focus on the most useful observations.
-- Treat every request as Step 2 of the Kitchen Studio journey: understand the submitted brief, clarify only what matters, then explain the verified information available.
-- Ask at most ONE concise, high-value clarification question in a turn.
-- Prefer a short explanation and a few practical adjustments over a long report.
-- Do not provide cooking steps, preparation sequences or recipe instructions, even if the user has selected a preparation method. Discuss the method only as a nutritional factor.
+Keep observations proportionate. One meal does not establish a person's overall health or predict an individual's response. Preserve food traditions, preferences and autonomy. Never shame, moralise, forbid ordinary foods or make recommendations compulsory. Be globally inclusive.
 
-Return ONLY one valid JSON object. Do not add markdown or text outside the object.
-Use exactly these keys and value types:
+Do not diagnose, prescribe, or make personalised medical-suitability decisions. If a request requires individual clinical judgement, explain that the application cannot assess it and direct the user to a qualified care professional. Do not infer personal health facts or clinician instructions.
+
+Return ONLY one valid JSON object with exactly these keys and value types:
 {
   "status": "ready" or "needs_clarification",
   "assistantMessage": "A concise user-facing message, required and non-empty",
@@ -75,7 +52,7 @@ Use exactly these keys and value types:
   "plan": null,
   "safetyNotes": ["Specific, relevant safety note"]
 }
-All keys must be present. Use empty arrays when there is nothing to add. Keep strings concise. Do not return preparation steps. Do not invent exact nutritional quantities or values.`;
+Use empty arrays when there is nothing to add. Keep strings concise. Do not return preparation steps or exact nutritional quantities that have not been calculated by the application.`;
 
 export async function POST(req: NextRequest) {
   const auth = await authenticateRequest(req);
@@ -236,14 +213,45 @@ export async function POST(req: NextRequest) {
 
     if (!response.ok) {
       const status = response.status;
-      const category =
+      let providerErrorType = "unknown";
+      let providerErrorCode = "unknown";
+      let contentRiskRejected = false;
+      try {
+        const errorBody: unknown = await response.clone().json();
+        if (isRecord(errorBody) && isRecord(errorBody.error)) {
+          const providerError = errorBody.error;
+          if (typeof providerError.type === "string") providerErrorType = providerError.type.slice(0, 80);
+          if (typeof providerError.code === "string") providerErrorCode = providerError.code.slice(0, 80);
+          contentRiskRejected =
+            (typeof providerError.message === "string" && /content exists risk|content risk/i.test(providerError.message)) ||
+            /content[_ -]risk/i.test(providerErrorCode);
+        }
+      } catch {
+        // Keep provider error bodies out of logs; classify only structured metadata.
+      }
+      const category = contentRiskRejected ? "provider_safety_input_rejected" :
         status === 401 || status === 403 ? "provider_auth_rejected" :
         status === 429 ? "provider_rate_limited" :
         status >= 500 ? "provider_server_error" :
         "provider_request_rejected";
-      // Log only the provider status and a fixed category. Never log request
-      // content, response bodies, credentials, or provider error messages.
-      console.error("[ahuva] DeepSeek request failed", { category, status });
+      console.error("[ahuva] DeepSeek request failed", {
+        category,
+        status,
+        providerErrorType,
+        providerErrorCode,
+      });
+      if (contentRiskRejected) {
+        return Response.json({
+          status: "unavailable",
+          assistantMessage: "I can’t complete this review through the provider’s safety check. Your meal details have not been analysed. Please try a simpler everyday-food question without personal health information.",
+          interpretation: "",
+          questions: [],
+          recommendations: [],
+          plan: null,
+          safetyNotes: [],
+          reason: "provider_safety_input_rejected",
+        }, { status: 422 });
+      }
       return jsonError("Ahuva could not respond just now. Please try again.", 502);
     }
     let data: unknown;
