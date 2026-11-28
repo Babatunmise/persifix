@@ -127,7 +127,20 @@ export default function AhuvaCookingStudio() {
       if (response.status === 401) setError("Your session has expired. Sign in again. Keep this page open; your entries are not saved yet.");
       else if (response.status === 429) setError("Ahuva is busy right now. Wait a moment and try again.");
       else if (response.status === 503) setError("Ahuva’s nutrition intelligence is not connected yet. Your meal details are still here.");
-      else if (response.status >= 500) setError("Ahuva couldn’t complete that request. Please try again. Your entries are not saved yet.");
+      else if (response.status >= 500) {
+        const diagnostic = typeof data?.diagnostic === "string" ? data.diagnostic : "server_error";
+        const provider = data?.provider && typeof data.provider === "object" ? data.provider : null;
+        const providerStatus = typeof provider?.status === "number" ? provider.status : null;
+        const providerMessage = typeof provider?.message === "string" && provider.message ? provider.message : "";
+        const providerCode = typeof provider?.code === "string" ? provider.code : "";
+        setError([
+          "Ahuva request failed. Your entries are not saved yet.",
+          `Diagnostic: ${diagnostic}`,
+          providerStatus ? `Provider HTTP status: ${providerStatus}` : "",
+          providerCode ? `Provider code: ${providerCode}` : "",
+          providerMessage ? `Provider message: ${providerMessage}` : "",
+        ].filter(Boolean).join("\\n"));
+      }
       else setError(data?.error ?? "Something needs attention before Ahuva can continue. Your entries are not saved yet.");
     } finally {
       setLoading(false);
