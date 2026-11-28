@@ -175,6 +175,22 @@ export default function AhuvaCookingStudio() {
     setExternalAiConsent(false);
   }
 
+  // Preview-only helper: populate the exact approved synthetic fixture so
+  // manual entry differences cannot accidentally fail the server-side gate.
+  function loadSyntheticTest() {
+    setMeal("Synthetic oats test");
+    setIngredients(["Oats"]);
+    setSeasonings(["Cinnamon"]);
+    setPeopleEating(1);
+    setPersonalServings(1);
+    setResult(null);
+    setDetails("");
+    setConversation([]);
+    setFollowUp("");
+    setError("");
+    setExternalAiConsent(false);
+  }
+
   function renderIngredientChips(items: string[], section: IngredientSection) {
     const remove = (index: number) => {
       if (section === "ingredients") setIngredients((current) => current.filter((_, itemIndex) => itemIndex !== index));
@@ -260,6 +276,7 @@ export default function AhuvaCookingStudio() {
               <h2 className="mt-2 font-serif text-[2.5rem] leading-[1.02] tracking-tight text-[#183D30] sm:text-5xl">What are you making?</h2>
               <label htmlFor="studio-meal" className="sr-only">What meal do you have in mind?</label>
               <input id="studio-meal" value={meal} onChange={(event) => setMeal(event.target.value)} placeholder="Name the meal you have in mind…" className="mt-4 w-full border-0 border-b border-[#DDE4DA] bg-transparent px-0 py-3 font-serif text-xl text-[#20392F] outline-none placeholder:text-[#AEB8AC] focus:border-[#789780] focus:ring-0 sm:text-2xl" />
+              <button type="button" onClick={loadSyntheticTest} className="mt-3 rounded-full border border-[#DCE4DA] bg-white px-3 py-2 text-xs font-semibold text-[#56735E]">Load approved synthetic test</button>
             </div>
 
             <div className="space-y-3">
