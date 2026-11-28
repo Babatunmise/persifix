@@ -2,6 +2,7 @@
 
 import { useMemo, useState, type FormEvent, type KeyboardEvent } from "react";
 import { supabase } from "@/supabase";
+import { SYNTHETIC_TEST_BRIEF } from "@/lib/ahuva-conversation-policy.mjs";
 
 type AhuvaResult = {
   status: "ready" | "needs_clarification" | "unavailable";
@@ -101,15 +102,7 @@ export default function AhuvaCookingStudio() {
             servings: String(totalServings),
             conversation: turns,
             externalAiConsent,
-            syntheticTest: requestDetails === [
-              "Meal the user intends to prepare: Synthetic oats test",
-              "Confirmed main ingredients: Oats",
-              "Confirmed seasonings, sauces, herbs and spices: Cinnamon",
-              "People eating at this meal, including the user: 1",
-              "Personal servings the user expects to consume across meals: 1",
-              "Total portions to prepare, assuming one portion for each other diner: 1",
-              "Task: enter Ahuva Step 2. Review the confirmed meal brief and ask only the most useful missing clarification about ingredient form, quantities, seasonings or preparation where it materially changes nutritional understanding. Ask one question at a time. If enough is known, explain the relevant nutritional composition and heart-health considerations, then offer optional adjustments. Never teach cooking steps.",
-            ].join("\n"),
+            syntheticTest: requestDetails === SYNTHETIC_TEST_BRIEF,
           }),
         });
       } catch {
